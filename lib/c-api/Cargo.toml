@@ -33,7 +33,7 @@ wasmer-compiler-llvm = { version = "=7.5.0", path = "../compiler-llvm", optional
 wasmer-compiler-singlepass = { version = "=7.5.0", path = "../compiler-singlepass", optional = true }
 wasmer-middlewares = { version = "=7.5.0", path = "../middlewares", optional = true }
 wasmer-types = { version = "=7.5.0", path = "../types" }
-wasmer-wasix = { path = "../wasix", version = "=0.705.0", features = [
+wasmer-wasix = { path = "../wasix-legacy", version = "=0.705.0", features = [
   "host-fs",
   "host-vnet",
   "sys",

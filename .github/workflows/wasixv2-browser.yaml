@@ -2,7 +2,7 @@ name: WASIX v2 browser
 on:
   pull_request:
     paths:
-      - "lib/wasixv2/**"
+      - "lib/wasix/**"
       - "lib/api/**"
       - "tests/wasixv2"
       - ".github/workflows/wasixv2-browser.yaml"
@@ -85,7 +85,7 @@ jobs:
       - name: Install B2's pinned nightly and matching bindgen CLI
         shell: bash
         run: |
-          test -f lib/wasixv2/host/tests/browser/build.sh
+          test -f lib/wasix/host/tests/browser/build.sh
           rustup toolchain install nightly-2026-08-08 --profile minimal --component rust-src --target wasm32-unknown-unknown
           version=$(sed -n '/^name = "wasm-bindgen"$/{n;s/version = "\(.*\)"/\1/p;}' Cargo.lock)
           curl --fail --location --retry 3 "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${version}/wasm-bindgen-${version}-x86_64-unknown-linux-musl.tar.gz" -o "$RUNNER_TEMP/bindgen.tar.gz"
@@ -96,7 +96,7 @@ jobs:
           key: wasixv2-browser-runtime
           cache-targets: "false"
       - name: Link and inspect B2's debug runtime artifact
-        run: bash lib/wasixv2/host/tests/browser/build.sh > browser-build.log 2>&1
+        run: bash lib/wasix/host/tests/browser/build.sh > browser-build.log 2>&1
       - name: Reuse B2 smoke through Playwright
         working-directory: tests/wasixv2/browser
         run: |
@@ -105,10 +105,10 @@ jobs:
           nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node run.mjs --smoke --b2-smoke --runtime "$CARGO_TARGET_DIR/browser" --artifacts artifacts/b2
       - name: Link the browser facade and run lifecycle regressions
         run: |
-          python3 lib/wasixv2/api/tests/browser/check-features.py > browser-features.log
-          bash lib/wasixv2/api/tests/browser/build.sh >> browser-build.log 2>&1
-          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node --test lib/wasixv2/api/tests/browser/*.test.mjs
-          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node lib/wasixv2/api/tests/browser/lifecycle.mjs "$CARGO_TARGET_DIR/browser" > browser-lifecycle.log 2>&1
+          python3 lib/wasix/api/tests/browser/check-features.py > browser-features.log
+          bash lib/wasix/api/tests/browser/build.sh >> browser-build.log 2>&1
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node --test lib/wasix/api/tests/browser/*.test.mjs
+          nice -n 19 taskset -c "$WASIX_BROWSER_CPUS" node lib/wasix/api/tests/browser/lifecycle.mjs "$CARGO_TARGET_DIR/browser" > browser-lifecycle.log 2>&1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -162,10 +162,10 @@ jobs:
             ${{ env.WASIXV2_BROWSER_TOOLS }}/sysroots/sysroot-wasixv2
             ${{ env.WASIXV2_BROWSER_TOOLS }}/sysroots/sysroot-wasixv2-asyncify
             ${{ env.WASIXV2_BROWSER_TOOLS }}/complete-*
-          key: wasixv2-browser-tools-debug-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/wasixv2/api/tests/browser/toolchain.env', 'lib/wasixv2/api/tests/browser/prepare-toolchain.sh') }}
+          key: wasixv2-browser-tools-debug-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('lib/wasix/api/tests/browser/toolchain.env', 'lib/wasix/api/tests/browser/prepare-toolchain.sh') }}
       - name: Build pinned v2 compiler and EH/asyncify C sysroots
         run: |
-          bash lib/wasixv2/api/tests/browser/prepare-toolchain.sh > browser-toolchain.log 2>&1 || {
+          bash lib/wasix/api/tests/browser/prepare-toolchain.sh > browser-toolchain.log 2>&1 || {
             tail -n 80 browser-toolchain.log
             exit 1
           }

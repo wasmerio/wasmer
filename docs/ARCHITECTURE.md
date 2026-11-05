@@ -12,7 +12,8 @@ will touch most:
 | `lib/compiler`                                        | Compiler framework and traits.                                       |
 | `lib/compiler-{singlepass,cranelift,llvm}`            | The three compiler backends.                                         |
 | `lib/vm`                                              | Low-level VM runtime.                                                |
-| `lib/wasix`                                           | The WASIX implementation (syscalls, processes, threads).             |
+| `lib/wasix/*`                                         | WASIX machine, kernel, drivers, and the WASIX v1 guest adapter.      |
+| `lib/wasix-legacy`                                    | Legacy `wasmer-wasix` embedding and package APIs; retained until consumer parity. |
 | `lib/journal`                                         | Snapshot and restore support. See [journal.md](./journal.md).        |
 | `lib/virtual-fs`, `lib/virtual-net`, `lib/virtual-io` | Host abstraction layers.                                             |
 | `lib/c-api`                                           | C API (`cdylib` named `wasmer`).                                     |
@@ -21,17 +22,19 @@ will touch most:
 | `tests/compilers`                                     | Integration tests (`wast.rs`, `traps.rs`, `issues.rs`, more).        |
 | `tests/wast/{spec,wasmer}`                            | WAST test files. `spec` is a submodule.                              |
 
-The root crate is a meta-crate.
+The root crate is a meta-crate. The WASIX crate identities are unchanged by
+the directory migration; see [the consumer parity gates](./WASIX-MIGRATION.md)
+for the legacy crates that still need replacements before removal.
 
 ## Submodules
 
 Five submodules: `tests/wast/spec`, `lib/napi`, `wasmer-test-files`,
 `tests/wasixv2` ([wasixv2-tests](https://github.com/wasix-org/wasixv2-tests), the
-wasixv2 test suite, run with `make test-wasixv2`), and `lib/wasixv2/codegen`.
+wasixv2 test suite, run with `make test-wasixv2`), and `lib/wasix/codegen`.
 The last is
 [wasixv2-abi](https://github.com/wasix-org/wasixv2-abi): the wasixv2 guest ABI in
 WIT and the `wasixv2-codegen` generator, shared with libc2. ABI changes land
-there first; `lib/wasixv2/abi/tests/generated.rs` checks that the generated
+there first; `lib/wasix/abi/tests/generated.rs` checks that the generated
 wasixv2 crates match the pinned commit.
 
 For initialization and working with the different crates + submodules, see [BUILD.md](./BUILD.md)

@@ -37,9 +37,9 @@ To debug a failing WAST test, see
 
 ## WASIX Guest-Side Tests
 
-WASIX guest-side tests live in `lib/wasix/tests/wasm_tests/`. They need
+WASIX guest-side tests live in `lib/wasix-legacy/tests/wasm_tests/`. They need
 `wasixcc` and `cargo-wasix` on PATH. Fixture directives are documented in
-`lib/wasix/tests/wasm_tests.rs`.
+`lib/wasix-legacy/tests/wasm_tests/mod.rs`.
 
 ## WASIX v2 Test Suite
 
