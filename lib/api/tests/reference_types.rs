@@ -70,6 +70,66 @@ pub mod reference_types {
         Ok(())
     }
 
+    #[cfg(all(feature = "cranelift", not(target_arch = "wasm32")))]
+    #[test]
+    fn funcref_handles_preserve_instance_and_store_identity() -> Result<()> {
+        use wasmer_vm::{StoreObject, VMFunction};
+
+        let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
+            .engine()
+            .into();
+        for seed in [11, 101] {
+            let mut store = Store::new(engine.clone());
+            let module = Module::new(
+                &store,
+                r#"(module
+                (global (export "state") (mut i32) (i32.const 0))
+                (table (export "table") 1 funcref)
+                (func (export "value") (result i32) global.get 0))"#,
+            )?;
+            // The compiled function is shared; each instance has a distinct VM context.
+            let first = Instance::new(&mut store, &module, &imports! {})?;
+            let second = Instance::new(&mut store, &module, &imports! {})?;
+            first
+                .exports
+                .get_global("state")?
+                .set(&mut store, Value::I32(seed))?;
+            second
+                .exports
+                .get_global("state")?
+                .set(&mut store, Value::I32(seed + 1))?;
+            let host = Function::new_typed(&mut store, move || seed + 2);
+            let targets = [
+                first.exports.get_function("value")?.clone(),
+                second.exports.get_function("value")?.clone(),
+                host,
+            ];
+            let table = first.exports.get_table("table")?;
+            for target in &targets {
+                table.set(&mut store, 0, Value::FuncRef(Some(target.clone())))?;
+                assert!(matches!(
+                    table.get(&mut store, 0),
+                    Some(Value::FuncRef(Some(_)))
+                ));
+            }
+            let warmed = VMFunction::list(store.objects_mut().as_sys()).len();
+            for index in 0..128 {
+                let which = index % targets.len();
+                table.set(&mut store, 0, Value::FuncRef(Some(targets[which].clone())))?;
+                let Some(Value::FuncRef(Some(function))) = table.get(&mut store, 0) else {
+                    panic!("expected the current function");
+                };
+                assert!(function.is_from_store(&store));
+                assert_eq!(
+                    function.typed::<(), i32>(&store)?.call(&mut store)?,
+                    seed + which as i32
+                );
+            }
+            assert_eq!(VMFunction::list(store.objects_mut().as_sys()).len(), warmed);
+        }
+        Ok(())
+    }
+
     #[engine_test]
     #[cfg_attr(
         feature = "v8-default",
