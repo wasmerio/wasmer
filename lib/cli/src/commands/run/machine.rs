@@ -1055,6 +1055,10 @@ impl Run {
     ) -> Result<Machine, Error> {
         let wasi = &self.wasi;
         let mut builder = Machine::builder().loader(loader).init(!wasi.no_init);
+        #[cfg(feature = "coredump")]
+        if let Some(observer) = self.coredump_reporter() {
+            builder = builder.trap_observer(observer);
+        }
         if let Some(Some(rules)) = &wasi.networking {
             let rules = rules.parse().context("invalid --net ruleset")?;
             builder = builder.network_policy(Arc::new(NetworkRules(rules)));
@@ -1157,8 +1161,6 @@ impl Run {
                 self.invoke.as_deref().is_some_and(|f| f != "_start"),
             ),
             ("--experimental-napi", self.experimental_napi),
-            // A trap kills the process with its signal; the kernel writes no core.
-            ("--coredump-on-trap", self.coredump_on_trap.is_some()),
         ];
         #[cfg(feature = "journal")]
         given.extend([

@@ -33,7 +33,8 @@ use wasixv2_exec::{Abis, Wasixv2};
 pub use wasixv2_exec::{Compile, load};
 pub use wasixv2_exec::{
     ExecEnv, ExecError, Image, ImageId, InstanceAttachment, InstantiationHook, InstrumentError,
-    LoadError, Loader, instrument, is_preemptible, is_wasixv2_module, warn_not_preemptible,
+    LoadError, Loader, TrapObserver, instrument, is_preemptible, is_wasixv2_module,
+    warn_not_preemptible,
 };
 #[cfg(not(target_family = "wasm"))]
 pub use wasixv2_host::BlockingSource;
@@ -241,6 +242,7 @@ pub struct MachineBuilder {
     /// The embedder's loader; the ABIs' own default otherwise.
     loader: Option<Arc<dyn Loader>>,
     instantiation_hooks: Vec<Arc<dyn InstantiationHook<Stack>>>,
+    trap_observer: Option<Arc<dyn TrapObserver>>,
     #[cfg(feature = "js")]
     js_async_mode: wasmer::js::AsyncMode,
     #[cfg(feature = "wasix1")]
@@ -285,6 +287,7 @@ impl MachineBuilder {
             max_guest_tasks: None,
             loader: None,
             instantiation_hooks: Vec::new(),
+            trap_observer: None,
             #[cfg(feature = "js")]
             js_async_mode: wasmer::js::AsyncMode::Blocking,
             #[cfg(feature = "wasix1")]
@@ -302,6 +305,13 @@ impl MachineBuilder {
     /// instances. Registrations are retained across exec and root filesystem rebuilds.
     pub fn instantiation_hook(mut self, hook: Arc<dyn InstantiationHook<MachineSyscalls>>) -> Self {
         self.instantiation_hooks.push(hook);
+        self
+    }
+
+    /// Observes uncaught guest traps with their original engine trace, without Store access.
+    /// Reporting does not change process fault handling or exit status.
+    pub fn trap_observer(mut self, observer: Arc<dyn TrapObserver>) -> Self {
+        self.trap_observer = Some(observer);
         self
     }
 
@@ -435,6 +445,7 @@ impl MachineBuilder {
             max_guest_tasks,
             loader,
             instantiation_hooks,
+            trap_observer,
             #[cfg(feature = "js")]
             js_async_mode,
             #[cfg(feature = "wasix1")]
@@ -478,6 +489,9 @@ impl MachineBuilder {
         );
         for hook in instantiation_hooks {
             configured_abis.push_instantiation_hook(hook);
+        }
+        if let Some(observer) = trap_observer {
+            configured_abis.set_trap_observer(observer);
         }
         let abis = Arc::new(configured_abis);
         let kernel = boot(

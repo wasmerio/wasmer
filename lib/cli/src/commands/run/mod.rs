@@ -57,7 +57,11 @@ pub struct Run {
     #[clap(short, long)]
     invoke: Option<String>,
     /// Generate a coredump at this path if a WebAssembly trap occurs
-    #[clap(name = "COREDUMP_PATH", long)]
+    #[clap(
+        long = "coredump-on-trap",
+        value_name = "COREDUMP_PATH",
+        alias = "COREDUMP_PATH"
+    )]
     coredump_on_trap: Option<PathBuf>,
     /// Enable experimental N-API imports for modules that require them (not supported on the
     /// WASIX v2 kernel)
@@ -68,6 +72,48 @@ pub struct Run {
     input: CliPackageSource,
     /// Command-line arguments passed to the package
     args: Vec<String>,
+}
+
+#[cfg(feature = "coredump")]
+struct TrapCoredump {
+    path: PathBuf,
+    executable: String,
+    write: std::sync::Mutex<()>,
+}
+
+#[cfg(feature = "coredump")]
+impl wasixv2::TrapObserver for TrapCoredump {
+    fn on_trap(&self, error: &wasmer::RuntimeError) {
+        // A process can fault concurrently on multiple guest threads.
+        let _write = self.write.lock().unwrap_or_else(|e| e.into_inner());
+        if let Err(error) = self.save(error) {
+            tracing::warn!(%error, coredump_path = %self.path.display(), "Unable to generate a coredump");
+        }
+    }
+}
+
+#[cfg(feature = "coredump")]
+impl TrapCoredump {
+    fn save(&self, error: &wasmer::RuntimeError) -> Result<(), Error> {
+        let mut dump =
+            wasm_coredump_builder::CoredumpBuilder::new().executable_name(&self.executable);
+        let mut thread = wasm_coredump_builder::ThreadBuilder::new().thread_name("main");
+        for frame in error.trace() {
+            thread.add_frame(
+                wasm_coredump_builder::FrameBuilder::new()
+                    .codeoffset(frame.func_offset() as u32)
+                    .funcidx(frame.func_index())
+                    .build(),
+            );
+        }
+        dump.add_thread(thread.build());
+        let bytes = dump
+            .serialize()
+            .map_err(Error::msg)
+            .context("Coredump serializing failed")?;
+        std::fs::write(&self.path, bytes)
+            .with_context(|| format!("Unable to save the coredump to \"{}\"", self.path.display()))
+    }
 }
 
 /// The guest exited with a non-zero status, which `wasmer run` exits with.
@@ -83,6 +129,10 @@ impl Run {
 
     #[tracing::instrument(level = "debug", name = "wasmer_run", skip_all)]
     fn execute_inner(mut self, output: Output) -> Result<(), Error> {
+        #[cfg(not(feature = "coredump"))]
+        if self.coredump_on_trap.is_some() {
+            bail!("--coredump-on-trap requires a build with the coredump feature");
+        }
         self.print_option_warnings();
 
         let pb = ProgressBar::new_spinner();
@@ -276,9 +326,24 @@ impl Run {
                 Ok(())
             }
             Err(err) => {
+                #[cfg(feature = "coredump")]
+                if let Some(observer) = self.coredump_reporter() {
+                    wasixv2::TrapObserver::on_trap(&*observer, &err);
+                }
                 bail!("{}", err.display(&mut store));
             }
         }
+    }
+
+    #[cfg(feature = "coredump")]
+    fn coredump_reporter(&self) -> Option<Arc<TrapCoredump>> {
+        self.coredump_on_trap.as_ref().map(|path| {
+            Arc::new(TrapCoredump {
+                path: path.clone(),
+                executable: self.input.to_string(),
+                write: std::sync::Mutex::new(()),
+            })
+        })
     }
 
     fn print_option_warnings(&self) {

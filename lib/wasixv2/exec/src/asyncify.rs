@@ -866,6 +866,7 @@ mod tests {
                 imports: wasmer::Imports::new(),
                 abi_imports: None,
                 hooks: None,
+                trap_observer: None,
                 cleanup: None,
                 task: TaskId(1),
                 work: Arc::new(wasixv2_syscalls::WorkFlag::always()),

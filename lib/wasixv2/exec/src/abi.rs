@@ -477,6 +477,14 @@ pub enum VforkResume {
     ReturnSuccess,
 }
 
+/// Observes an uncaught guest trap before it becomes the process's fault signal.
+///
+/// The callback is synchronous and receives no Store access. Reporting failure must
+/// not replace the original guest fault; observer panics are caught by the executor.
+pub trait TrapObserver: Send + Sync + 'static {
+    fn on_trap(&self, error: &RuntimeError);
+}
+
 /// The registered ABIs, in order: the first one whose [`Abi::matches`] accepts a module serves
 /// it. Process images loaded by `execve` and the images of vfork children select through it
 /// too, so a program of one ABI may run a program of another; its [`Loader`] compiles them.
@@ -484,6 +492,7 @@ pub struct Abis<S> {
     abis: Vec<Arc<dyn Abi<S>>>,
     loader: Arc<dyn Loader>,
     hooks: Vec<Arc<dyn crate::InstantiationHook<S>>>,
+    trap_observer: Option<Arc<dyn TrapObserver>>,
     owning_thread: bool,
     #[cfg(feature = "js")]
     js_async_mode: wasmer::js::AsyncMode,
@@ -499,6 +508,7 @@ where
             abis: Vec::new(),
             loader: Arc::new(crate::Compile),
             hooks: Vec::new(),
+            trap_observer: None,
             owning_thread: false,
             #[cfg(feature = "js")]
             js_async_mode: wasmer::js::AsyncMode::Blocking,
@@ -529,10 +539,17 @@ where
     }
 
     pub(crate) fn install_hooks(&self, store: &mut Store, env: &FunctionEnv<ExecEnv<S>>) {
+        env.as_mut(&mut *store).trap_observer = self.trap_observer.clone();
         if !self.hooks.is_empty() {
             env.as_mut(store).hooks =
                 Some(crate::InstanceHooks::new(self.hooks.clone(), env.clone()));
         }
+    }
+
+    /// Reports uncaught traps from initial, thread, fork and exec instances.
+    /// The observer owns no Store and does not change the guest's exit status.
+    pub fn set_trap_observer(&mut self, observer: Arc<dyn TrapObserver>) {
+        self.trap_observer = Some(observer);
     }
 
     /// Selects the JavaScript task profile for every initial, thread, fork and

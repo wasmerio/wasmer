@@ -11,6 +11,87 @@ use std::{
 use wasixv2::{ByteSink, Credentials, EmptySource, LocalFuture, Machine, Stdio, Uname};
 
 #[derive(Default)]
+struct Traps {
+    calls: Mutex<Vec<(String, usize)>>,
+    panic: bool,
+}
+
+impl wasixv2::TrapObserver for Traps {
+    fn on_trap(&self, error: &wasmer::RuntimeError) {
+        self.calls
+            .lock()
+            .unwrap()
+            .push((error.to_string(), error.trace().len()));
+        assert!(!self.panic, "trap reporter failed");
+    }
+}
+
+const TRAP_WAT: &str = r#"
+  (module
+    (import "wasixv2" "getpid" (func (result i32)))
+    (memory (export "memory") 1)
+    (func $fault unreachable)
+    (func (export "_start") (call $fault)))
+"#;
+
+#[tokio::test]
+async fn trap_observer_keeps_engine_trace_across_root_rebuild_and_exec() {
+    tokio::task::LocalSet::new()
+        .run_until(async {
+            let traps = Arc::new(Traps::default());
+            let mut machine = Machine::builder().trap_observer(traps.clone()).build();
+            machine
+                .install_commands([(
+                    "fault".into(),
+                    wasixv2::OwnedBuffer::from(wat::parse_str(TRAP_WAT).unwrap()),
+                )])
+                .await
+                .unwrap();
+            let exec = r#"
+              (module
+                (import "wasixv2" "execve" (func $exec (param i32 i32 i32) (result i32)))
+                (import "wasixv2" "exit_group" (func $exit (param i32)))
+                (memory (export "memory") 1)
+                (data (i32.const 16) "/bin/fault\00")
+                (func (export "_start")
+                  (call $exit (i32.sub (i32.const 0)
+                    (call $exec (i32.const 16) (i32.const 0) (i32.const 0))))))
+            "#;
+            assert_eq!(run(machine, exec).await.0, 132);
+            let calls = traps.calls.lock().unwrap();
+            assert_eq!(calls.len(), 1, "successful exec is not itself a trap");
+            assert!(!calls[0].0.is_empty());
+            assert!(calls[0].1 > 0, "the original structured trace was lost");
+        })
+        .await;
+}
+
+#[tokio::test]
+async fn trap_observer_panic_preserves_original_signal_and_process_cleanup() {
+    let traps = Arc::new(Traps {
+        panic: true,
+        ..Traps::default()
+    });
+    let machine = Machine::builder().trap_observer(traps.clone()).build();
+    assert_eq!(run(machine, TRAP_WAT).await.0, 132);
+    assert_eq!(traps.calls.lock().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn trap_observer_ignores_normal_exit() {
+    let traps = Arc::new(Traps::default());
+    let machine = Machine::builder().trap_observer(traps.clone()).build();
+    let exit = r#"
+      (module
+        (import "wasixv2" "exit_group" (func $exit (param i32)))
+        (memory (export "memory") 1)
+        (func (export "_start") (call $exit (i32.const 17)) unreachable))
+    "#;
+    assert_eq!(run(machine, exit).await.0, 17);
+    assert!(traps.calls.lock().unwrap().is_empty());
+}
+
+#[derive(Default)]
 struct Capture(Mutex<Vec<u8>>);
 
 impl ByteSink for Capture {

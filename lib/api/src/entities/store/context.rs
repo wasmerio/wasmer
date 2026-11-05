@@ -701,6 +701,8 @@ impl StoreContext {
             stack.pop()
         });
         // Unlocking an async Store can wake arbitrary code that reenters TLS.
+        // Without async support this same boundary holds only a numeric entry.
+        #[allow(clippy::drop_non_drop)]
         drop(removed);
     }
 

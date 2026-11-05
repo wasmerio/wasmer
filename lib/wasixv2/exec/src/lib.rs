@@ -38,7 +38,8 @@ use std::{
 };
 
 pub use abi::{
-    Abi, AbiInstance, Abis, Entry, EntryReturn, PreparedImage, Role, Sigreturn, VforkResume,
+    Abi, AbiInstance, Abis, Entry, EntryReturn, PreparedImage, Role, Sigreturn, TrapObserver,
+    VforkResume,
 };
 pub use dynamic::GuestDynamicLinker;
 pub use function::{CallBufferPolicy, GuestFunctionOperations, TableMetadata};
@@ -122,6 +123,7 @@ pub struct ExecEnv<S> {
     imports: Imports,
     abi_imports: Option<Imports>,
     hooks: Option<InstanceHooks>,
+    trap_observer: Option<Arc<dyn TrapObserver>>,
     cleanup: Option<Arc<wasixv2_host::LoaderCleanup>>,
     task: TaskId,
     /// `task`'s work flag, read on every return to the guest.
@@ -178,6 +180,7 @@ impl<S: Control> ExecEnv<S> {
             imports: Imports::new(),
             abi_imports: None,
             hooks: None,
+            trap_observer: None,
             cleanup: None,
             page_access: syscalls.page_access(task),
             syscalls,
@@ -677,9 +680,22 @@ async fn ended<S: Syscalls + Control + Send + Sync + 'static>(
         let handoff = cx.with(|env, _| env.proc.handoff.clone()).await;
         return Ended::Detached(handoff);
     }
-    let (syscalls, task, handoff) = cx
-        .with(|env, _| (env.syscalls.clone(), env.task, env.proc.handoff.clone()))
+    let (syscalls, task, handoff, observer) = cx
+        .with(|env, _| {
+            (
+                env.syscalls.clone(),
+                env.task,
+                env.proc.handoff.clone(),
+                env.trap_observer.clone(),
+            )
+        })
         .await;
+    if let Some(observer) = observer
+        && let Err(panic) = catch_unwind(AssertUnwindSafe(|| observer.on_trap(&err)))
+    {
+        tracing::warn!(tid = task.0, "guest trap observer panicked");
+        let _ = catch_unwind(AssertUnwindSafe(|| drop(panic)));
+    }
     let message = err.to_string();
     let signal = fault_signal(err);
     // The trap's signal ends the task (`force_sig_fault`), then `exit_mm` while the memory is
