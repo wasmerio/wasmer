@@ -1,0 +1,103 @@
+{
+  "date": "2026-11-05",
+  "integration_branch": "feat/wasixv2",
+  "integration_code_revision": "2854c34dc590c5e832ba727036317af9e42d659f",
+  "full_v1_parity": false,
+  "source_snapshot_only": true,
+  "fresh_combined_build_or_full_suite": false,
+  "subagents_stopped": true,
+  "components": {
+    "napi": {
+      "revision": "bdc247406e9cecd46888ce648a62d51ed2732378",
+      "branch": "wasix/parity-unified",
+      "repository": "https://github.com/wasmerio/napi"
+    },
+    "abi": {
+      "revision": "c2c28b95e0c403b224f9cf83fa0e6d56a5a2f3a0",
+      "repository": "https://github.com/wasix-org/wasixv2-abi"
+    },
+    "tests": {
+      "revision": "c2795a1d22e3d00e373c2b3cb31cc1bf57b4de07",
+      "repository": "https://github.com/wasix-org/wasixv2-tests"
+    },
+    "libc2": {
+      "revision": "ce830d6e76e8e999e4ee0396583300c235aaecf0",
+      "branch": "snapshot/wasixv2-20261105",
+      "repository": "https://github.com/wasix-org/libc2",
+      "base": "feaf375337e50ad521879ae252147b9aee4a5b7f"
+    },
+    "wasixcc": {
+      "revision": "29aba5dee92f1320adc22f2030709d0bc96287fd",
+      "branch": "snapshot/wasixv2-20261105",
+      "repository": "https://github.com/wasix-org/wasixcc"
+    }
+  },
+  "integration_checks": [
+    "offline locked Cargo metadata (no dependencies resolved/build)",
+    "git diff --check",
+    "previous focused component evidence; see TODO.md"
+  ],
+  "installed_sysroots_modified": false,
+  "unfinished_branches": [
+    {
+      "branch": "wip/context-closures-stop-20261105",
+      "head": "2e57ab00aec6aef0a95df339f2bbc244f11aae7d",
+      "remote": "https://github.com/wasix-org/wasixv2-abi.git"
+    },
+    {
+      "branch": "wip/wasix64-stop-20261105",
+      "head": "62378c78aa6a04daaae69ddba02ad2b9daff742e",
+      "remote": "https://github.com/wasix-org/wasixv2-abi.git"
+    },
+    {
+      "branch": "parity/native-facade-20261104",
+      "head": "1ac102cde91dec6710865f22037ac44fccc862fd",
+      "remote": "https://github.com/wasmerio/napi"
+    },
+    {
+      "branch": "wasixv2/parity-contexts-closures",
+      "head": "78cfe84b8b12c033a375c88902fd5769d1d1ac09",
+      "remote": "https://github.com/wasmerio/wasmer.git"
+    },
+    {
+      "branch": "wasixv2/parity-contexts-browser",
+      "head": "c1711f2eeec14b1dd827c76bbe209fd4e800fcf1",
+      "remote": "https://github.com/wasmerio/wasmer.git"
+    },
+    {
+      "branch": "wasixv2/parity-napi-facade-20261104",
+      "head": "28dcdacf836f9786b0de323fd7ab029b844daecd",
+      "remote": "https://github.com/wasmerio/wasmer.git"
+    },
+    {
+      "branch": "wasixv2/parity-wasix64",
+      "head": "4f0672abf00cf9744976ad3687d32ebbb1f9dfeb",
+      "remote": "https://github.com/wasmerio/wasmer.git"
+    },
+    {
+      "branch": "wasixv2/parity-coredump",
+      "head": "5ffa51e4cf8e49c2480d2b2fa4b18e4dabf13209",
+      "remote": "https://github.com/wasmerio/wasmer.git"
+    },
+    {
+      "branch": "wasixv2/parity-native-retirement",
+      "head": "ed86c82897ff03ef202aed0c6dbaddbd250ef220",
+      "remote": "https://github.com/wasmerio/wasmer.git"
+    },
+    {
+      "branch": "codex/sdk-v2-browser-core",
+      "head": "32f497ec6d238c6e44e898a28442bc5b87643615",
+      "remote": "https://github.com/wasmerio/wasmer-sdk.git"
+    },
+    {
+      "branch": "wip/public-core-stop-20261105",
+      "head": "2a1382f163316097bebac67b9c7dd20a47f685b6",
+      "remote": "https://github.com/wasmerio/wasmer-sdk.git"
+    },
+    {
+      "branch": "wip/sdk-package-seams-stop-20261105",
+      "head": "50804206f722236533d3208cbad9b17ec1d46b74",
+      "remote": "https://github.com/wasmerio/wasmer.git"
+    }
+  ]
+}
