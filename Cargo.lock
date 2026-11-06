@@ -7848,7 +7848,6 @@ dependencies = [
  "once_cell",
  "petgraph",
  "pin-project",
- "pin-utils",
  "pretty_assertions",
  "rand 0.10.3",
  "rayon",
