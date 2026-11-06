@@ -2113,14 +2113,44 @@ impl FuncEnvironment<'_> {
         index: MemoryIndex,
         _heap: Heap,
     ) -> WasmResult<ir::Value> {
-        let (func_sig, index_arg, func_idx) = self.get_memory_size_func(pos.func, index);
-        let memory_index = pos.ins().iconst(I32, index_arg as i64);
-        let (vmctx, func_addr) =
-            self.translate_load_builtin_function_address(&mut pos, func_idx)?;
-        let call_inst = pos
+        if self.module.memories[index].shared {
+            let (func_sig, index_arg, func_idx) = self.get_memory_size_func(pos.func, index);
+            let memory_index = pos.ins().iconst(I32, index_arg as i64);
+            let (vmctx, func_addr) =
+                self.translate_load_builtin_function_address(&mut pos, func_idx)?;
+            let call_inst = pos
+                .ins()
+                .call_indirect(func_sig, func_addr, &[vmctx, memory_index]);
+            return Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap());
+        }
+
+        let pointer_type = self.pointer_type();
+        let vmctx = self.vmctx(pos.func);
+        let vmctx = materialize_global_value(&mut pos, pointer_type, vmctx);
+        let (definition, offset) = if let Some(local) = self.module.local_memory_index(index) {
+            (
+                vmctx,
+                vmctx_offset(self.offsets.vmctx_vmmemory_definition_current_length(local))?,
+            )
+        } else {
+            let offset = vmctx_offset(self.offsets.vmctx_vmmemory_import_definition(index))?;
+            let flags = MemFlagsData::trusted().with_readonly();
+            let definition = pos.ins().load(pointer_type, flags, vmctx, offset);
+            (
+                definition,
+                i32::from(self.offsets.vmmemory_definition_current_length()),
+            )
+        };
+        let flags = MemFlagsData::trusted();
+        let bytes = pos.ins().load(pointer_type, flags, definition, offset);
+        let pages = pos
             .ins()
-            .call_indirect(func_sig, func_addr, &[vmctx, memory_index]);
-        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
+            .ushr_imm_u(bytes, wasmer_types::WASM_PAGE_SIZE.trailing_zeros() as i64);
+        Ok(if pointer_type == I32 {
+            pages
+        } else {
+            pos.ins().ireduce(I32, pages)
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
