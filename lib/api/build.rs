@@ -3,7 +3,7 @@ fn build_v8() {
     use bindgen::callbacks::ParseCallbacks;
     use std::{
         env, fs,
-        path::PathBuf,
+        path::{Path, PathBuf},
         sync::{LazyLock, Mutex},
     };
 
@@ -28,8 +28,7 @@ fn build_v8() {
     let out_path = PathBuf::from(&out_dir);
     let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
     let v8_header_path = PathBuf::from(&crate_root).join("third-party").join("wee8");
-    let cache_dir = out_path
-        .join("../../../../")
+    let cache_dir = stable_target_dir(&out_path)
         .join("wee8-artifacts")
         .join(WEE8_RELEASE_VERSION)
         .join(platform_name);
@@ -49,18 +48,7 @@ fn build_v8() {
             )
         });
 
-        if v8_lib_dir.exists() && !v8_lib_path.exists() {
-            fs::remove_dir_all(&v8_lib_dir).unwrap_or_else(|err| {
-                panic!(
-                    "failed to remove incomplete wee8 lib dir {}: {err}",
-                    v8_lib_dir.display()
-                )
-            });
-        }
-
         if !archive_path.exists() {
-            use std::io::Write;
-
             let url = format!(
                 "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/{asset_name}"
             );
@@ -74,25 +62,10 @@ fn build_v8() {
                 .read_to_vec()
                 .expect("failed to download v8 lib");
 
-            let mut archive_tmp =
-                tempfile::NamedTempFile::new_in(&cache_dir).unwrap_or_else(|err| {
-                    panic!(
-                        "failed to create temporary v8 archive download file in {}: {err}",
-                        cache_dir.display()
-                    )
-                });
-            archive_tmp.write_all(&tar_data).unwrap_or_else(|err| {
+            fs::write(&archive_path, tar_data).unwrap_or_else(|err| {
                 panic!(
-                    "failed to write temporary v8 archive download file {}: {err}",
-                    archive_tmp.path().display()
-                )
-            });
-            archive_tmp.persist(&archive_path).unwrap_or_else(|err| {
-                panic!(
-                    "failed to finalize v8 archive cache {} from temporary file {}: {}",
-                    archive_path.display(),
-                    err.file.path().display(),
-                    err.error
+                    "failed to write v8 archive cache {}: {err}",
+                    archive_path.display()
                 )
             });
         }
@@ -103,45 +76,13 @@ fn build_v8() {
                 archive_path.display()
             )
         });
-        let unpack_tmp = tempfile::TempDir::new_in(&cache_dir).unwrap_or_else(|err| {
-            panic!(
-                "failed to create temporary wee8 unpack directory in {}: {err}",
-                cache_dir.display()
-            )
-        });
         let tar = xz::read::XzDecoder::new(tar_data.as_slice());
         let mut archive = tar::Archive::new(tar);
-        archive.unpack(unpack_tmp.path()).unwrap_or_else(|err| {
-            let _ = fs::remove_file(&archive_path);
+        archive.unpack(&cache_dir).unwrap_or_else(|err| {
             panic!(
-                "failed to unpack v8 archive cache {} into {} (cache removed so the next build can re-download): {err}",
+                "failed to unpack v8 archive cache {} into {}: {err}",
                 archive_path.display(),
-                unpack_tmp.path().display()
-            )
-        });
-        let staged_lib = unpack_tmp.path().join("lib");
-        if !staged_lib.is_dir() {
-            let _ = fs::remove_file(&archive_path);
-            panic!(
-                "v8 archive {} did not contain a top-level `lib/` directory after unpack (expected {})",
-                archive_path.display(),
-                staged_lib.display()
-            );
-        }
-        if v8_lib_dir.exists() {
-            fs::remove_dir_all(&v8_lib_dir).unwrap_or_else(|err| {
-                panic!(
-                    "failed to remove existing wee8 lib dir {} before rename: {err}",
-                    v8_lib_dir.display()
-                )
-            });
-        }
-        fs::rename(&staged_lib, &v8_lib_dir).unwrap_or_else(|err| {
-            let _ = fs::remove_file(&archive_path);
-            panic!(
-                "failed to move unpacked wee8 lib from {} to {}: {err}",
-                staged_lib.display(),
-                v8_lib_dir.display()
+                cache_dir.display()
             )
         });
     }
@@ -257,6 +198,16 @@ fn build_v8() {
         println!("cargo:rustc-link-lib=shlwapi");
     } else {
         println!("cargo:rustc-link-lib=c++");
+    }
+
+    fn stable_target_dir(out_path: &Path) -> PathBuf {
+        let mut dir = out_path;
+        for _ in 0..4 {
+            dir = dir
+                .parent()
+                .expect("OUT_DIR is not inside Cargo's target build output");
+        }
+        dir.to_path_buf()
     }
 }
 
