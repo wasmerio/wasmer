@@ -6,6 +6,38 @@ use wasm_bindgen_test::wasm_bindgen_test;
 
 use wasmer::*;
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "cranelift"))]
+#[test]
+fn headless_engine_loads_artifacts_with_the_compilers_identity()
+-> Result<(), Box<dyn std::error::Error>> {
+    let compiler = Store::default();
+    let bytes = wat::parse_str("(module (func (export \"answer\") (result i32) i32.const 42))")?;
+    let module = Module::new(&compiler, &bytes)?;
+    let artifact = module.serialize()?;
+    let id = compiler.engine().deterministic_id();
+    let format = compiler.engine().artifact_format();
+    let engine: Engine = sys::engine::Engine::headless_with_identity(&id, &format).into();
+    assert_eq!(engine.deterministic_id(), id);
+    assert_eq!(engine.artifact_format(), format);
+    let mut runtime = Store::new(engine);
+    assert!(
+        Module::new(&runtime, &bytes).is_err(),
+        "headless engine acquired a compiler"
+    );
+    // SAFETY: this artifact was produced immediately above by the matching
+    // compiler in this process, and has not been modified.
+    let restored = unsafe { Module::deserialize(&runtime, artifact)? };
+    let instance = Instance::new(&mut runtime, &restored, &imports! {})?;
+    assert_eq!(
+        instance
+            .exports
+            .get_typed_function::<(), i32>(&runtime, "answer")?
+            .call(&mut runtime)?,
+        42
+    );
+    Ok(())
+}
+
 #[cfg(unix)]
 use std::ffi::OsStr;
 #[cfg(unix)]
