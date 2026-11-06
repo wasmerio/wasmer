@@ -305,7 +305,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                         (vmctx, base_offset, current_elements_offset)
                     } else {
                         let from_offset = self.offsets.vmctx_vmtable_import(index);
-                        let flags = insert_mem_flags(func, MemFlagsData::trusted().with_readonly());
+                        let flags =
+                            insert_mem_flags(func, MemFlagsData::trusted().with_readonly(true));
                         let table = func.create_global_value(ir::GlobalValueData::Load {
                             base: vmctx,
                             offset: Offset32::new(vmctx_offset(from_offset)?),
@@ -322,7 +323,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                 let flags = if Some(table.minimum) == table.maximum {
                     // A fixed-size table can't be resized so its base address won't
                     // change.
-                    insert_mem_flags(func, MemFlagsData::trusted().with_readonly())
+                    insert_mem_flags(func, MemFlagsData::trusted().with_readonly(true))
                 } else {
                     insert_mem_flags(func, MemFlagsData::trusted())
                 };
@@ -1326,7 +1327,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         let base = materialize_global_value(pos, pointer_type, vmctx);
 
         let mut mem_flags = ir::MemFlagsData::trusted();
-        mem_flags.set_readonly();
+        mem_flags.set_readonly(true);
 
         // Load the callee address.
         let body_offset = vmctx_offset(self.offsets.vmctx_builtin_function(callee_func_idx))?;
@@ -1563,7 +1564,7 @@ impl FuncEnvironment<'_> {
                 (vmctx, base_offset, current_length_offset)
             } else {
                 let from_offset = self.offsets.vmctx_vmmemory_import_definition(index);
-                let flags = insert_mem_flags(func, ir::MemFlagsData::trusted().with_readonly());
+                let flags = insert_mem_flags(func, ir::MemFlagsData::trusted().with_readonly(true));
                 let memory = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
                     offset: Offset32::new(vmctx_offset(from_offset)?),
@@ -1604,7 +1605,7 @@ impl FuncEnvironment<'_> {
         };
 
         let flags = if readonly_base {
-            insert_mem_flags(func, ir::MemFlagsData::trusted().with_readonly())
+            insert_mem_flags(func, ir::MemFlagsData::trusted().with_readonly(true))
         } else {
             insert_mem_flags(func, ir::MemFlagsData::trusted())
         };
