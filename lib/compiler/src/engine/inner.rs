@@ -57,6 +57,8 @@ pub struct Engine {
     #[cfg(not(target_arch = "wasm32"))]
     tunables: Arc<dyn Tunables + Send + Sync>,
     name: String,
+    /// A headless engine's artifact format (`headless_with_identity`).
+    headless_artifact_format: Option<String>,
 }
 
 impl Engine {
@@ -87,6 +89,7 @@ impl Engine {
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
             name,
+            headless_artifact_format: None,
         }
     }
 
@@ -124,7 +127,9 @@ impl Engine {
         }
 
         #[allow(unreachable_code)]
-        self.name.to_string()
+        self.headless_artifact_format
+            .clone()
+            .unwrap_or_else(|| self.name.to_string())
     }
 
     /// Create a headless `Engine`
@@ -162,7 +167,26 @@ impl Engine {
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
             name: "engine-headless".to_string(),
+            headless_artifact_format: None,
         }
+    }
+
+    /// Create a headless `Engine` that reports the identity of the engine
+    /// that compiled its artifacts: `deterministic_id` and `artifact_format`
+    /// are what that engine's [`Engine::deterministic_id`] and
+    /// [`Engine::artifact_format`] return.
+    ///
+    /// Artifact caches are keyed by those two (a plain headless engine
+    /// reports `engine-headless`, so it finds nothing a compiler stored), so
+    /// a runtime with no compiler linked can load what a separate compile
+    /// step produced. Loading still checks the artifact's target and CPU
+    /// features; the caller must make sure the identity is the one of the
+    /// engine that compiled them (same compiler, settings and features).
+    pub fn headless_with_identity(deterministic_id: &str, artifact_format: &str) -> Self {
+        let mut engine = Self::headless();
+        engine.name = deterministic_id.to_string();
+        engine.headless_artifact_format = Some(artifact_format.to_string());
+        engine
     }
 
     /// Get reference to `EngineInner`.
@@ -777,5 +801,20 @@ impl Default for EngineId {
         Self {
             id: NEXT_ID.fetch_add(1, SeqCst),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Engine;
+
+    #[test]
+    fn a_headless_engine_keeps_its_explicit_cache_identity_when_cloned() {
+        let engine = Engine::headless_with_identity("compiler-config", "artifact-format");
+        let clone = engine.clone();
+        assert_eq!(clone.deterministic_id(), "compiler-config");
+        assert_eq!(clone.artifact_format(), "artifact-format");
+        assert_eq!(Engine::headless().deterministic_id(), "engine-headless");
+        assert_eq!(Engine::headless().artifact_format(), "engine-headless");
     }
 }
