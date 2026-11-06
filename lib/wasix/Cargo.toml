@@ -128,7 +128,6 @@ hyper-util = { workspace = true, features = [
 ], optional = true }
 http-body-util = { workspace = true, optional = true }
 toml.workspace = true
-pin-utils.workspace = true
 wasmparser.workspace = true
 crossbeam-channel.workspace = true
 bus.workspace = true

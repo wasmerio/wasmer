@@ -90,7 +90,7 @@ impl ReqwestHttpClient {
             // timeout error is raised.
             'OUTER: loop {
                 let timeout = tokio::time::sleep(timeout_duration);
-                pin_utils::pin_mut!(timeout);
+                futures::pin_mut!(timeout);
 
                 let mut chunk_count = 0;
 
