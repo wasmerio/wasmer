@@ -108,6 +108,17 @@ impl StoreMut<'_> {
     /// }
     /// ```
     pub fn parked<R>(&mut self, f: impl FnOnce() -> R) -> R {
+        // An async entry owns its write guard and must remain visible to async
+        // host imports. Installation deliberately leaves that entry in place,
+        // so release this borrow's count instead of shadowing the guard.
+        let id = self.inner.objects.id();
+        if super::StoreContext::active_is_async(id) {
+            // SAFETY: `&mut self` keeps this borrow unreachable until `f` ends,
+            // just as it does for the installed synchronous entry below.
+            let ptr = &mut *self.inner as *mut StoreInner;
+            let _guard = unsafe { super::StoreContext::pause(id, Some(ptr)) };
+            return f();
+        }
         // This is the same thing `Function::call` does before entering Wasm:
         // install this borrow as the store executing on the thread, so that
         // code which reaches the store through the context — rather than

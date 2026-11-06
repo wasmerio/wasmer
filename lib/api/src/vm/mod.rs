@@ -34,7 +34,9 @@ define_vm_like!(Function, Debug);
 define_vm_like!(Global, Debug);
 define_vm_like!(Tag, Debug);
 define_vm_like!(Memory, Debug);
-define_vm_like!(SharedMemory);
+gen_rt_ty! {
+    pub(crate) VMSharedMemory(vm::VMSharedMemory);
+}
 define_vm_like!(Table, Debug);
 
 define_vm_like!(ExceptionRef);

@@ -73,6 +73,7 @@ fn summary_for(container: &Container, id: PackageId) -> PackageSummary {
     PackageSummary {
         pkg: PackageInfo::from_manifest(id.clone(), manifest, container.version()).unwrap(),
         dist: DistributionInfo {
+            webc_size: None,
             webc: Url::parse(&format!("https://example.invalid/{id}.webc")).unwrap(),
             webc_sha256: WebcHash::sha256(id.to_string()),
         },

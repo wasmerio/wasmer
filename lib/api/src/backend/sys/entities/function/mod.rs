@@ -542,7 +542,7 @@ impl Function {
                 r = unsafe {
                     // Safety: This is the intended use-case for StoreContext::pause, as
                     // documented in the function's doc comments.
-                    let pause_guard = StoreContext::pause(store_id);
+                    let pause_guard = StoreContext::pause(store_id, None);
                     wasmer_call_trampoline(
                         signal_handler,
                         config,

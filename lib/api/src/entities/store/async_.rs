@@ -1,8 +1,8 @@
 use std::{fmt::Debug, marker::PhantomData};
 
 use crate::{
-    AsStoreMut, AsStoreRef, LocalRwLock, LocalRwLockReadGuard, LocalRwLockWriteGuard, Store,
-    StoreContext, StoreInner, StoreMut, StorePtrWrapper, StoreRef,
+    AsStoreMut, AsStoreRef, LocalRwLock, LocalRwLockReadGuard, LocalRwLockWeak,
+    LocalRwLockWriteGuard, Store, StoreContext, StoreInner, StoreMut, StorePtrWrapper, StoreRef,
 };
 
 use wasmer_types::StoreId;
@@ -13,6 +13,13 @@ pub struct StoreAsync {
     pub(crate) id: StoreId,
     // We use a box inside the RW lock because the StoreInner shouldn't be moved
     pub(crate) inner: LocalRwLock<Box<StoreInner>>,
+}
+
+/// A non-owning handle to an async store, suitable for state owned by that store.
+#[derive(Clone)]
+pub struct WeakStoreAsync {
+    id: StoreId,
+    inner: LocalRwLockWeak<Box<StoreInner>>,
 }
 
 impl StoreAsync {
@@ -27,6 +34,14 @@ impl StoreAsync {
                 }),
             }),
             _ => None,
+        }
+    }
+
+    /// Create a handle that does not keep the store shared or prevent release.
+    pub fn downgrade(&self) -> WeakStoreAsync {
+        WeakStoreAsync {
+            id: self.id,
+            inner: self.inner.downgrade(),
         }
     }
 
@@ -68,6 +83,21 @@ impl StoreAsync {
     }
 }
 
+impl WeakStoreAsync {
+    pub(crate) fn id(&self) -> StoreId {
+        self.id
+    }
+
+    /// Acquire an owning handle while the async store still exists.
+    /// Returns `None` after release or conversion back into a synchronous store.
+    pub fn upgrade(&self) -> Option<StoreAsync> {
+        Some(StoreAsync {
+            id: self.id,
+            inner: self.inner.upgrade()?,
+        })
+    }
+}
+
 impl Debug for StoreAsync {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StoreAsync").field("id", &self.id).finish()
@@ -102,6 +132,16 @@ pub trait AsStoreAsync {
     /// Acquires a write lock on the store.
     fn write_lock(&self) -> impl Future<Output = StoreAsyncWriteLock> {
         StoreAsyncWriteLock::acquire(self.store_ref())
+    }
+
+    /// Attempts to acquire a write lock without waiting.
+    ///
+    /// Returns `None` while any reader or writer holds the store, without
+    /// registering a waiter. The returned guard keeps the store alive.
+    fn try_write_lock(&self) -> Option<StoreAsyncWriteLock> {
+        Some(StoreAsyncWriteLock {
+            inner: self.store_ref().inner.try_write()?,
+        })
     }
 }
 
@@ -138,6 +178,12 @@ impl StoreAsyncWriteLock {
     pub(crate) async fn acquire(store: &StoreAsync) -> Self {
         let store_guard = store.inner.write().await;
         Self { inner: store_guard }
+    }
+
+    pub(crate) fn try_acquire(store: &StoreAsync) -> Option<Self> {
+        Some(Self {
+            inner: store.inner.try_write()?,
+        })
     }
 }
 

@@ -78,15 +78,7 @@ pub(crate) fn path_filestat_get_internal(
         .fs
         .check_path_right(&root_dir, &owner, Rights::PATH_FILESTAT_GET)?;
 
-    let st_ino = file_inode.ino().as_u64();
-    let mut stat = if file_inode.is_preopened {
-        *file_inode.stat.read().unwrap().deref()
-    } else {
-        let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())?
-    };
-    stat.st_ino = st_ino;
-    Ok(stat)
+    state.fs.stat_for_inode(&file_inode)
 }
 
 /// ### `path_filestat_get_old()`

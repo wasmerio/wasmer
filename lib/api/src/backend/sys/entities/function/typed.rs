@@ -79,7 +79,7 @@ macro_rules! impl_native_traits {
                     r = unsafe {
                         // Safety: This is the intended use-case for StoreContext::pause, as
                         // documented in the function's doc comments.
-                        let pause_guard = StoreContext::pause(store_id);
+                        let pause_guard = StoreContext::pause(store_id, None);
                         wasmer_vm::wasmer_call_trampoline(
                             store.as_store_ref().signal_handler(),
                             config,
@@ -216,7 +216,7 @@ macro_rules! impl_native_traits {
                     r = unsafe {
                         // Safety: This is the intended use-case for StoreContext::pause, as
                         // documented in the function's doc comments.
-                        let pause_guard = StoreContext::pause(store_id);
+                        let pause_guard = StoreContext::pause(store_id, None);
                         wasmer_vm::wasmer_call_trampoline(
                             store.as_store_ref().signal_handler(),
                             config,

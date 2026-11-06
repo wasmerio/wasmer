@@ -174,9 +174,25 @@ pub struct EpollState {
     /// Active subscriptions keyed by watched fd.
     subscriptions: StdMutex<FnvHashMap<WasiFd, Arc<EpollSubState>>>,
     /// Ready queue of subscriptions with potentially pending bits.
-    ready: StdMutex<VecDeque<ReadyItem>>,
-    /// Wake primitive for blocked `epoll_wait`.
+    ready: Arc<EpollReadyQueue>,
+}
+
+/// Readiness callbacks may retain this queue, but never the subscriptions that
+/// own their registration guards. Otherwise watched resources retain themselves.
+#[derive(Debug, Default)]
+struct EpollReadyQueue {
+    items: StdMutex<VecDeque<ReadyItem>>,
     notify: Notify,
+}
+
+impl EpollReadyQueue {
+    fn enqueue(&self, fd: WasiFd, generation: u64) {
+        self.items
+            .lock()
+            .unwrap()
+            .push_back(ReadyItem { fd, generation });
+        self.notify.notify_one();
+    }
 }
 
 impl Default for EpollState {
@@ -190,8 +206,7 @@ impl EpollState {
     pub fn new() -> Self {
         Self {
             subscriptions: StdMutex::new(FnvHashMap::default()),
-            ready: StdMutex::new(VecDeque::new()),
-            notify: Notify::new(),
+            ready: Arc::new(EpollReadyQueue::default()),
         }
     }
 
@@ -213,20 +228,16 @@ impl EpollState {
     }
 
     fn enqueue_ready(&self, fd: WasiFd, generation: u64) {
-        self.ready
-            .lock()
-            .unwrap()
-            .push_back(ReadyItem { fd, generation });
-        self.notify.notify_one();
+        self.ready.enqueue(fd, generation);
     }
 
     fn dequeue_ready(&self) -> Option<ReadyItem> {
-        self.ready.lock().unwrap().pop_front()
+        self.ready.items.lock().unwrap().pop_front()
     }
 
     /// Waits until a producer enqueues readiness and notifies.
     pub async fn wait(&self) {
-        self.notify.notified().await;
+        self.ready.notify.notified().await;
     }
 
     pub(crate) fn prepare_add(
@@ -302,6 +313,14 @@ pub struct EpollSubState {
     fd_meta: StdMutex<EpollFd>,
     /// Guard ownership for all attached handlers.
     joins: StdMutex<Vec<EpollJoinGuard>>,
+    readiness: Arc<EpollReadiness>,
+}
+
+/// Shared with callbacks without retaining the watched resource. In particular,
+/// dropping a callback while its socket is locked must not drop a join guard
+/// that tries to acquire that same socket lock.
+#[derive(Debug)]
+struct EpollReadiness {
     /// Atomic readiness bitset (EPOLLIN/OUT/HUP/ERR).
     pending_bits: AtomicU8,
     /// Queue dedupe flag: whether this sub already has a ready-queue entry.
@@ -316,9 +335,11 @@ impl EpollSubState {
         Self {
             fd_meta: StdMutex::new(fd_meta),
             joins: StdMutex::new(Vec::new()),
-            pending_bits: AtomicU8::new(0),
-            enqueued: AtomicBool::new(false),
-            generation: AtomicU64::new(generation),
+            readiness: Arc::new(EpollReadiness {
+                pending_bits: AtomicU8::new(0),
+                enqueued: AtomicBool::new(false),
+                generation: AtomicU64::new(generation),
+            }),
         }
     }
 
@@ -326,7 +347,7 @@ impl EpollSubState {
     ///
     /// Callers use this to seed the generation of a replacement subscription.
     pub fn next_generation(&self) -> u64 {
-        self.generation.load(Ordering::Acquire).saturating_add(1)
+        self.readiness.generation().saturating_add(1)
     }
 
     /// Adds a registration guard that will detach handlers when dropped.
@@ -339,12 +360,14 @@ impl EpollSubState {
         self.joins.lock().unwrap().clear();
     }
 
-    fn generation(&self) -> u64 {
-        self.generation.load(Ordering::Acquire)
-    }
-
     pub(crate) fn fd_meta(&self) -> EpollFd {
         self.fd_meta.lock().unwrap().clone()
+    }
+}
+
+impl EpollReadiness {
+    fn generation(&self) -> u64 {
+        self.generation.load(Ordering::Acquire)
     }
 
     fn set_pending(&self, bit: u8) -> bool {
@@ -455,10 +478,11 @@ fn prime_immediate_writable_if_applicable(
     }
 
     sub_state
+        .readiness
         .pending_bits
         .fetch_or(WRITABLE_BIT, Ordering::AcqRel);
-    if sub_state.mark_enqueued() {
-        epoll_state.enqueue_ready(event.fd(), sub_state.generation());
+    if sub_state.readiness.mark_enqueued() {
+        epoll_state.enqueue_ready(event.fd(), sub_state.readiness.generation());
     }
 }
 
@@ -468,8 +492,8 @@ fn repair_ready_queue_after_drain(
     fd: WasiFd,
     sub_state: &Arc<EpollSubState>,
 ) {
-    if sub_state.pending_bits() != 0 && sub_state.mark_enqueued() {
-        epoll_state.enqueue_ready(fd, sub_state.generation());
+    if sub_state.readiness.pending_bits() != 0 && sub_state.readiness.mark_enqueued() {
+        epoll_state.enqueue_ready(fd, sub_state.readiness.generation());
     }
 }
 
@@ -494,13 +518,13 @@ pub(crate) fn drain_ready_events(
             continue;
         };
 
-        if sub_state.generation() != item.generation {
+        if sub_state.readiness.generation() != item.generation {
             epoll_stale_generation_drop();
             continue;
         }
 
-        let bits = sub_state.take_pending_bits();
-        sub_state.clear_enqueued();
+        let bits = sub_state.readiness.take_pending_bits();
+        sub_state.readiness.clear_enqueued();
 
         if bits == 0 {
             repair_ready_queue_after_drain(epoll_state, item.fd, &sub_state);
@@ -526,18 +550,17 @@ pub(crate) fn drain_ready_events(
 struct EpollHandler {
     /// Watched fd associated with the subscription.
     fd: WasiFd,
-    /// Parent epoll state for queueing and wakeups.
-    epoll_state: Arc<EpollState>,
-    /// Per-subscription state updated by interest callbacks.
-    sub_state: Arc<EpollSubState>,
+    /// Queue and readiness only: neither owns subscriptions or watched resources.
+    ready: Arc<EpollReadyQueue>,
+    readiness: Arc<EpollReadiness>,
 }
 
 impl EpollHandler {
     fn new(fd: WasiFd, epoll_state: Arc<EpollState>, sub_state: Arc<EpollSubState>) -> Box<Self> {
         Box::new(Self {
             fd,
-            epoll_state,
-            sub_state,
+            ready: epoll_state.ready.clone(),
+            readiness: sub_state.readiness.clone(),
         })
     }
 }
@@ -548,14 +571,13 @@ impl InterestHandler for EpollHandler {
     fn push_interest(&mut self, interest: InterestType) {
         EPOLL_ENQUEUE_ATTEMPTS.fetch_add(1, Ordering::Relaxed);
         let bit = interest_to_pending_bit(interest);
-        if !self.sub_state.set_pending(bit) {
+        if !self.readiness.set_pending(bit) {
             EPOLL_ENQUEUE_DEDUPE_HITS.fetch_add(1, Ordering::Relaxed);
             return;
         }
 
-        if self.sub_state.mark_enqueued() {
-            self.epoll_state
-                .enqueue_ready(self.fd, self.sub_state.generation());
+        if self.readiness.mark_enqueued() {
+            self.ready.enqueue(self.fd, self.readiness.generation());
         } else {
             EPOLL_ENQUEUE_DEDUPE_HITS.fetch_add(1, Ordering::Relaxed);
         }
@@ -565,7 +587,7 @@ impl InterestHandler for EpollHandler {
     fn pop_interest(&mut self, interest: InterestType) -> bool {
         let bit = interest_to_pending_bit(interest);
         let old = self
-            .sub_state
+            .readiness
             .pending_bits
             .fetch_and(!bit, Ordering::AcqRel);
         (old & bit) != 0
@@ -574,7 +596,7 @@ impl InterestHandler for EpollHandler {
     /// Checks whether this subscription currently has a readiness bit set.
     fn has_interest(&self, interest: InterestType) -> bool {
         let bit = interest_to_pending_bit(interest);
-        (self.sub_state.pending_bits() & bit) != 0
+        (self.readiness.pending_bits() & bit) != 0
     }
 }
 
@@ -746,9 +768,9 @@ mod tests {
             "popping one fd interest must not clear another fd with the same readiness"
         );
 
-        assert!(sub_state1.pending_bits() == 0);
-        assert!(sub_state2.pending_bits() != 0);
-        assert_eq!(epoll_state.ready.lock().unwrap().len(), 2);
+        assert!(sub_state1.readiness.pending_bits() == 0);
+        assert!(sub_state2.readiness.pending_bits() != 0);
+        assert_eq!(epoll_state.ready.items.lock().unwrap().len(), 2);
     }
 
     #[test]
@@ -760,20 +782,20 @@ mod tests {
         handler.push_interest(InterestType::Writable);
 
         assert_eq!(
-            epoll_state.ready.lock().unwrap().len(),
+            epoll_state.ready.items.lock().unwrap().len(),
             1,
             "multiple pushes while enqueued must keep a single queue entry"
         );
         assert!(handler.has_interest(InterestType::Readable));
         assert!(handler.has_interest(InterestType::Writable));
 
-        epoll_state.ready.lock().unwrap().pop_front().unwrap();
-        sub_state.take_pending_bits();
-        sub_state.clear_enqueued();
+        epoll_state.ready.items.lock().unwrap().pop_front().unwrap();
+        sub_state.readiness.take_pending_bits();
+        sub_state.readiness.clear_enqueued();
 
         handler.push_interest(InterestType::Readable);
         assert_eq!(
-            epoll_state.ready.lock().unwrap().len(),
+            epoll_state.ready.items.lock().unwrap().len(),
             1,
             "after drain, a new event should enqueue again"
         );
@@ -827,10 +849,16 @@ mod tests {
         let sub_b = test_sub_state(11, 1);
         let readable_bit = epoll_type_to_pending_bit(EpollType::EPOLLIN).unwrap();
 
-        sub_a.pending_bits.store(readable_bit, Ordering::Release);
-        sub_a.enqueued.store(true, Ordering::Release);
-        sub_b.pending_bits.store(readable_bit, Ordering::Release);
-        sub_b.enqueued.store(true, Ordering::Release);
+        sub_a
+            .readiness
+            .pending_bits
+            .store(readable_bit, Ordering::Release);
+        sub_a.readiness.enqueued.store(true, Ordering::Release);
+        sub_b
+            .readiness
+            .pending_bits
+            .store(readable_bit, Ordering::Release);
+        sub_b.readiness.enqueued.store(true, Ordering::Release);
 
         epoll_state.insert_subscription(10, sub_a);
         epoll_state.insert_subscription(11, sub_b);
@@ -853,9 +881,10 @@ mod tests {
             1,
         ));
 
-        sub.pending_bits
+        sub.readiness
+            .pending_bits
             .store(READABLE_BIT | WRITABLE_BIT, Ordering::Release);
-        sub.enqueued.store(true, Ordering::Release);
+        sub.readiness.enqueued.store(true, Ordering::Release);
         epoll_state.insert_subscription(90, sub.clone());
         epoll_state.enqueue_ready(90, 1);
 
@@ -863,9 +892,9 @@ mod tests {
         assert_eq!(first.len(), 1);
         assert_eq!(first[0].0.fd(), 90);
         assert_eq!(first[0].1, EpollType::EPOLLIN | EpollType::EPOLLOUT);
-        assert_eq!(sub.pending_bits(), 0);
-        assert!(!sub.enqueued.load(Ordering::Acquire));
-        assert_eq!(epoll_state.ready.lock().unwrap().len(), 0);
+        assert_eq!(sub.readiness.pending_bits(), 0);
+        assert!(!sub.readiness.enqueued.load(Ordering::Acquire));
+        assert_eq!(epoll_state.ready.items.lock().unwrap().len(), 0);
     }
 
     #[test]
@@ -874,8 +903,10 @@ mod tests {
 
         let sub = test_sub_state(22, 2);
         let readable_bit = epoll_type_to_pending_bit(EpollType::EPOLLIN).unwrap();
-        sub.pending_bits.store(readable_bit, Ordering::Release);
-        sub.enqueued.store(true, Ordering::Release);
+        sub.readiness
+            .pending_bits
+            .store(readable_bit, Ordering::Release);
+        sub.readiness.enqueued.store(true, Ordering::Release);
 
         epoll_state.insert_subscription(22, sub.clone());
         epoll_state.enqueue_ready(22, 1);
@@ -886,7 +917,7 @@ mod tests {
             "stale generation items must not emit events"
         );
         assert_eq!(
-            sub.pending_bits.load(Ordering::Acquire),
+            sub.readiness.pending_bits.load(Ordering::Acquire),
             readable_bit,
             "stale dequeue must not clear pending bits for current generation"
         );
@@ -897,14 +928,50 @@ mod tests {
         let epoll_state = Arc::new(EpollState::new());
         let sub = test_sub_state(44, 3);
         let writable_bit = epoll_type_to_pending_bit(EpollType::EPOLLOUT).unwrap();
-        sub.pending_bits.store(writable_bit, Ordering::Release);
-        sub.enqueued.store(false, Ordering::Release);
+        sub.readiness
+            .pending_bits
+            .store(writable_bit, Ordering::Release);
+        sub.readiness.enqueued.store(false, Ordering::Release);
 
         repair_ready_queue_after_drain(&epoll_state, 44, &sub);
 
-        assert!(sub.enqueued.load(Ordering::Acquire));
-        let queued = epoll_state.ready.lock().unwrap().pop_front().unwrap();
+        assert!(sub.readiness.enqueued.load(Ordering::Acquire));
+        let queued = epoll_state.ready.items.lock().unwrap().pop_front().unwrap();
         assert_eq!(queued.fd, 44);
+    }
+
+    #[test]
+    fn closing_epoll_releases_watched_pipe_without_explicit_del() {
+        let (epoll_state, sub, handler) = test_epoll_handler(55);
+        epoll_state.insert_subscription(55, sub.clone());
+        let weak_epoll = Arc::downgrade(&epoll_state);
+        let weak_sub = Arc::downgrade(&sub);
+        let (_tx, rx) = Pipe::new().split();
+        let rx = Arc::new(RwLock::new(Box::new(rx)));
+        let weak_rx = Arc::downgrade(&rx);
+        rx.read().unwrap().set_interest_handler(handler);
+        sub.add_join(EpollJoinGuard::new(InodeValFilePollGuard {
+            fd: 55,
+            peb: PollEventBuilder::new().build(),
+            subscription: Subscription {
+                userdata: 0,
+                type_: Eventtype::FdRead,
+                data: SubscriptionUnion {
+                    fd_readwrite: SubscriptionFsReadwrite {
+                        file_descriptor: 55,
+                    },
+                },
+            },
+            mode: InodeValFilePollGuardMode::PipeRx { rx },
+        }));
+        drop(sub);
+        drop(epoll_state);
+        assert!(weak_epoll.upgrade().is_none(), "handler retained epoll");
+        assert!(
+            weak_sub.upgrade().is_none(),
+            "handler retained subscription"
+        );
+        assert!(weak_rx.upgrade().is_none(), "epoll retained watched pipe");
     }
 
     #[test]

@@ -48,16 +48,25 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
 
             let view = unsafe { ctx.data().memory_view(&ctx) };
             let status = match status {
-                JoinStatusResult::Nothing => JoinStatus {
-                    tag: JoinStatusType::Nothing,
-                    u: JoinStatusUnion { nothing: 0 },
-                },
+                JoinStatusResult::Nothing => {
+                    wasi_try_mem_ok!(pid_ptr.write(
+                        &view,
+                        OptionPid {
+                            tag: OptionTag::Some,
+                            pid: 0,
+                        }
+                    ));
+                    JoinStatus {
+                        tag: JoinStatusType::Nothing,
+                        u: JoinStatusUnion { nothing: 0 },
+                    }
+                }
                 JoinStatusResult::ExitNormal(pid, exit_code) => {
                     let option_pid = OptionPid {
                         tag: OptionTag::Some,
                         pid: pid.raw() as Pid,
                     };
-                    pid_ptr.write(&view, option_pid).ok();
+                    wasi_try_mem_ok!(pid_ptr.write(&view, option_pid));
 
                     JoinStatus {
                         tag: JoinStatusType::ExitNormal,
@@ -116,7 +125,18 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     // If the ID is maximum then it means wait for any of the children
     let pid = match option_pid {
         None => {
-            let mut process = ctx.data_mut().process.clone();
+            let process = ctx.data().process.clone();
+
+            if flags.contains(JoinFlags::NON_BLOCKING) {
+                let result = match process.try_reap_child(None) {
+                    Ok(Some((pid, status))) => {
+                        JoinStatusResult::ExitNormal(pid, WasiProcess::child_exit_code(status))
+                    }
+                    Ok(None) => JoinStatusResult::Nothing,
+                    Err(error) => JoinStatusResult::Err(error),
+                };
+                return ret_result(ctx, result);
+            }
 
             // We wait for any process to exit (if it takes too long
             // then we go into a deep sleep)
@@ -148,59 +168,30 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
 
     // Otherwise we wait for the specific PID
     let pid: WasiProcessId = pid.into();
+    let process = ctx.data().process.clone();
 
-    // Waiting for a process that is an explicit child will join it
-    // meaning it will no longer be a sub-process of the main process
-    let mut process = {
-        let mut inner = ctx.data().process.lock();
-        let process = inner
-            .children
-            .iter()
-            .filter(|c| c.pid == pid)
-            .map(Clone::clone)
-            .next();
-        inner.children.retain(|c| c.pid != pid);
-        process
-    };
-
-    // Otherwise it could be the case that we are waiting for a process
-    // that is not a child of this process but may still be running
-    if process.is_none() {
-        process = ctx.data().control_plane.get_process(pid);
-    }
-
-    if let Some(process) = process {
-        // We can already set the process ID
-        wasi_try_mem_ok!(pid_ptr.write(
-            &memory,
-            OptionPid {
-                tag: OptionTag::Some,
-                pid: pid.raw(),
-            }
-        ));
-
-        if flags.contains(JoinFlags::NON_BLOCKING) {
-            if let Some(status) = process.try_join() {
-                let exit_code = status.unwrap_or_else(|_| Errno::Child.into());
-                ret_result(ctx, JoinStatusResult::ExitNormal(pid, exit_code))
-            } else {
-                ret_result(ctx, JoinStatusResult::Nothing)
-            }
-        } else {
-            // Wait for the process to finish
-            let process2 = process.clone();
-            let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
-                let exit_code = process.join().await.unwrap_or_else(|_| Errno::Child.into());
-                tracing::trace!(%exit_code, "triggered child join");
-                JoinStatusResult::ExitNormal(pid, exit_code)
-            })?;
-            match res {
-                AsyncifyAction::Finish(ctx, result) => ret_result(ctx, result),
-                AsyncifyAction::Unwind => Ok(Errno::Success),
-            }
+    if flags.contains(JoinFlags::NON_BLOCKING) {
+        match process.try_reap_child(Some(pid)) {
+            Ok(Some((pid, status))) => ret_result(
+                ctx,
+                JoinStatusResult::ExitNormal(pid, WasiProcess::child_exit_code(status)),
+            ),
+            Ok(None) => ret_result(ctx, JoinStatusResult::Nothing),
+            Err(error) => ret_result(ctx, JoinStatusResult::Err(error)),
         }
     } else {
-        trace!(ret_id = pid.raw(), "status=nothing");
-        ret_result(ctx, JoinStatusResult::Nothing)
+        let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
+            match process.join_child(pid).await {
+                Ok((pid, exit_code)) => {
+                    tracing::trace!(%exit_code, "triggered child join");
+                    JoinStatusResult::ExitNormal(pid, exit_code)
+                }
+                Err(error) => JoinStatusResult::Err(error),
+            }
+        })?;
+        match res {
+            AsyncifyAction::Finish(ctx, result) => ret_result(ctx, result),
+            AsyncifyAction::Unwind => Ok(Errno::Success),
+        }
     }
 }

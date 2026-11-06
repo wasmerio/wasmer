@@ -18,6 +18,20 @@ pub fn to_module_hash(value: webc::metadata::AtomSignature) -> wasmer_types::Mod
 pub trait PackageLoader: Send + Sync + Debug {
     async fn load(&self, summary: &PackageSummary) -> Result<Container, Error>;
 
+    /// Acquire an image with optional progress. Existing custom loaders can keep
+    /// their buffered implementation; they need not invent intermediate counts.
+    async fn load_with_progress(
+        &self,
+        summary: &PackageSummary,
+        _observer: Option<super::PackageDownloadObserver>,
+    ) -> Result<Container, Error> {
+        self.load(summary).await
+    }
+
+    /// Reports the acquisition graph once resolution has completed. The root is
+    /// absent when its container was supplied locally.
+    fn resolved(&self, _root: Option<&PackageSummary>, _resolution: &Resolution) {}
+
     /// Load a resolved package into memory so it can be executed.
     ///
     /// A good default implementation is to just call
@@ -38,6 +52,18 @@ where
 {
     async fn load(&self, summary: &PackageSummary) -> Result<Container, Error> {
         (**self).load(summary).await
+    }
+
+    async fn load_with_progress(
+        &self,
+        summary: &PackageSummary,
+        observer: Option<super::PackageDownloadObserver>,
+    ) -> Result<Container, Error> {
+        (**self).load_with_progress(summary, observer).await
+    }
+
+    fn resolved(&self, root: Option<&PackageSummary>, resolution: &Resolution) {
+        (**self).resolved(root, resolution);
     }
 
     async fn load_package_tree(

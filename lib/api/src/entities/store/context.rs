@@ -63,11 +63,11 @@ enum StoreContextEntry {
 }
 
 impl StoreContextEntry {
-    fn as_ptr(&self) -> *mut StoreInner {
+    fn as_ptr(&mut self) -> *mut StoreInner {
         match self {
             Self::Sync(ptr) => *ptr,
             #[cfg(feature = "experimental-async")]
-            Self::Async(guard) => &***guard as *const _ as *mut _,
+            Self::Async(guard) => Box::as_mut_ptr(&mut **guard),
         }
     }
 }
@@ -85,6 +85,8 @@ pub(crate) struct StoreContext {
     // keep track of how many borrows there are so we don't drop
     // it prematurely.
     borrow_count: u32,
+    // The borrow lent by a parked async host frame, while its write guard stays installed.
+    lent_ptr: Option<*mut StoreInner>,
     entry: UnsafeCell<StoreContextEntry>,
 }
 
@@ -101,6 +103,7 @@ pub(crate) struct StorePtrPauseGuard {
     store_id: StoreId,
     ptr: *mut StoreInner,
     ref_count_decremented: bool,
+    previous_lent_ptr: Option<*mut StoreInner>,
 }
 
 #[cfg(feature = "experimental-async")]
@@ -125,6 +128,11 @@ thread_local! {
 }
 
 impl StoreContext {
+    fn store_ptr(&self) -> *mut StoreInner {
+        self.lent_ptr
+            .unwrap_or_else(|| unsafe { self.entry.get().as_mut().unwrap().as_ptr() })
+    }
+
     fn is_active(id: StoreId) -> bool {
         STORE_CONTEXT_STACK.with(|cell| {
             let stack = cell.borrow();
@@ -146,6 +154,7 @@ impl StoreContext {
             stack.push(Self {
                 id,
                 borrow_count: 0,
+                lent_ptr: None,
                 entry: UnsafeCell::new(entry),
             });
         })
@@ -158,6 +167,7 @@ impl StoreContext {
             stack.push(Self {
                 id,
                 borrow_count: 1,
+                lent_ptr: None,
                 entry: UnsafeCell::new(StoreContextEntry::Sync(store_ptr.as_ptr())),
             });
         });
@@ -200,7 +210,7 @@ impl StoreContext {
     }
 
     /// Whether the active entry is `id`'s, held by an async context.
-    fn active_is_async(id: StoreId) -> bool {
+    pub(super) fn active_is_async(id: StoreId) -> bool {
         STORE_CONTEXT_STACK.with(|cell| {
             let stack = cell.borrow();
             let Some(top) = stack.last() else {
@@ -253,7 +263,7 @@ impl StoreContext {
                 || STORE_CONTEXT_STACK.with(|cell| {
                     let stack = cell.borrow();
                     let active =
-                        unsafe { stack.last().unwrap().entry.get().as_ref().unwrap().as_ptr() };
+                        unsafe { stack.last().unwrap().entry.get().as_mut().unwrap().as_ptr() };
                     active == store_ptr
                 }),
             "Store context pointer mismatch"
@@ -273,6 +283,8 @@ impl StoreContext {
     /// Code must ensure it does not use the StorePtrWrapper or
     /// StoreAsyncGuardWrapper that it owns, or any StoreRef/StoreMut
     /// derived from them, while the store context is paused.
+    /// If supplied, `lent_ptr` must derive from that live, inaccessible borrow
+    /// and remain valid until the pause guard is dropped.
     ///
     /// The safe, correct use-case for this method is to
     /// pause the store context while executing WASM code, which
@@ -284,7 +296,10 @@ impl StoreContext {
     /// However, since the imported function passes a mutable borrow
     /// of its store into `Function::call`, it will expect the store
     /// to change before the call returns.
-    pub(crate) unsafe fn pause(id: StoreId) -> StorePtrPauseGuard {
+    pub(crate) unsafe fn pause(
+        id: StoreId,
+        lent_ptr: Option<*mut StoreInner>,
+    ) -> StorePtrPauseGuard {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack
@@ -297,10 +312,15 @@ impl StoreContext {
             } else {
                 false
             };
+            let previous_lent_ptr = top.lent_ptr;
+            if let Some(ptr) = lent_ptr {
+                top.lent_ptr = Some(ptr);
+            }
             StorePtrPauseGuard {
                 store_id: id,
-                ptr: unsafe { top.entry.get().as_ref().unwrap().as_ptr() },
+                ptr: top.store_ptr(),
                 ref_count_decremented,
+                previous_lent_ptr,
             }
         })
     }
@@ -311,9 +331,10 @@ impl StoreContext {
     /// A non-zero borrow count means some frame further up still holds a
     /// `StoreMut` it can reach, so handing out a second one would alias it;
     /// the caller gets `None` instead. A frame that has lent its borrow out
-    /// ([`StoreMut::parked`]) installed an entry of its own, whose count is
-    /// zero until somebody takes it — which is how an imported function lends
-    /// its store to code it calls into.
+    /// ([`StoreMut::parked`]) installed an entry of its own, or paused its
+    /// async entry's borrow with its own pointer. Its count is zero until
+    /// somebody takes it — which is how an imported function lends its store
+    /// to code it calls into.
     pub(crate) fn try_get_current_unborrowed() -> Option<StorePtrWrapper> {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
@@ -323,7 +344,7 @@ impl StoreContext {
             }
             top.borrow_count += 1;
             Some(StorePtrWrapper {
-                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                store_ptr: top.store_ptr(),
             })
         })
     }
@@ -345,7 +366,7 @@ impl StoreContext {
             assert_eq!(top.id, id, "Mismatched store context access");
             top.borrow_count += 1;
             StorePtrWrapper {
-                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                store_ptr: top.store_ptr(),
             }
         })
     }
@@ -362,7 +383,7 @@ impl StoreContext {
                 .last_mut()
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, id, "Mismatched store context access");
-            unsafe { top.entry.get().as_mut().unwrap().as_ptr() }
+            top.store_ptr()
         })
     }
 
@@ -376,7 +397,7 @@ impl StoreContext {
             }
             top.borrow_count += 1;
             Some(StorePtrWrapper {
-                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                store_ptr: top.store_ptr(),
             })
         })
     }
@@ -581,20 +602,24 @@ impl Drop for ForcedStoreInstallGuard {
 
 impl Drop for StorePtrPauseGuard {
     fn drop(&mut self) {
-        if std::thread::panicking() {
-            return;
-        }
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
+            // A parked lend can end by unwinding while the import catches the
+            // panic and keeps using its borrow. Restore that borrow whenever
+            // its context is still installed; traps may already have removed it.
+            if std::thread::panicking()
+                && !stack
+                    .last()
+                    .is_some_and(|top| top.id == self.store_id && top.store_ptr() == self.ptr)
+            {
+                return;
+            }
             let top = stack
                 .last_mut()
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, self.store_id, "Mismatched store context access");
-            assert_eq!(
-                unsafe { top.entry.get().as_ref().unwrap() }.as_ptr(),
-                self.ptr,
-                "Mismatched store context access"
-            );
+            assert_eq!(top.store_ptr(), self.ptr, "Mismatched store context access");
+            top.lent_ptr = self.previous_lent_ptr;
             if self.ref_count_decremented {
                 top.borrow_count += 1;
             }
@@ -653,7 +678,7 @@ mod borrow_provenance {
             // --- the shim calls back into the guest
             let inner_install =
                 unsafe { StoreContext::install(shim.as_store_mut().inner as *mut _) };
-            let pause = unsafe { StoreContext::pause(id) };
+            let pause = unsafe { StoreContext::pause(id, None) };
 
             // --- the inner import trampoline
             let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
@@ -700,5 +725,46 @@ mod borrow_provenance {
 
         drop(wrapper);
         drop(install);
+    }
+
+    #[cfg(feature = "experimental-async")]
+    #[test]
+    fn an_async_lend_releases_and_restores_the_import_borrow() {
+        let store = Store::default().into_async();
+        let id = store.id;
+        let install = StoreContext::install_async(store.inner.try_write().unwrap());
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let mut shim = wrapper.as_mut();
+        assert!(Store::with_current(|_| ()).is_none());
+
+        shim.parked(|| {
+            Store::with_current(|lent| {
+                assert_eq!(lent.objects_mut().id(), id);
+                assert!(Store::with_current(|_| ()).is_none());
+                lent.parked(|| {
+                    assert_eq!(
+                        Store::with_current(|inner| inner.objects_mut().id()),
+                        Some(id)
+                    );
+                });
+                assert!(Store::with_current(|_| ()).is_none());
+            })
+            .expect("an async import must lend its parked store");
+        });
+        assert!(Store::with_current(|_| ()).is_none());
+
+        let unwound = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            shim.parked(|| panic!("end the lend by unwinding"));
+        }));
+        assert!(unwound.is_err());
+        assert!(Store::with_current(|_| ()).is_none());
+        assert_eq!(shim.objects_mut().id(), id);
+        drop(wrapper);
+        assert_eq!(
+            Store::with_current(|lent| lent.objects_mut().id()),
+            Some(id)
+        );
+        drop(install);
+        assert!(store.into_store().is_ok());
     }
 }
