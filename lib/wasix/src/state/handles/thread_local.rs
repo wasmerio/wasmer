@@ -103,7 +103,7 @@ impl WasiInstanceHandlesPointer {
                 THREAD_LOCAL_INSTANCE_HANDLES.with(|map| {
                     let map = map.borrow_mut();
                     if let Some(inner) = map.get(&id) {
-                        let borrow: RefMut<WasiModuleTreeHandles> = inner.borrow_mut();
+                        let borrow: RefMut<WasiModuleTreeHandles> = inner.try_borrow_mut().ok()?;
                         let borrow: RefMut<'static, WasiModuleTreeHandles> =
                             unsafe { std::mem::transmute(borrow) };
                         Some(WasiInstanceGuardMut {
@@ -138,8 +138,9 @@ impl WasiInstanceHandlesPointer {
     }
     fn destroy(id: u64) {
         THREAD_LOCAL_INSTANCE_HANDLES.with(|map| {
-            let mut map = map.borrow_mut();
-            map.remove(&id);
+            if let Ok(mut map) = map.try_borrow_mut() {
+                map.remove(&id);
+            }
         })
     }
 }

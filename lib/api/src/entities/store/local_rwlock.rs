@@ -13,12 +13,16 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::task::{Context, Poll, Waker};
 
 /// The main lock type.
 pub struct LocalRwLock<T> {
     inner: Rc<LocalRwLockInner<T>>,
+}
+
+pub struct LocalRwLockWeak<T> {
+    inner: Weak<LocalRwLockInner<T>>,
 }
 
 struct LocalRwLockInner<T> {
@@ -68,6 +72,12 @@ impl<T> LocalRwLock<T> {
         }
     }
 
+    pub fn downgrade(&self) -> LocalRwLockWeak<T> {
+        LocalRwLockWeak {
+            inner: Rc::downgrade(&self.inner),
+        }
+    }
+
     /// Attempts to acquire a read lock with a `'static` lifetime without waiting.
     pub fn try_read(&self) -> Option<LocalRwLockReadGuard<T>> {
         if self.inner.try_read() {
@@ -103,6 +113,22 @@ impl<T> LocalRwLock<T> {
             }
         } else {
             Err(self)
+        }
+    }
+}
+
+impl<T> LocalRwLockWeak<T> {
+    pub fn upgrade(&self) -> Option<LocalRwLock<T>> {
+        Some(LocalRwLock {
+            inner: self.inner.upgrade()?,
+        })
+    }
+}
+
+impl<T> Clone for LocalRwLockWeak<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
         }
     }
 }

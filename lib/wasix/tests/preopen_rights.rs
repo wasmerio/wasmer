@@ -37,6 +37,7 @@ const GUEST: &str = r#"
   (import "wasi_snapshot_preview1" "path_link" (func $path_link (param i32 i32 i32 i32 i32 i32 i32) (result i32)))
   (import "wasi_snapshot_preview1" "path_filestat_get" (func $path_filestat_get (param i32 i32 i32 i32 i32) (result i32)))
   (import "wasi_snapshot_preview1" "path_filestat_set_times" (func $path_filestat_set_times (param i32 i32 i32 i32 i64 i64 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "fd_filestat_set_times" (func $fd_filestat_set_times (param i32 i64 i64 i32) (result i32)))
   (import "wasi_snapshot_preview1" "path_readlink" (func $path_readlink (param i32 i32 i32 i32 i32 i32) (result i32)))
   (memory (export "memory") 1)
   (export "fd_prestat_get" (func $fd_prestat_get))
@@ -52,6 +53,7 @@ const GUEST: &str = r#"
   (export "path_link" (func $path_link))
   (export "path_filestat_get" (func $path_filestat_get))
   (export "path_filestat_set_times" (func $path_filestat_set_times))
+  (export "fd_filestat_set_times" (func $fd_filestat_set_times))
   (export "path_readlink" (func $path_readlink))
 )
 "#;
@@ -298,6 +300,18 @@ impl Guest {
                 Value::I32(PATH_A as i32),
                 Value::I32(len),
                 Value::I32(BUF as i32),
+            ],
+        )
+    }
+
+    fn fd_filestat_set_mtime(&mut self, fd: i32, mtime_ns: u64) -> Errno {
+        self.call(
+            "fd_filestat_set_times",
+            &[
+                Value::I32(fd),
+                Value::I64(0i64),
+                Value::I64(mtime_ns as i64),
+                Value::I32(Fstflags::SET_MTIM.bits() as i32),
             ],
         )
     }
@@ -709,4 +723,77 @@ fn permitted_operations_succeed() {
 
     assert_eq!(guest.path_filestat_get(output, "hard"), Errno::Success);
     assert!(!guest.host("output/new.txt").exists());
+}
+
+/// The virtual root holds the preopens; it is not the backing filesystem's
+/// `/`. Setting its times, however the guest reaches it, leaves the host
+/// directory behind it alone: the guest may not have been given that
+/// directory at all, or only to read.
+#[test]
+fn the_virtual_root_s_times_stay_off_the_backing_root() {
+    use std::time::{Duration, UNIX_EPOCH};
+    const T: u64 = 1_000_000_000_000_000_000;
+    let set_to_t = |path: &std::path::Path| {
+        std::fs::metadata(path).unwrap().modified().unwrap() == UNIX_EPOCH + Duration::from_nanos(T)
+    };
+
+    // Only subdirectories of the backing root are preopened.
+    for reach in ["3 /", "3 .", "output ..", "output /", "fd 3"] {
+        let mut guest = Guest::new();
+        let output = guest.preopen("output");
+        let errno = match reach {
+            "3 /" => guest.path_filestat_set_mtime(VIRTUAL_ROOT_FD, "/", T),
+            "3 ." => guest.path_filestat_set_mtime(VIRTUAL_ROOT_FD, ".", T),
+            "output .." => guest.path_filestat_set_mtime(output, "..", T),
+            "output /" => guest.path_filestat_set_mtime(output, "/", T),
+            _ => guest.fd_filestat_set_mtime(VIRTUAL_ROOT_FD, T),
+        };
+        assert!(
+            !set_to_t(guest.root.path()),
+            "{reach}: the backing root's times changed ({errno:?})"
+        );
+    }
+
+    // The backing root is a read-only preopen, with an alias or as `/`.
+    for alias in [Some("ro"), None] {
+        for reach in ["3 .", "3 /", "fd 3", "ro ."] {
+            let mut guest = Guest::with_preopens(|builder| {
+                builder
+                    .preopen_build(|p| {
+                        let p = p.directory("/").read(true);
+                        if let Some(alias) = alias {
+                            p.alias(alias)
+                        } else {
+                            p
+                        }
+                    })
+                    .unwrap()
+            });
+            // The one preopen comes after the virtual root, which also goes
+            // by `/`.
+            let ro = alias.map_or(VIRTUAL_ROOT_FD + 1, |alias| guest.preopen(alias));
+            let errno = match reach {
+                "3 ." => guest.path_filestat_set_mtime(VIRTUAL_ROOT_FD, ".", T),
+                "3 /" => guest.path_filestat_set_mtime(VIRTUAL_ROOT_FD, "/", T),
+                "fd 3" => guest.fd_filestat_set_mtime(VIRTUAL_ROOT_FD, T),
+                _ => guest.path_filestat_set_mtime(ro, ".", T),
+            };
+            assert!(
+                !set_to_t(guest.root.path()),
+                "{alias:?} {reach}: the read-only root's times changed ({errno:?})"
+            );
+            if reach == "ro ." {
+                assert_eq!(errno, Errno::Access, "{alias:?}: fd {ro}");
+            }
+        }
+    }
+
+    // A preopen the guest may write still has its times set on the host.
+    let mut guest = Guest::new();
+    let output = guest.preopen("output");
+    assert_eq!(
+        guest.path_filestat_set_mtime(output, ".", T),
+        Errno::Success
+    );
+    assert!(set_to_t(&guest.host("output")));
 }

@@ -397,6 +397,7 @@ impl crate::FileOpener for FileSystem {
         };
 
         let cursor = 0u64;
+        let mut arc_file = None;
         let (inode_of_file, handle_lifecycle) = match maybe_inode_of_file {
             // The file already exists, and a _new_ one _must_ be
             // created; it's not OK.
@@ -488,6 +489,9 @@ impl crate::FileOpener for FileSystem {
                             node.metadata.len = 0;
                         }
 
+                        // Keep the descriptor opened above: subsequent metadata
+                        // operations must refer to this file, even after rename/unlink.
+                        arc_file = Some(file);
                         node.lifecycle.clone()
                     }
 
@@ -567,15 +571,18 @@ impl crate::FileOpener for FileSystem {
         #[cfg(test)]
         test_file_opener::run_open_before_handle_hook();
 
-        Ok(Box::new(FileHandle::new_opened(
-            inode_of_file,
-            self.clone(),
-            handle_lifecycle,
-            read,
-            write || append || truncate,
-            append,
-            cursor,
-        )))
+        Ok(Box::new(
+            FileHandle::new_opened(
+                inode_of_file,
+                self.clone(),
+                handle_lifecycle,
+                read,
+                write || append || truncate,
+                append,
+                cursor,
+            )
+            .with_arc_file(arc_file),
+        ))
     }
 }
 

@@ -21,7 +21,9 @@ use crate::{
     bin_factory::BinaryPackage,
     http::{HttpClient, HttpRequest, USER_AGENT},
     runtime::{
-        package_loader::PackageLoader,
+        package_loader::{
+            PackageDownloadObserver, PackageDownloadPhase, PackageDownloadProgress, PackageLoader,
+        },
         resolver::{DistributionInfo, PackageSummary, Resolution, WebcHash},
     },
 };
@@ -269,7 +271,11 @@ impl BuiltinPackageLoader {
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(%dist.webc, %dist.webc_sha256))]
-    async fn download(&self, dist: &DistributionInfo) -> Result<Bytes, Error> {
+    async fn download(
+        &self,
+        dist: &DistributionInfo,
+        observer: Option<PackageDownloadObserver>,
+    ) -> Result<(Bytes, bool), Error> {
         if dist.webc.scheme() == "file" {
             match crate::runtime::resolver::utils::file_path_from_url(&dist.webc) {
                 Ok(path) => {
@@ -284,7 +290,7 @@ impl BuiltinPackageLoader {
 
                     Self::validate_hash(&bytes, self.hash_validation, dist).await?;
 
-                    return Ok(bytes);
+                    return Ok((bytes, false));
                 }
                 Err(e) => {
                     tracing::debug!(
@@ -307,7 +313,34 @@ impl BuiltinPackageLoader {
         tracing::debug!(%request.url, %request.method, "webc_package_download_start");
         tracing::trace!(?request.headers);
 
-        let response = self.client.request(request).await?;
+        let response = if let Some(observer) = observer.clone() {
+            observer(PackageDownloadProgress {
+                phase: PackageDownloadPhase::Downloading,
+                downloaded_bytes: 0,
+                total_bytes: dist.webc_size,
+                cached: false,
+            });
+            let expected = dist.webc_size;
+            self.client
+                .request_with_progress(
+                    request,
+                    Arc::new(move |received, total, cached| {
+                        observer(PackageDownloadProgress {
+                            phase: PackageDownloadPhase::Downloading,
+                            downloaded_bytes: received,
+                            total_bytes: if cached {
+                                Some(0)
+                            } else {
+                                expected.or(total).filter(|total| *total >= received)
+                            },
+                            cached,
+                        });
+                    }),
+                )
+                .await?
+        } else {
+            self.client.request(request).await?
+        };
 
         tracing::trace!(
             %response.status,
@@ -327,6 +360,10 @@ impl BuiltinPackageLoader {
             );
         }
 
+        let cached = response
+            .headers
+            .get("x-wasmer-package-cache")
+            .is_some_and(|v| v == "hit");
         let body = response.body.context("package download failed")?;
         let body = Self::decode_response_body(&response.headers, body)
             .context("package download failed: could not decode response body")?;
@@ -334,9 +371,17 @@ impl BuiltinPackageLoader {
 
         let body = bytes::Bytes::from(body);
 
+        if let Some(observer) = observer {
+            observer(PackageDownloadProgress {
+                phase: PackageDownloadPhase::Loading,
+                downloaded_bytes: if cached { 0 } else { body.len() as u64 },
+                total_bytes: Some(if cached { 0 } else { body.len() as u64 }),
+                cached,
+            });
+        }
         Self::validate_hash(&body, self.hash_validation, dist).await?;
 
-        Ok(body)
+        Ok((body, cached))
     }
 
     fn headers(&self, url: &Url) -> HeaderMap {
@@ -446,17 +491,47 @@ impl PackageLoader for BuiltinPackageLoader {
         ),
     )]
     async fn load(&self, summary: &PackageSummary) -> Result<Container, Error> {
+        self.load_with_progress(summary, None).await
+    }
+
+    async fn load_with_progress(
+        &self,
+        summary: &PackageSummary,
+        observer: Option<PackageDownloadObserver>,
+    ) -> Result<Container, Error> {
         if let Some(container) = self.get_cached(&summary.dist.webc_sha256).await? {
-            tracing::debug!("Cache hit!");
+            if let Some(observer) = observer {
+                observer(PackageDownloadProgress {
+                    phase: PackageDownloadPhase::Ready,
+                    downloaded_bytes: 0,
+                    total_bytes: Some(0),
+                    cached: true,
+                });
+            }
             return Ok(container);
         }
 
         // looks like we had a cache miss and need to download it manually
-        let bytes = self
-            .download(&summary.dist)
+        let (bytes, cached) = self
+            .download(&summary.dist, observer.clone())
             .await
             .with_context(|| format!("Unable to download \"{}\"", summary.dist.webc))?;
 
+        let downloaded_bytes = if cached || summary.dist.webc.scheme() == "file" {
+            0
+        } else {
+            bytes.len() as u64
+        };
+        let ready = || {
+            if let Some(observer) = &observer {
+                observer(PackageDownloadProgress {
+                    phase: PackageDownloadPhase::Ready,
+                    downloaded_bytes,
+                    total_bytes: Some(downloaded_bytes),
+                    cached,
+                });
+            }
+        };
         // We want to cache the container we downloaded, but we want to do it
         // in a smart way to keep memory usage down.
 
@@ -469,6 +544,7 @@ impl PackageLoader for BuiltinPackageLoader {
                     }
                     // The happy path - we've saved to both caches and loaded the
                     // container from disk (hopefully using mmap) so we're done.
+                    ready();
                     return Ok(container);
                 }
                 Err(e) => {
@@ -490,6 +566,7 @@ impl PackageLoader for BuiltinPackageLoader {
             // We still want to cache it in memory, of course
             in_memory.save(&container, summary.dist.webc_sha256);
         }
+        ready();
         Ok(container)
     }
 
@@ -887,6 +964,7 @@ mod tests {
                 filesystem: Vec::new(),
             },
             dist: DistributionInfo {
+                webc_size: None,
                 webc: "https://wasmer.io/python/python".parse().unwrap(),
                 webc_sha256: [0xaa; 32].into(),
             },
@@ -956,6 +1034,7 @@ mod tests {
                 filesystem: Vec::new(),
             },
             dist: DistributionInfo {
+                webc_size: None,
                 webc: "https://wasmer.io/python/python".parse().unwrap(),
                 webc_sha256: [0xbb; 32].into(),
             },
@@ -1199,6 +1278,7 @@ mod tests {
             .save_impl(
                 Bytes::from_static(b"test1"),
                 &DistributionInfo {
+                    webc_size: None,
                     webc: Url::parse("file:///test1.webc").unwrap(),
                     webc_sha256: WebcHash::sha256(b"test1"),
                 },
@@ -1209,6 +1289,7 @@ mod tests {
             .save_impl(
                 Bytes::from_static(b"test2"),
                 &DistributionInfo {
+                    webc_size: None,
                     webc: Url::parse("file:///test2.webc").unwrap(),
                     webc_sha256: WebcHash::sha256(b"test2"),
                 },
