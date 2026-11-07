@@ -270,41 +270,9 @@ async fn read_response(
     let cached = headers
         .get("x-wasmer-package-cache")
         .is_some_and(|v| v == "hit");
-    let body = if let Some(progress) = progress {
-        if let Some(body) = response.body() {
-            let reader: web_sys::ReadableStreamDefaultReader = body.get_reader().unchecked_into();
-            // Cross-origin responses can hide Content-Encoding. The registry's
-            // decoded size is supplied by the package loader; do not assume a
-            // visible Content-Length describes Fetch's decoded chunks.
-            let mut bytes = Vec::new();
-            loop {
-                let next = JsFuture::from(reader.read()).await.map_err(js_error)?;
-                if js_sys::Reflect::get(&next, &"done".into())
-                    .map_err(js_error)?
-                    .as_bool()
-                    == Some(true)
-                {
-                    break;
-                }
-                let chunk = js_sys::Uint8Array::new(
-                    &js_sys::Reflect::get(&next, &"value".into()).map_err(js_error)?,
-                );
-                let start = bytes.len();
-                bytes.resize(start + chunk.length() as usize, 0);
-                chunk.copy_to(&mut bytes[start..]);
-                progress(
-                    if cached { 0 } else { bytes.len() as u64 },
-                    cached.then_some(0),
-                    cached,
-                );
-            }
-            reader.release_lock();
-            bytes
-        } else {
-            get_response_data(response).await?
-        }
-    } else {
-        get_response_data(response).await?
+    let body = match response.body() {
+        Some(body) => read_body(body, content_length(response), cached, progress.as_ref()).await?,
+        None => Vec::new(),
     };
 
     Ok(HttpResponse {
@@ -313,6 +281,97 @@ async fn read_response(
         status,
         headers,
     })
+}
+
+/// Read a response body chunk by chunk into one buffer.
+///
+/// Bodies such as package images are tens of megabytes. `arrayBuffer()` would
+/// also hold the whole body in a JavaScript buffer, and a buffer grown by
+/// doubling reaches up to twice the body size. Large freed blocks like these
+/// stay committed in the host and Wasm allocators long after the download.
+async fn read_body(
+    body: web_sys::ReadableStream,
+    size_hint: Option<usize>,
+    cached: bool,
+    progress: Option<&HttpDownloadObserver>,
+) -> Result<Vec<u8>, anyhow::Error> {
+    let reader: web_sys::ReadableStreamDefaultReader = body.get_reader().unchecked_into();
+    let mut bytes = Vec::new();
+    if let Some(size) = size_hint {
+        // Only a hint: an absurd length must not abort, and growth still works.
+        let _ = bytes.try_reserve_exact(size.min(MAX_BODY_PRESIZE));
+    }
+    loop {
+        let next = JsFuture::from(reader.read()).await.map_err(js_error)?;
+        if js_sys::Reflect::get(&next, &"done".into())
+            .map_err(js_error)?
+            .as_bool()
+            == Some(true)
+        {
+            break;
+        }
+        // Fetch yields Uint8Array chunks: use them in place. Passing one to
+        // `Uint8Array::new` would copy it.
+        let chunk = js_sys::Reflect::get(&next, &"value".into())
+            .map_err(js_error)?
+            .dyn_into::<js_sys::Uint8Array>()
+            .unwrap_or_else(|value| js_sys::Uint8Array::new(&value));
+        let start = bytes.len();
+        let needed = start + chunk.length() as usize;
+        if needed > bytes.capacity() {
+            bytes.reserve_exact(grown_capacity(bytes.capacity(), needed, size_hint) - start);
+        }
+        bytes.resize(needed, 0);
+        chunk.copy_to(&mut bytes[start..]);
+        if let Some(progress) = progress {
+            progress(
+                if cached { 0 } else { bytes.len() as u64 },
+                cached.then_some(0),
+                cached,
+            );
+        }
+    }
+    reader.release_lock();
+    // Callers keep the body, often as `Bytes`, which retains spare capacity.
+    bytes.shrink_to_fit();
+    Ok(bytes)
+}
+
+/// The most a body's `Content-Length` may reserve before the body arrives.
+///
+/// The header is untrusted and Wasm memory never shrinks, so a larger hint
+/// must not grow memory by itself. A larger body grows as its data passes the
+/// limit. If the hint is accurate and at most twice the limit, it grows just
+/// once, straight to its exact size.
+const MAX_BODY_PRESIZE: usize = 64 * 1024 * 1024;
+
+/// The capacity a body buffer of `capacity` grows to so it can hold `needed`
+/// bytes.
+///
+/// Like `Vec`'s own growth, it at most doubles, so a size hint beyond
+/// [`MAX_BODY_PRESIZE`] reserves memory only as fast as the body arrives. It
+/// stops at the hint while the hint still covers the body, so an accurate
+/// length above the limit still ends in an exactly sized buffer.
+fn grown_capacity(capacity: usize, needed: usize, size_hint: Option<usize>) -> usize {
+    let doubled = needed.max(capacity.saturating_mul(2));
+    match size_hint {
+        Some(hint) if hint >= needed => doubled.min(hint),
+        _ => doubled,
+    }
+}
+
+/// The visible `Content-Length`, used only to size the body buffer: Fetch
+/// decodes compressed bodies, and cross-origin responses can hide
+/// `Content-Encoding`, so it may not be the decoded size.
+fn content_length(response: &web_sys::Response) -> Option<usize> {
+    response
+        .headers()
+        .get("content-length")
+        .ok()
+        .flatten()?
+        .trim()
+        .parse()
+        .ok()
 }
 
 fn headers(headers: web_sys::Headers) -> Result<http::HeaderMap, anyhow::Error> {
@@ -365,17 +424,6 @@ where
     })
 }
 
-pub async fn get_response_data(resp: &web_sys::Response) -> Result<Vec<u8>, anyhow::Error> {
-    let buffer = JsFuture::from(resp.array_buffer().unwrap())
-        .await
-        .map_err(js_error)
-        .with_context(|| "Could not retrieve response body".to_string())?;
-
-    let buffer = js_sys::Uint8Array::new(&buffer);
-
-    Ok(buffer.to_vec())
-}
-
 fn call_fetch(request: &web_sys::Request) -> JsFuture {
     let global = js_sys::global();
     if JsValue::from_str("WorkerGlobalScope").js_in(&global)
@@ -418,6 +466,32 @@ mod tests {
         let wire_headers = web_sys::Headers::new().unwrap();
         wire_headers.set("content-length", "123").unwrap();
         assert!(headers(wire_headers).unwrap().is_empty());
+    }
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn body_growth_follows_the_data_not_the_hint() {
+        const MIB: usize = 1024 * 1024;
+        // Without a hint, the buffer doubles like a `Vec`.
+        assert_eq!(grown_capacity(0, 10, None), 10);
+        assert_eq!(grown_capacity(10, 11, None), 20);
+        assert_eq!(grown_capacity(10, 50, None), 50);
+        // A hint caps growth while the body still fits in it...
+        assert_eq!(grown_capacity(10, 11, Some(15)), 15);
+        assert_eq!(grown_capacity(10, 15, Some(15)), 15);
+        // ...but a hint the body has outgrown is ignored.
+        assert_eq!(grown_capacity(15, 16, Some(15)), 30);
+        // An accurate length above the presize limit ends exactly sized.
+        let length = 300 * MIB;
+        let mut capacity = MAX_BODY_PRESIZE;
+        while capacity < length {
+            capacity = grown_capacity(capacity, capacity + 1, Some(length));
+            assert!(capacity <= length);
+        }
+        assert_eq!(capacity, length);
+        // An exaggerated length never reserves more than twice the data.
+        let received = MAX_BODY_PRESIZE + 1;
+        let capacity = grown_capacity(MAX_BODY_PRESIZE, received, Some(usize::MAX));
+        assert!(capacity <= 2 * received);
     }
 
     #[wasm_bindgen_test::wasm_bindgen_test]
