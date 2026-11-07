@@ -216,7 +216,10 @@ async fn fetch(request: HttpRequest) -> Result<HttpResponse, Error> {
 async fn read_response(response: &web_sys::Response) -> Result<HttpResponse, anyhow::Error> {
     let status = http::StatusCode::from_u16(response.status())?;
     let headers = headers(response.headers()).context("Unable to read the headers")?;
-    let body = get_response_data(response).await?;
+    let body = match response.body() {
+        Some(body) => read_body(body, content_length(response)).await?,
+        None => Vec::new(),
+    };
 
     Ok(HttpResponse {
         body: Some(body),
@@ -224,6 +227,61 @@ async fn read_response(response: &web_sys::Response) -> Result<HttpResponse, any
         status,
         headers,
     })
+}
+
+/// Read a response body chunk by chunk into one buffer.
+///
+/// Bodies such as package images are tens of megabytes. `arrayBuffer()` would
+/// also hold the whole body in a JavaScript buffer, and a buffer grown by
+/// doubling reaches up to twice the body size. Large freed blocks like these
+/// stay committed in the host and Wasm allocators long after the download.
+async fn read_body(
+    body: web_sys::ReadableStream,
+    size_hint: Option<usize>,
+) -> Result<Vec<u8>, anyhow::Error> {
+    let reader: web_sys::ReadableStreamDefaultReader = body.get_reader().unchecked_into();
+    let mut bytes = Vec::new();
+    if let Some(size) = size_hint {
+        // Only a hint: an absurd length must not abort, and growth still works.
+        let _ = bytes.try_reserve_exact(size);
+    }
+    loop {
+        let next = JsFuture::from(reader.read()).await.map_err(js_error)?;
+        if js_sys::Reflect::get(&next, &"done".into())
+            .map_err(js_error)?
+            .as_bool()
+            == Some(true)
+        {
+            break;
+        }
+        // Fetch yields Uint8Array chunks: use them in place. Passing one to
+        // `Uint8Array::new` would copy it.
+        let chunk = js_sys::Reflect::get(&next, &"value".into())
+            .map_err(js_error)?
+            .dyn_into::<js_sys::Uint8Array>()
+            .unwrap_or_else(|value| js_sys::Uint8Array::new(&value));
+        let start = bytes.len();
+        bytes.resize(start + chunk.length() as usize, 0);
+        chunk.copy_to(&mut bytes[start..]);
+    }
+    reader.release_lock();
+    // Callers keep the body, often as `Bytes`, which retains spare capacity.
+    bytes.shrink_to_fit();
+    Ok(bytes)
+}
+
+/// The visible `Content-Length`, used only to size the body buffer: Fetch
+/// decodes compressed bodies, and cross-origin responses can hide
+/// `Content-Encoding`, so it may not be the decoded size.
+fn content_length(response: &web_sys::Response) -> Option<usize> {
+    response
+        .headers()
+        .get("content-length")
+        .ok()
+        .flatten()?
+        .trim()
+        .parse()
+        .ok()
 }
 
 fn headers(headers: web_sys::Headers) -> Result<http::HeaderMap, anyhow::Error> {
@@ -274,17 +332,6 @@ where
             original.len()
         )
     })
-}
-
-pub async fn get_response_data(resp: &web_sys::Response) -> Result<Vec<u8>, anyhow::Error> {
-    let buffer = JsFuture::from(resp.array_buffer().unwrap())
-        .await
-        .map_err(js_error)
-        .with_context(|| "Could not retrieve response body".to_string())?;
-
-    let buffer = js_sys::Uint8Array::new(&buffer);
-
-    Ok(buffer.to_vec())
 }
 
 fn call_fetch(request: &web_sys::Request) -> JsFuture {
