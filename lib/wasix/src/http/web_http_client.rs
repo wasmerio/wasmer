@@ -423,17 +423,6 @@ where
     })
 }
 
-pub async fn get_response_data(resp: &web_sys::Response) -> Result<Vec<u8>, anyhow::Error> {
-    let buffer = JsFuture::from(resp.array_buffer().unwrap())
-        .await
-        .map_err(js_error)
-        .with_context(|| "Could not retrieve response body".to_string())?;
-
-    let buffer = js_sys::Uint8Array::new(&buffer);
-
-    Ok(buffer.to_vec())
-}
-
 fn call_fetch(request: &web_sys::Request) -> JsFuture {
     let global = js_sys::global();
     if JsValue::from_str("WorkerGlobalScope").js_in(&global)
