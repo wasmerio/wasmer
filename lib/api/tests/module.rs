@@ -36,6 +36,51 @@ async fn module_new_async() -> Result<(), JsValue> {
         .map_err(|error| JsValue::from_str(&error))
 }
 
+async fn assert_module_keeps_owned_bytes() -> Result<(), String> {
+    let store = Store::default();
+    let wasm =
+        wat::parse_str("(module (func (export \"run\")))").map_err(|error| format!("{error:?}"))?;
+    let shared = bytes::Bytes::from(wasm.clone());
+    let modules = [
+        Module::new(&store, &wasm[..]),
+        Module::new(&store, shared.clone()),
+        Module::from_binary(&store, &wasm),
+        Module::from_binary(&store, shared.clone()),
+        Module::new_async(&store, shared.clone()).await,
+    ];
+    for module in modules {
+        let module = module.map_err(|error| format!("{error:?}"))?;
+        assert!(module.exports().any(|export| export.name() == "run"));
+    }
+
+    // The JS backend retains the binary: it must keep owned bytes, not copy them.
+    #[cfg(all(target_arch = "wasm32", feature = "js-serializable-module"))]
+    for module in [
+        Module::new(&store, shared.clone()),
+        Module::from_binary(&store, shared.clone()),
+        Module::new_async(&store, shared.clone()).await,
+    ] {
+        let module = module.map_err(|error| format!("{error:?}"))?;
+        let retained = module.serialize().map_err(|error| format!("{error:?}"))?;
+        assert_eq!(retained.as_ptr(), shared.as_ptr());
+    }
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn module_keeps_owned_bytes() -> Result<(), String> {
+    futures::executor::block_on(assert_module_keeps_owned_bytes())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+async fn module_keeps_owned_bytes() -> Result<(), JsValue> {
+    assert_module_keeps_owned_bytes()
+        .await
+        .map_err(|error| JsValue::from_str(&error))
+}
+
 #[cfg(all(target_arch = "wasm32", feature = "js"))]
 #[wasm_bindgen_test]
 fn imported_table_elements_preserve_function_types() {

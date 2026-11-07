@@ -54,6 +54,16 @@ impl Module {
     /// Before the code is compiled, it will be validated using the store
     /// features.
     ///
+    /// ## Memory
+    ///
+    /// Backends that keep the binary after compiling it (the JavaScript
+    /// backend with the `js-serializable-module` feature, for
+    /// [`Module::serialize`] and for compiling the module again in another
+    /// worker) keep owned bytes such as [`bytes::Bytes`] or `Vec<u8>` as they
+    /// are, and copy borrowed ones; see [`IntoBytes`]. A [`bytes::Bytes`]
+    /// slice of a larger buffer keeps that whole buffer alive for as long as
+    /// the module or any clone of it exists.
+    ///
     /// ## Errors
     ///
     /// Creating a WebAssembly module from bytecode can result in a
@@ -109,7 +119,7 @@ impl Module {
     ///
     /// let module = Module::from_file(&engine, "path/to/foo.wasm");
     /// ```
-    pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+    pub fn new(engine: &impl AsEngineRef, bytes: impl IntoBytes) -> Result<Self, CompileError> {
         BackendModule::new(engine, bytes).map(Self)
     }
 
@@ -119,10 +129,10 @@ impl Module {
     /// synchronous. The JavaScript backend uses the host's asynchronous
     /// WebAssembly compilation API, which avoids blocking the browser's main
     /// thread and supports modules that browsers reject for synchronous
-    /// compilation there.
+    /// compilation there. Owned bytes are kept as in [`Module::new`].
     pub async fn new_async(
         engine: &impl AsEngineRef,
-        bytes: impl AsRef<[u8]>,
+        bytes: impl IntoBytes,
     ) -> Result<Self, CompileError> {
         BackendModule::new_async(engine, bytes).await.map(Self)
     }
@@ -139,8 +149,11 @@ impl Module {
     ///
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
-    /// this crate).
-    pub fn from_binary(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
+    /// this crate). Owned bytes are kept as in [`Module::new`].
+    pub fn from_binary(
+        engine: &impl AsEngineRef,
+        binary: impl IntoBytes,
+    ) -> Result<Self, CompileError> {
         BackendModule::from_binary(engine, binary).map(Self)
     }
 
@@ -154,7 +167,7 @@ impl Module {
     /// beforehand.
     pub unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
-        binary: &[u8],
+        binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
         unsafe { BackendModule::from_binary_unchecked(engine, binary) }.map(Self)
     }
