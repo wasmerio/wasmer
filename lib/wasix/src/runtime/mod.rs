@@ -16,10 +16,11 @@ use std::{
 };
 
 use anyhow::Context as _;
+use bytes::Bytes;
 use futures::future::BoxFuture;
 use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::{CompileError, Engine, Module, RuntimeError};
+use wasmer::{Engine, IntoBytes, Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -334,6 +335,24 @@ impl<'a> ModuleInput<'a> {
     }
 }
 
+impl AsRef<[u8]> for ModuleInput<'_> {
+    fn as_ref(&self) -> &[u8] {
+        self.wasm()
+    }
+}
+
+/// Package atoms and hashed module data keep their buffer, so a backend that
+/// retains the binary (the JS backend) shares it instead of copying it.
+impl IntoBytes for ModuleInput<'_> {
+    fn into_bytes(self) -> Bytes {
+        match self {
+            Self::Bytes(wasm) => Bytes::from(wasm.into_owned()),
+            Self::Hashed(hashed) => hashed.wasm().clone().into_bytes(),
+            Self::Command(cmd) => cmd.atom().into_bytes(),
+        }
+    }
+}
+
 /// Runtime components used when running WebAssembly programs.
 ///
 /// Think of this as the "System" in "WebAssembly Systems Interface".
@@ -613,15 +632,15 @@ pub async fn load_module(
                 use wasmer::sys::NativeEngineExt;
                 engine.new_module_with_progress(input.wasm(), p)
             } else {
-                compile_module(engine, &input)
+                Module::new(&engine, input)
             }
         }
         #[cfg(not(feature = "sys"))]
         {
-            compile_module(engine, &input)
+            Module::new(&engine, input)
         }
     } else {
-        compile_module(engine, &input)
+        Module::new(&engine, input)
     };
 
     let module = res.map_err(|err| crate::SpawnError::CompileError {
@@ -639,20 +658,6 @@ pub async fn load_module(
     }
 
     Ok(module)
-}
-
-/// Compile `input` from its own buffer when it has one.
-///
-/// The JS backend keeps the binary inside the module, for serialization and
-/// for compiling it again in another worker. Passing the package's shared
-/// buffer instead of a borrowed slice lets it keep that buffer rather than a
-/// second copy of every loaded module.
-fn compile_module(engine: &Engine, input: &ModuleInput<'_>) -> Result<Module, CompileError> {
-    match input {
-        ModuleInput::Bytes(_) => Module::new(engine, input.wasm()),
-        ModuleInput::Hashed(hashed) => Module::new(engine, hashed.wasm().clone()),
-        ModuleInput::Command(cmd) => Module::new(engine, cmd.atom()),
-    }
 }
 
 #[derive(Debug, Default)]
