@@ -15,8 +15,9 @@ use crate::{WasiFunctionEnv, os::task::thread::WasiThreadError};
 
 use super::{
     LocalTaskSpawnError, LocalTaskSpawner, SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties,
-    VirtualTaskManager,
+    VirtualTaskManager, tokio_interrupts::RunningThreads,
 };
+use crate::{WasiProcessId, WasiThreadId};
 
 struct WorkerLocalSpawner(LocalSpawner);
 
@@ -105,6 +106,7 @@ impl std::fmt::Debug for ThreadPool {
 pub struct TokioTaskManager {
     rt: RuntimeOrHandle,
     pool: Arc<ThreadPool>,
+    running: Arc<RunningThreads>,
 }
 
 impl TokioTaskManager {
@@ -126,6 +128,7 @@ impl TokioTaskManager {
                     .max_size(max_threads)
                     .build(),
             }),
+            running: Arc::default(),
         }
     }
 
@@ -205,6 +208,7 @@ impl VirtualTaskManager for TokioTaskManager {
 
         if task.callbacks.trigger.is_some() {
             tracing::trace!("spawning task_wasm trigger in async pool");
+            let running = Arc::clone(&self.running);
             self.pool.execute(move || {
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
                     Ok(x) => {
@@ -217,6 +221,7 @@ impl VirtualTaskManager for TokioTaskManager {
                         return;
                     }
                 };
+                let _running = running.register(&ctx, &store);
 
                 let result = {
                     let mut trigger = (callbacks.trigger.unwrap())();
@@ -283,6 +288,7 @@ impl VirtualTaskManager for TokioTaskManager {
             tracing::trace!("spawning task_wasm in blocking thread");
 
             // Run the callback on a dedicated thread
+            let running = Arc::clone(&self.running);
             self.pool.execute(move || {
                 tracing::trace!("task_wasm started in blocking thread");
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
@@ -295,6 +301,7 @@ impl VirtualTaskManager for TokioTaskManager {
                         return;
                     }
                 };
+                let _running = running.register(&ctx, &store);
 
                 if let Some(pre_run) = callbacks.pre_run {
                     block_on(pre_run(&mut ctx, &mut store));
@@ -317,6 +324,19 @@ impl VirtualTaskManager for TokioTaskManager {
             .map_err(|_| WasiThreadError::InvalidWasmContext)??;
 
         Ok(())
+    }
+
+    /// See [`VirtualTaskManager::terminate_wasm_thread`].
+    ///
+    /// With the `experimental-host-interrupt` feature on Unix, this interrupts
+    /// the thread's running WASM code. Otherwise the thread is left to observe
+    /// its finished status at its next syscall.
+    fn terminate_wasm_thread(
+        &self,
+        pid: WasiProcessId,
+        tid: WasiThreadId,
+    ) -> Result<(), WasiThreadError> {
+        self.running.terminate(self.rt.handle(), pid, tid)
     }
 
     /// See [`VirtualTaskManager::task_dedicated`].
@@ -390,5 +410,59 @@ mod tests {
                 .unwrap();
             wait_for_completion.await.unwrap();
         });
+    }
+
+    /// A killed thread in a busy loop never reaches a syscall, so only a host
+    /// interrupt can stop it.
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn terminate_wasm_thread_stops_a_busy_loop() {
+        use std::time::Instant;
+
+        use wasmer::Module;
+        use wasmer_wasix_types::wasi::Signal;
+
+        use crate::{PluggableRuntime, Runtime, WasiEnvBuilder, bin_factory::spawn_exec_module};
+
+        async fn wait_for(what: &str, mut condition: impl FnMut() -> bool) {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while !condition() {
+                assert!(Instant::now() < deadline, "timed out waiting for {what}");
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        }
+
+        let tasks = Arc::new(TokioTaskManager::new(Handle::current()));
+        let runtime: Arc<dyn Runtime + Send + Sync> =
+            Arc::new(PluggableRuntime::new(tasks.clone()));
+        let module = Module::new(
+            &runtime.engine(),
+            r#"(module
+                 (import "wasi_snapshot_preview1" "proc_exit" (func (param i32)))
+                 (memory (export "memory") 1)
+                 (func (export "_start") (loop $spin (br $spin))))"#,
+        )
+        .unwrap();
+        let env = WasiEnvBuilder::new("spin")
+            .runtime(runtime.clone())
+            .build()
+            .unwrap();
+        let (process, pid, tid) = (env.process.clone(), env.pid(), env.tid());
+        let mut join = spawn_exec_module(module, env, &runtime).unwrap();
+
+        wait_for("the thread to start", || tasks.running.len() == 1).await;
+        // Let the thread enter its loop.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        process.signal_process(Signal::Sigkill);
+        tasks.terminate_wasm_thread(pid, tid).unwrap();
+
+        tokio::time::timeout(Duration::from_secs(10), join.wait_finished())
+            .await
+            .expect("the process finishes")
+            .unwrap();
+        // Finishing only publishes the exit status; the executor must also
+        // leave the WASM code.
+        wait_for("the thread to leave WASM", || tasks.running.is_empty()).await;
     }
 }

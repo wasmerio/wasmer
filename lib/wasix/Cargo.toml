@@ -249,6 +249,10 @@ sys-default = ["sys"]
 sys-poll = []
 extra-logging = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]
+# Lets `TokioTaskManager::terminate_wasm_thread` interrupt running WASM code
+# (Unix only), so a killed thread in a busy loop stops. The interrupt is a
+# SIGUSR1 sent to the thread: Wasmer installs a SIGUSR1 handler process-wide.
+experimental-host-interrupt = ["sys-thread", "wasmer/sys", "wasmer/experimental-host-interrupt"]
 journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
