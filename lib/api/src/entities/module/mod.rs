@@ -144,6 +144,34 @@ impl Module {
         BackendModule::from_binary(engine, binary).map(Self)
     }
 
+    /// Creates a new WebAssembly module from a Wasm binary held in [`Bytes`].
+    ///
+    /// This is [`Module::from_binary`] for a binary that is already in a
+    /// [`Bytes`] buffer, such as a slice of a loaded package. Backends that
+    /// keep the binary after compiling it (the JavaScript backend with the
+    /// `js-serializable-module` feature, for [`Module::serialize`] and for
+    /// recompiling the module in another worker) keep `binary` itself instead
+    /// of a copy. The module then keeps the whole buffer that `binary` slices
+    /// alive for as long as the module or any clone of it exists.
+    pub fn from_bytes(engine: &impl AsEngineRef, binary: Bytes) -> Result<Self, CompileError> {
+        BackendModule::from_bytes(engine, binary).map(Self)
+    }
+
+    /// Asynchronously creates a new WebAssembly module from a Wasm binary
+    /// held in [`Bytes`].
+    ///
+    /// This combines [`Module::new_async`] and [`Module::from_bytes`]: the
+    /// JavaScript backend compiles asynchronously and keeps `binary` itself
+    /// instead of a copy.
+    pub async fn from_bytes_async(
+        engine: &impl AsEngineRef,
+        binary: Bytes,
+    ) -> Result<Self, CompileError> {
+        BackendModule::from_bytes_async(engine, binary)
+            .await
+            .map(Self)
+    }
+
     /// Creates a new WebAssembly module from a Wasm binary,
     /// skipping any kind of validation on the WebAssembly file.
     ///
