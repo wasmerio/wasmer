@@ -36,40 +36,47 @@ async fn module_new_async() -> Result<(), JsValue> {
         .map_err(|error| JsValue::from_str(&error))
 }
 
-async fn assert_module_from_bytes() -> Result<(), String> {
+async fn assert_module_keeps_owned_bytes() -> Result<(), String> {
     let store = Store::default();
-    let wasm = bytes::Bytes::from(
-        wat::parse_str("(module (func (export \"run\")))").map_err(|error| format!("{error:?}"))?,
-    );
-    let module = Module::from_bytes(&store, wasm.clone()).map_err(|error| format!("{error:?}"))?;
-    let async_module = Module::from_bytes_async(&store, wasm.clone())
-        .await
-        .map_err(|error| format!("{error:?}"))?;
-    for module in [module, async_module] {
+    let wasm =
+        wat::parse_str("(module (func (export \"run\")))").map_err(|error| format!("{error:?}"))?;
+    let shared = bytes::Bytes::from(wasm.clone());
+    let modules = [
+        Module::new(&store, &wasm[..]),
+        Module::new(&store, shared.clone()),
+        Module::from_binary(&store, &wasm),
+        Module::from_binary(&store, shared.clone()),
+        Module::new_async(&store, shared.clone()).await,
+    ];
+    for module in modules {
+        let module = module.map_err(|error| format!("{error:?}"))?;
         assert!(module.exports().any(|export| export.name() == "run"));
-        // The JS backend retains the binary; it must keep `wasm` itself, not a copy.
-        #[cfg(all(target_arch = "wasm32", feature = "js-serializable-module"))]
-        assert_eq!(
-            module
-                .serialize()
-                .map_err(|error| format!("{error:?}"))?
-                .as_ptr(),
-            wasm.as_ptr()
-        );
+    }
+
+    // The JS backend retains the binary: it must keep owned bytes, not copy them.
+    #[cfg(all(target_arch = "wasm32", feature = "js-serializable-module"))]
+    for module in [
+        Module::new(&store, shared.clone()),
+        Module::from_binary(&store, shared.clone()),
+        Module::new_async(&store, shared.clone()).await,
+    ] {
+        let module = module.map_err(|error| format!("{error:?}"))?;
+        let retained = module.serialize().map_err(|error| format!("{error:?}"))?;
+        assert_eq!(retained.as_ptr(), shared.as_ptr());
     }
     Ok(())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
-fn module_from_bytes() -> Result<(), String> {
-    futures::executor::block_on(assert_module_from_bytes())
+fn module_keeps_owned_bytes() -> Result<(), String> {
+    futures::executor::block_on(assert_module_keeps_owned_bytes())
 }
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen_test]
-async fn module_from_bytes() -> Result<(), JsValue> {
-    assert_module_from_bytes()
+async fn module_keeps_owned_bytes() -> Result<(), JsValue> {
+    assert_module_keeps_owned_bytes()
         .await
         .map_err(|error| JsValue::from_str(&error))
 }

@@ -18,6 +18,20 @@ use crate::{
     utils::IntoBytes,
 };
 
+/// Translates `bytes` to a binary if it is in the WebAssembly text format.
+///
+/// Returns `None` for a binary, so the caller can keep using its own buffer.
+#[cfg(feature = "wat")]
+fn wat_to_binary(bytes: &[u8]) -> Result<Option<Vec<u8>>, CompileError> {
+    match wat::parse_bytes(bytes) {
+        Ok(std::borrow::Cow::Borrowed(_)) => Ok(None),
+        Ok(std::borrow::Cow::Owned(binary)) => Ok(Some(binary)),
+        Err(e) => Err(CompileError::Wasm(WasmError::Generic(format!(
+            "Error when converting wat: {e}",
+        )))),
+    }
+}
+
 /// A WebAssembly Module contains stateless WebAssembly
 /// code that has already been compiled and can be instantiated
 /// multiple times.
@@ -34,31 +48,29 @@ gen_rt_ty! {
 
 impl BackendModule {
     #[inline]
-    pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+    pub fn new(engine: &impl AsEngineRef, bytes: impl IntoBytes) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
-        let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
-            CompileError::Wasm(WasmError::Generic(format!(
-                "Error when converting wat: {e}",
-            )))
-        })?;
-        Self::from_binary(engine, bytes.as_ref())
+        if let Some(binary) = wat_to_binary(bytes.as_ref())? {
+            return Self::from_binary(engine, binary);
+        }
+        Self::from_binary(engine, bytes)
     }
 
     #[inline]
     pub async fn new_async(
         engine: &impl AsEngineRef,
-        bytes: impl AsRef<[u8]>,
+        bytes: impl IntoBytes,
     ) -> Result<Self, CompileError> {
         #[cfg(all(feature = "js", target_arch = "wasm32"))]
         if matches!(engine.as_engine_ref().inner.be, crate::BackendEngine::Js(_)) {
             #[cfg(feature = "wat")]
-            let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
-                CompileError::Wasm(WasmError::Generic(format!(
-                    "Error when converting wat: {e}",
-                )))
-            })?;
+            if let Some(binary) = wat_to_binary(bytes.as_ref())? {
+                return crate::backend::js::entities::module::Module::new_async(engine, binary)
+                    .await
+                    .map(Self::Js);
+            }
 
-            return crate::backend::js::entities::module::Module::new_async(engine, bytes.as_ref())
+            return crate::backend::js::entities::module::Module::new_async(engine, bytes)
                 .await
                 .map(Self::Js);
         }
@@ -113,16 +125,22 @@ impl BackendModule {
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
     #[inline]
-    pub fn from_binary(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
+    pub fn from_binary(
+        engine: &impl AsEngineRef,
+        binary: impl IntoBytes,
+    ) -> Result<Self, CompileError> {
         match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
             crate::BackendEngine::Sys(_) => Ok(Self::Sys(
-                crate::backend::sys::entities::module::Module::from_binary(engine, binary)?,
+                crate::backend::sys::entities::module::Module::from_binary(
+                    engine,
+                    binary.as_ref(),
+                )?,
             )),
 
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => Ok(Self::V8(
-                crate::backend::v8::entities::module::Module::from_binary(engine, binary)?,
+                crate::backend::v8::entities::module::Module::from_binary(engine, binary.as_ref())?,
             )),
 
             #[cfg(feature = "js")]
@@ -130,39 +148,6 @@ impl BackendModule {
                 crate::backend::js::entities::module::Module::from_binary(engine, binary)?,
             )),
         }
-    }
-
-    /// Creates a new WebAssembly module from a Wasm binary held in [`Bytes`].
-    ///
-    /// Backends that retain the binary keep `binary` itself instead of a copy.
-    #[inline]
-    pub fn from_bytes(engine: &impl AsEngineRef, binary: Bytes) -> Result<Self, CompileError> {
-        #[cfg(feature = "js")]
-        if matches!(engine.as_engine_ref().inner.be, crate::BackendEngine::Js(_)) {
-            return crate::backend::js::entities::module::Module::from_bytes(engine, binary)
-                .map(Self::Js);
-        }
-
-        Self::from_binary(engine, &binary)
-    }
-
-    /// Asynchronously creates a new WebAssembly module from a Wasm binary
-    /// held in [`Bytes`].
-    ///
-    /// Backends that retain the binary keep `binary` itself instead of a copy.
-    #[inline]
-    pub async fn from_bytes_async(
-        engine: &impl AsEngineRef,
-        binary: Bytes,
-    ) -> Result<Self, CompileError> {
-        #[cfg(all(feature = "js", target_arch = "wasm32"))]
-        if matches!(engine.as_engine_ref().inner.be, crate::BackendEngine::Js(_)) {
-            return crate::backend::js::entities::module::Module::from_bytes_async(engine, binary)
-                .await
-                .map(Self::Js);
-        }
-
-        Self::from_bytes(engine, binary)
     }
 
     /// Creates a new WebAssembly module from a Wasm binary,
@@ -176,14 +161,15 @@ impl BackendModule {
     #[inline]
     pub unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
-        binary: &[u8],
+        binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
         match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
             crate::BackendEngine::Sys(_) => {
                 let module = unsafe {
                     crate::backend::sys::entities::module::Module::from_binary_unchecked(
-                        engine, binary,
+                        engine,
+                        binary.as_ref(),
                     )?
                 };
                 Ok(Self::Sys(module))
@@ -193,7 +179,8 @@ impl BackendModule {
             crate::BackendEngine::V8(_) => {
                 let module = unsafe {
                     crate::backend::v8::entities::module::Module::from_binary_unchecked(
-                        engine, binary,
+                        engine,
+                        binary.as_ref(),
                     )?
                 };
                 Ok(Self::V8(module))
