@@ -270,41 +270,9 @@ async fn read_response(
     let cached = headers
         .get("x-wasmer-package-cache")
         .is_some_and(|v| v == "hit");
-    let body = if let Some(progress) = progress {
-        if let Some(body) = response.body() {
-            let reader: web_sys::ReadableStreamDefaultReader = body.get_reader().unchecked_into();
-            // Cross-origin responses can hide Content-Encoding. The registry's
-            // decoded size is supplied by the package loader; do not assume a
-            // visible Content-Length describes Fetch's decoded chunks.
-            let mut bytes = Vec::new();
-            loop {
-                let next = JsFuture::from(reader.read()).await.map_err(js_error)?;
-                if js_sys::Reflect::get(&next, &"done".into())
-                    .map_err(js_error)?
-                    .as_bool()
-                    == Some(true)
-                {
-                    break;
-                }
-                let chunk = js_sys::Uint8Array::new(
-                    &js_sys::Reflect::get(&next, &"value".into()).map_err(js_error)?,
-                );
-                let start = bytes.len();
-                bytes.resize(start + chunk.length() as usize, 0);
-                chunk.copy_to(&mut bytes[start..]);
-                progress(
-                    if cached { 0 } else { bytes.len() as u64 },
-                    cached.then_some(0),
-                    cached,
-                );
-            }
-            reader.release_lock();
-            bytes
-        } else {
-            get_response_data(response).await?
-        }
-    } else {
-        get_response_data(response).await?
+    let body = match response.body() {
+        Some(body) => read_body(body, content_length(response), cached, progress.as_ref()).await?,
+        None => Vec::new(),
     };
 
     Ok(HttpResponse {
@@ -313,6 +281,70 @@ async fn read_response(
         status,
         headers,
     })
+}
+
+/// Read a response body chunk by chunk into one buffer.
+///
+/// Bodies such as package images are tens of megabytes. `arrayBuffer()` would
+/// also hold the whole body in a JavaScript buffer, and a buffer grown by
+/// doubling reaches up to twice the body size. Large freed blocks like these
+/// stay committed in the host and Wasm allocators long after the download.
+async fn read_body(
+    body: web_sys::ReadableStream,
+    size_hint: Option<usize>,
+    cached: bool,
+    progress: Option<&HttpDownloadObserver>,
+) -> Result<Vec<u8>, anyhow::Error> {
+    let reader: web_sys::ReadableStreamDefaultReader = body.get_reader().unchecked_into();
+    let mut bytes = Vec::new();
+    if let Some(size) = size_hint {
+        // Only a hint: an absurd length must not abort, and growth still works.
+        let _ = bytes.try_reserve_exact(size);
+    }
+    loop {
+        let next = JsFuture::from(reader.read()).await.map_err(js_error)?;
+        if js_sys::Reflect::get(&next, &"done".into())
+            .map_err(js_error)?
+            .as_bool()
+            == Some(true)
+        {
+            break;
+        }
+        // Fetch yields Uint8Array chunks: use them in place. Passing one to
+        // `Uint8Array::new` would copy it.
+        let chunk = js_sys::Reflect::get(&next, &"value".into())
+            .map_err(js_error)?
+            .dyn_into::<js_sys::Uint8Array>()
+            .unwrap_or_else(|value| js_sys::Uint8Array::new(&value));
+        let start = bytes.len();
+        bytes.resize(start + chunk.length() as usize, 0);
+        chunk.copy_to(&mut bytes[start..]);
+        if let Some(progress) = progress {
+            progress(
+                if cached { 0 } else { bytes.len() as u64 },
+                cached.then_some(0),
+                cached,
+            );
+        }
+    }
+    reader.release_lock();
+    // Callers keep the body, often as `Bytes`, which retains spare capacity.
+    bytes.shrink_to_fit();
+    Ok(bytes)
+}
+
+/// The visible `Content-Length`, used only to size the body buffer: Fetch
+/// decodes compressed bodies, and cross-origin responses can hide
+/// `Content-Encoding`, so it may not be the decoded size.
+fn content_length(response: &web_sys::Response) -> Option<usize> {
+    response
+        .headers()
+        .get("content-length")
+        .ok()
+        .flatten()?
+        .trim()
+        .parse()
+        .ok()
 }
 
 fn headers(headers: web_sys::Headers) -> Result<http::HeaderMap, anyhow::Error> {
