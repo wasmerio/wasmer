@@ -340,9 +340,10 @@ async fn read_body(
 /// The most a body's `Content-Length` may reserve before the body arrives.
 ///
 /// The header is untrusted and Wasm memory never shrinks, so a larger hint
-/// must not grow memory by itself. Package images such as `wasmer/edgejs`
-/// (78 MB) fit within it.
-const MAX_BODY_PRESIZE: usize = 128 * 1024 * 1024;
+/// must not grow memory by itself. A larger body grows as its data passes the
+/// limit. If the hint is accurate and at most twice the limit, it grows just
+/// once, straight to its exact size.
+const MAX_BODY_PRESIZE: usize = 64 * 1024 * 1024;
 
 /// The capacity a body buffer of `capacity` grows to so it can hold `needed`
 /// bytes.
