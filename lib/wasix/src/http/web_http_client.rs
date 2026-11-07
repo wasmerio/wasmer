@@ -243,7 +243,7 @@ async fn read_body(
     let mut bytes = Vec::new();
     if let Some(size) = size_hint {
         // Only a hint: an absurd length must not abort, and growth still works.
-        let _ = bytes.try_reserve_exact(size);
+        let _ = bytes.try_reserve_exact(size.min(MAX_BODY_PRESIZE));
     }
     loop {
         let next = JsFuture::from(reader.read()).await.map_err(js_error)?;
@@ -261,13 +261,39 @@ async fn read_body(
             .dyn_into::<js_sys::Uint8Array>()
             .unwrap_or_else(|value| js_sys::Uint8Array::new(&value));
         let start = bytes.len();
-        bytes.resize(start + chunk.length() as usize, 0);
+        let needed = start + chunk.length() as usize;
+        if needed > bytes.capacity() {
+            bytes.reserve_exact(grown_capacity(bytes.capacity(), needed, size_hint) - start);
+        }
+        bytes.resize(needed, 0);
         chunk.copy_to(&mut bytes[start..]);
     }
     reader.release_lock();
     // Callers keep the body, often as `Bytes`, which retains spare capacity.
     bytes.shrink_to_fit();
     Ok(bytes)
+}
+
+/// The most a body's `Content-Length` may reserve before the body arrives.
+///
+/// The header is untrusted and Wasm memory never shrinks, so a larger hint
+/// must not grow memory by itself. Package images such as `wasmer/edgejs`
+/// (78 MB) fit within it.
+const MAX_BODY_PRESIZE: usize = 128 * 1024 * 1024;
+
+/// The capacity a body buffer of `capacity` grows to so it can hold `needed`
+/// bytes.
+///
+/// Like `Vec`'s own growth, it at most doubles, so a size hint beyond
+/// [`MAX_BODY_PRESIZE`] reserves memory only as fast as the body arrives. It
+/// stops at the hint while the hint still covers the body, so an accurate
+/// length above the limit still ends in an exactly sized buffer.
+fn grown_capacity(capacity: usize, needed: usize, size_hint: Option<usize>) -> usize {
+    let doubled = needed.max(capacity.saturating_mul(2));
+    match size_hint {
+        Some(hint) if hint >= needed => doubled.min(hint),
+        _ => doubled,
+    }
 }
 
 /// The visible `Content-Length`, used only to size the body buffer: Fetch
@@ -376,6 +402,32 @@ mod tests {
         let wire_headers = web_sys::Headers::new().unwrap();
         wire_headers.set("content-length", "123").unwrap();
         assert!(headers(wire_headers).unwrap().is_empty());
+    }
+
+    #[wasm_bindgen_test::wasm_bindgen_test]
+    fn body_growth_follows_the_data_not_the_hint() {
+        const MIB: usize = 1024 * 1024;
+        // Without a hint, the buffer doubles like a `Vec`.
+        assert_eq!(grown_capacity(0, 10, None), 10);
+        assert_eq!(grown_capacity(10, 11, None), 20);
+        assert_eq!(grown_capacity(10, 50, None), 50);
+        // A hint caps growth while the body still fits in it...
+        assert_eq!(grown_capacity(10, 11, Some(15)), 15);
+        assert_eq!(grown_capacity(10, 15, Some(15)), 15);
+        // ...but a hint the body has outgrown is ignored.
+        assert_eq!(grown_capacity(15, 16, Some(15)), 30);
+        // An accurate length above the presize limit ends exactly sized.
+        let length = 300 * MIB;
+        let mut capacity = MAX_BODY_PRESIZE;
+        while capacity < length {
+            capacity = grown_capacity(capacity, capacity + 1, Some(length));
+            assert!(capacity <= length);
+        }
+        assert_eq!(capacity, length);
+        // An exaggerated length never reserves more than twice the data.
+        let received = MAX_BODY_PRESIZE + 1;
+        let capacity = grown_capacity(MAX_BODY_PRESIZE, received, Some(usize::MAX));
+        assert!(capacity <= 2 * received);
     }
 
     #[wasm_bindgen_test::wasm_bindgen_test]
