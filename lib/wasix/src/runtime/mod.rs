@@ -16,10 +16,11 @@ use std::{
 };
 
 use anyhow::Context as _;
+use bytes::Bytes;
 use futures::future::BoxFuture;
 use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::{Engine, Module, RuntimeError};
+use wasmer::{CompileError, Engine, Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -322,6 +323,18 @@ impl<'a> ModuleInput<'a> {
         }
     }
 
+    /// Get the raw WebAssembly bytes as [`Bytes`], if that needs no copy.
+    ///
+    /// Package atoms and hashed module data that are held in memory share
+    /// their buffer. Memory-mapped and plain byte inputs return `None`.
+    fn shared_wasm(&self) -> Option<Bytes> {
+        match self {
+            Self::Bytes(_) => None,
+            Self::Hashed(hashed) => hashed.wasm().as_bytes().cloned(),
+            Self::Command(cmd) => cmd.atom_ref().as_bytes().cloned(),
+        }
+    }
+
     /// Convert to a `HashedModuleData`.
     ///
     /// May involve cloning and hashing.
@@ -613,15 +626,15 @@ pub async fn load_module(
                 use wasmer::sys::NativeEngineExt;
                 engine.new_module_with_progress(input.wasm(), p)
             } else {
-                Module::new(&engine, input.wasm())
+                compile_module(engine, &input)
             }
         }
         #[cfg(not(feature = "sys"))]
         {
-            Module::new(&engine, input.wasm())
+            compile_module(engine, &input)
         }
     } else {
-        Module::new(&engine, input.wasm())
+        compile_module(engine, &input)
     };
 
     let module = res.map_err(|err| crate::SpawnError::CompileError {
@@ -639,6 +652,19 @@ pub async fn load_module(
     }
 
     Ok(module)
+}
+
+/// Compile `input`, letting the module share the input's buffer if it can.
+///
+/// The JS backend keeps the binary inside the module, for serialization and
+/// for compiling it again in another worker. Giving it the package's buffer
+/// instead of a borrowed slice avoids a second copy of every loaded module.
+fn compile_module(engine: &Engine, input: &ModuleInput<'_>) -> Result<Module, CompileError> {
+    match input.shared_wasm() {
+        // `Module::new` also accepts the text format, which `from_bytes` does not.
+        Some(wasm) if wasm.starts_with(b"\0asm") => Module::from_bytes(engine, wasm),
+        _ => Module::new(engine, input.wasm()),
+    }
 }
 
 #[derive(Debug, Default)]

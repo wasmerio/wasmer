@@ -132,6 +132,39 @@ impl BackendModule {
         }
     }
 
+    /// Creates a new WebAssembly module from a Wasm binary held in [`Bytes`].
+    ///
+    /// Backends that retain the binary keep `binary` itself instead of a copy.
+    #[inline]
+    pub fn from_bytes(engine: &impl AsEngineRef, binary: Bytes) -> Result<Self, CompileError> {
+        #[cfg(feature = "js")]
+        if matches!(engine.as_engine_ref().inner.be, crate::BackendEngine::Js(_)) {
+            return crate::backend::js::entities::module::Module::from_bytes(engine, binary)
+                .map(Self::Js);
+        }
+
+        Self::from_binary(engine, &binary)
+    }
+
+    /// Asynchronously creates a new WebAssembly module from a Wasm binary
+    /// held in [`Bytes`].
+    ///
+    /// Backends that retain the binary keep `binary` itself instead of a copy.
+    #[inline]
+    pub async fn from_bytes_async(
+        engine: &impl AsEngineRef,
+        binary: Bytes,
+    ) -> Result<Self, CompileError> {
+        #[cfg(all(feature = "js", target_arch = "wasm32"))]
+        if matches!(engine.as_engine_ref().inner.be, crate::BackendEngine::Js(_)) {
+            return crate::backend::js::entities::module::Module::from_bytes_async(engine, binary)
+                .await
+                .map(Self::Js);
+        }
+
+        Self::from_bytes(engine, binary)
+    }
+
     /// Creates a new WebAssembly module from a Wasm binary,
     /// skipping any kind of validation on the WebAssembly file.
     ///

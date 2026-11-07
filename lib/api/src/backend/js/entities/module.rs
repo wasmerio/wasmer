@@ -132,14 +132,11 @@ impl Module {
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub(crate) async fn new_async(
-        _engine: &impl AsEngineRef,
-        binary: &[u8],
-    ) -> Result<Self, CompileError> {
+    async fn compile_async(binary: &[u8]) -> Result<WebAssembly::Module, CompileError> {
         // Copy the bytes into JavaScript-owned memory before awaiting. A view
         // into Wasm linear memory could be invalidated if that memory grows.
         let js_bytes = Uint8Array::from(binary);
-        let module = JsFuture::from(WebAssembly::compile(&js_bytes))
+        JsFuture::from(WebAssembly::compile(&js_bytes))
             .await
             .map_err(|error| {
                 CompileError::Validate(
@@ -158,9 +155,38 @@ impl Module {
                 CompileError::Validate(
                     "WebAssembly.compile returned an unexpected value".to_owned(),
                 )
-            })?;
+            })
+    }
 
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) async fn new_async(
+        _engine: &impl AsEngineRef,
+        binary: &[u8],
+    ) -> Result<Self, CompileError> {
+        let module = Self::compile_async(binary).await?;
         Ok(unsafe { Self::from_js_module(module, binary) })
+    }
+
+    /// Like [`Self::new_async`], but keeps `binary` itself instead of a copy.
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) async fn from_bytes_async(
+        _engine: &impl AsEngineRef,
+        binary: Bytes,
+    ) -> Result<Self, CompileError> {
+        let module = Self::compile_async(&binary).await?;
+        Ok(unsafe { Self::from_js_module(module, binary) })
+    }
+
+    fn compile(binary: &[u8]) -> Result<WebAssembly::Module, CompileError> {
+        // Compilation is synchronous, so the view cannot outlive `binary`.
+        let js_bytes = unsafe { Uint8Array::view(binary) };
+        WebAssembly::Module::new(&js_bytes.into()).map_err(|e| {
+            CompileError::Validate(
+                e.as_string()
+                    .unwrap_or("Unknown validation error".to_string())
+                    .to_string(),
+            )
+        })
     }
 
     pub(crate) fn from_binary(
@@ -174,14 +200,16 @@ impl Module {
         _engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let js_bytes = unsafe { Uint8Array::view(binary) };
-        let module = WebAssembly::Module::new(&js_bytes.into()).map_err(|e| {
-            CompileError::Validate(
-                e.as_string()
-                    .unwrap_or("Unknown validation error".to_string())
-                    .to_string(),
-            )
-        })?;
+        let module = Self::compile(binary)?;
+        Ok(unsafe { Self::from_js_module(module, binary) })
+    }
+
+    /// Like [`Self::from_binary`], but keeps `binary` itself instead of a copy.
+    pub(crate) fn from_bytes(
+        _engine: &impl AsEngineRef,
+        binary: Bytes,
+    ) -> Result<Self, CompileError> {
+        let module = Self::compile(&binary)?;
         Ok(unsafe { Self::from_js_module(module, binary) })
     }
 
@@ -404,7 +432,7 @@ impl Module {
         _bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         #[cfg(feature = "js-serializable-module")]
-        return Self::from_binary(_engine, &_bytes.into_bytes())
+        return Self::from_bytes(_engine, _bytes.into_bytes())
             .map_err(|e| DeserializeError::Compiler(e));
 
         #[cfg(not(feature = "js-serializable-module"))]
@@ -417,7 +445,7 @@ impl Module {
         _bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         #[cfg(feature = "js-serializable-module")]
-        return Self::from_binary(_engine, &_bytes.into_bytes())
+        return Self::from_bytes(_engine, _bytes.into_bytes())
             .map_err(|e| DeserializeError::Compiler(e));
 
         #[cfg(not(feature = "js-serializable-module"))]
