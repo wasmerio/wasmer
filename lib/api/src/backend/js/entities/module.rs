@@ -134,11 +134,11 @@ impl Module {
     #[cfg(target_arch = "wasm32")]
     pub(crate) async fn new_async(
         _engine: &impl AsEngineRef,
-        binary: &[u8],
+        binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
         // Copy the bytes into JavaScript-owned memory before awaiting. A view
         // into Wasm linear memory could be invalidated if that memory grows.
-        let js_bytes = Uint8Array::from(binary);
+        let js_bytes = Uint8Array::from(binary.as_ref());
         let module = JsFuture::from(WebAssembly::compile(&js_bytes))
             .await
             .map_err(|error| {
@@ -165,16 +165,16 @@ impl Module {
 
     pub(crate) fn from_binary(
         _engine: &impl AsEngineRef,
-        binary: &[u8],
+        binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
         unsafe { Self::from_binary_unchecked(_engine, binary) }
     }
 
     pub(crate) unsafe fn from_binary_unchecked(
         _engine: &impl AsEngineRef,
-        binary: &[u8],
+        binary: impl IntoBytes,
     ) -> Result<Self, CompileError> {
-        let js_bytes = unsafe { Uint8Array::view(binary) };
+        let js_bytes = unsafe { Uint8Array::view(binary.as_ref()) };
         let module = WebAssembly::Module::new(&js_bytes.into()).map_err(|e| {
             CompileError::Validate(
                 e.as_string()
@@ -186,6 +186,9 @@ impl Module {
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
+    ///
+    /// With `js-serializable-module`, the module keeps `binary`: owned bytes
+    /// as they are, borrowed bytes as a copy.
     pub(crate) unsafe fn from_js_module(
         module: WebAssembly::Module,
         binary: impl IntoBytes,
@@ -404,8 +407,7 @@ impl Module {
         _bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         #[cfg(feature = "js-serializable-module")]
-        return Self::from_binary(_engine, &_bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
+        return Self::from_binary(_engine, _bytes).map_err(|e| DeserializeError::Compiler(e));
 
         #[cfg(not(feature = "js-serializable-module"))]
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
@@ -417,8 +419,7 @@ impl Module {
         _bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         #[cfg(feature = "js-serializable-module")]
-        return Self::from_binary(_engine, &_bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
+        return Self::from_binary(_engine, _bytes).map_err(|e| DeserializeError::Compiler(e));
 
         #[cfg(not(feature = "js-serializable-module"))]
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
