@@ -500,6 +500,7 @@ impl PackageLoader for BuiltinPackageLoader {
         observer: Option<PackageDownloadObserver>,
     ) -> Result<Container, Error> {
         if let Some(container) = self.get_cached(&summary.dist.webc_sha256).await? {
+            tracing::debug!("Cache hit!");
             if let Some(observer) = observer {
                 observer(PackageDownloadProgress {
                     phase: PackageDownloadPhase::Ready,
