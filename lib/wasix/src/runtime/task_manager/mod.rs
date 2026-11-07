@@ -1,6 +1,8 @@
 // TODO: should be behind a different , tokio specific feature flag.
 #[cfg(feature = "sys-thread")]
 pub mod tokio;
+#[cfg(feature = "sys-thread")]
+mod tokio_interrupts;
 
 use std::fmt;
 use std::ops::Deref;
