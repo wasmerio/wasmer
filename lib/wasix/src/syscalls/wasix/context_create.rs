@@ -1,4 +1,4 @@
-use crate::{WasiEnv, WasiError};
+use crate::{AsyncifyFunction, WasiEnv, WasiError};
 use futures::FutureExt;
 use tracing::instrument;
 use wasmer::{
@@ -71,6 +71,7 @@ pub fn context_create<M: MemorySize>(
         return Ok(Errno::Notsup);
     };
 
+    let func_env = ctx.as_ref();
     let (data, mut store) = ctx.data_and_store_mut();
 
     // Get the context-switching environment
@@ -92,7 +93,7 @@ pub fn context_create<M: MemorySize>(
     // Create the new context
     let new_context_id = environment.create_context(
         entrypoint
-            .call_async(&async_store, vec![])
+            .call_async_asyncify(&async_store, &func_env, vec![])
             .map(|r| r.map(|_| ())),
     );
 

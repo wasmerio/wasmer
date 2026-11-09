@@ -229,9 +229,9 @@ impl WasiProcessInner {
     ) -> WasiResult<MaybeCheckpointResult<'_>> {
         // Enter the lock which will determine if we are in a checkpoint or not
 
+        use crate::OnCalledAction;
         use bytes::Bytes;
         use wasmer::AsStoreMut;
-        use wasmer_types::OnCalledAction;
 
         use crate::{WasiError, os::task::thread::RewindResultType, rewind_ext};
         let guard = inner.0.lock().unwrap();
@@ -272,7 +272,7 @@ impl WasiProcessInner {
                 thread_start,
                 thread_layout,
             ) {
-                return wasmer_types::OnCalledAction::Trap(err.into());
+                return OnCalledAction::Trap(err.into());
             }
 
             let mut guard = inner.0.lock().unwrap();
@@ -293,7 +293,7 @@ impl WasiProcessInner {
                             JournalEffector::save_memory_and_snapshot(&mut ctx, &mut guard, trigger)
                         {
                             inner.1.notify_all();
-                            return wasmer_types::OnCalledAction::Trap(err.into());
+                            return OnCalledAction::Trap(err.into());
                         }
 
                         // Clear the checkpointing flag and notify everyone to wake up

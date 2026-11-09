@@ -1,8 +1,9 @@
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
-    Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiResult, WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
+    AsyncifyCallWrapper, AsyncifyFunction, OnCalledAction, OnCalledHandler, Runtime,
+    VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiResult,
+    WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
     bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand, CommandBinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
@@ -33,7 +34,7 @@ use virtual_mio::block_on;
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
-    Module,
+    Module, StoreMut,
 };
 use wasmer_config::package::PackageSource;
 use wasmer_types::ModuleHash;
@@ -240,6 +241,13 @@ pub struct WasiEnv {
     ///
     /// Should probably only be set by [`ContextSwitchingContext::run_main_context`]
     pub(crate) context_switching_environment: Option<ContextSwitchingEnvironment>,
+
+    /// Callback left by a syscall that started an asyncify unwind, run by
+    /// [`AsyncifyCallWrapper`](crate::AsyncifyCallWrapper) once the stack has
+    /// unwound to the host.
+    ///
+    /// It belongs to the call in flight on this store, so it is never cloned.
+    pub(crate) on_called: Option<OnCalledHandler>,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -271,6 +279,7 @@ impl Clone for WasiEnv {
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
             context_switching_environment: None,
+            on_called: None,
         }
     }
 }
@@ -314,6 +323,7 @@ impl WasiEnv {
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
             context_switching_environment: None,
+            on_called: None,
         };
         Ok((new_env, handle))
     }
@@ -477,6 +487,7 @@ impl WasiEnv {
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
             context_switching_environment: None,
+            on_called: None,
         };
         env.owned_handles.push(thread);
 
@@ -663,7 +674,7 @@ impl WasiEnv {
 
         // If this module exports an _initialize function, run that first.
         if call_initialize && let Ok(initialize) = instance.exports.get_function("_initialize") {
-            let initialize_result = initialize.call(&mut store, &[]);
+            let initialize_result = initialize.call_asyncify(&mut store, &func_env.env, &[]);
             if let Err(err) = initialize_result {
                 func_env
                     .data(&store)
@@ -856,7 +867,8 @@ impl WasiEnv {
                     ?signal,
                     "processing signal via handler",
                 );
-                if let Err(err) = handler.call(ctx, signal as i32) {
+                let mut asyncify = AsyncifyCallWrapper::new(ctx.as_ref());
+                if let Err(err) = handler.call_wrapped(ctx, &mut asyncify, signal as i32) {
                     match err.downcast::<WasiError>() {
                         Ok(wasi_err) => {
                             tracing::warn!(
@@ -964,6 +976,18 @@ impl WasiEnv {
     #[doc(hidden)]
     pub(crate) fn swap_inner(&mut self, other: &mut Self) {
         std::mem::swap(&mut self.inner, &mut other.inner);
+    }
+
+    /// Sets the callback that runs once the asyncify unwind this syscall
+    /// started reaches the host.
+    pub(crate) fn set_on_called<F>(&mut self, callback: F)
+    where
+        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.on_called = Some(Box::new(callback));
     }
 
     /// Helper function to ensure the module isn't dynamically linked, needed since

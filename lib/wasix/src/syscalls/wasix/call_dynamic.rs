@@ -113,6 +113,7 @@ pub fn call_dynamic<M: MemorySize>(
     results_len: M::Offset,
     strict: Bool,
 ) -> Result<Errno, RuntimeError> {
+    let func_env = ctx.as_ref();
     let (env, mut store) = ctx.data_and_store_mut();
 
     let strict = matches!(strict, Bool::True);
@@ -148,7 +149,7 @@ pub fn call_dynamic<M: MemorySize>(
     }
 
     let result_values = function
-        .call(&mut store, values_buffer.as_slice())
+        .call_asyncify(&mut store, &func_env, values_buffer.as_slice())
         .map_err(crate::flatten_runtime_error)?;
 
     let memory = unsafe { env.memory_view(&store) };

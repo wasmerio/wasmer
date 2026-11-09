@@ -85,7 +85,7 @@ pub(crate) use virtual_net::StreamSecurity;
 pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
     Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
-    OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
+    Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
 pub(crate) use wasmer_wasix_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
 #[cfg(target_os = "windows")]
@@ -110,23 +110,9 @@ pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
 };
-use crate::{
-    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
-    WasiResult, WasiRuntimeError,
-    fs::{
-        Fd, FdInner, InodeVal, Kind, MAX_SYMLINKS, fs_error_into_wasi_err,
-        virtual_file_type_to_wasi_file_type,
-    },
-    journal::{DynJournal, DynReadableJournal, DynWritableJournal, JournalEffector},
-    os::task::{
-        process::{MaybeCheckpointResult, WasiProcessCheckpoint},
-        thread::{RewindResult, RewindResultType},
-    },
-    utils::store::StoreSnapshot,
-};
 pub(crate) use crate::{
-    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiModuleTreeHandles,
-    WasiVFork,
+    AsyncifyFunction, OnCalledAction, Runtime, VirtualTaskManager, WasiEnv, WasiError,
+    WasiFunctionEnv, WasiModuleTreeHandles, WasiVFork,
     bin_factory::spawn_exec_module,
     import_object_for_all_wasi_versions, mem_error_to_wasi,
     net::{
@@ -140,6 +126,20 @@ pub(crate) use crate::{
         iterate_poll_events,
     },
     utils::{self, map_io_err},
+};
+use crate::{
+    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
+    WasiResult, WasiRuntimeError,
+    fs::{
+        Fd, FdInner, InodeVal, Kind, MAX_SYMLINKS, fs_error_into_wasi_err,
+        virtual_file_type_to_wasi_file_type,
+    },
+    journal::{DynJournal, DynReadableJournal, DynWritableJournal, JournalEffector},
+    os::task::{
+        process::{MaybeCheckpointResult, WasiProcessCheckpoint},
+        thread::{RewindResult, RewindResultType},
+    },
+    utils::store::StoreSnapshot,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -1141,7 +1141,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                     thread_start,
                     thread_layout.clone(),
                 ) {
-                    return wasmer_types::OnCalledAction::Trap(err.into());
+                    return OnCalledAction::Trap(err.into());
                 }
             }
 
@@ -1165,7 +1165,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                         &mut guard,
                         SnapshotTrigger::Idle,
                     ) {
-                        return wasmer_types::OnCalledAction::Trap(err.into());
+                        return OnCalledAction::Trap(err.into());
                     }
                 }
             }
@@ -1263,7 +1263,7 @@ where
         memory_stack.len(),
         total_stack_space
     );
-    ctx.as_store_mut().on_called(move |mut store| {
+    ctx.data_mut().set_on_called(move |mut store| {
         let mut ctx = func.into_mut(&mut store);
         let env = ctx.data();
         let memory = env
