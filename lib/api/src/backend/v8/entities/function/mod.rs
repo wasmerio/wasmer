@@ -6,9 +6,10 @@ use std::{
 };
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap,
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap, CallWrapper,
     FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult, NativeWasmType,
     NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
+    entities::function::call_wrapper::call_wrapped,
     v8::{
         bindings::*,
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},
@@ -351,6 +352,15 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        self.call_wrapped(store, None, params)
+    }
+
+    pub(crate) fn call_wrapped(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         check_isolate(store);
         // unimplemented!();
         let signature = self.ty(store);
@@ -396,31 +406,15 @@ impl Function {
             }
         };
 
-        let mut trap;
-
-        loop {
-            trap = unsafe { wasm_func_call(self.handle, &mut args as _, &mut results as *mut _) };
-            let store_mut = store.as_store_mut();
-            if let Some(callback) = store_mut.inner.on_called.take() {
-                match callback(store_mut) {
-                    Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
-                        continue;
-                    }
-                    Ok(wasmer_types::OnCalledAction::Finish) => {
-                        break;
-                    }
-                    Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-                        return Err(RuntimeError::user(trap));
-                    }
-                    Err(trap) => return Err(RuntimeError::user(trap)),
-                }
+        call_wrapped(store, wrapper, |_| {
+            let trap =
+                unsafe { wasm_func_call(self.handle, &mut args as _, &mut results as *mut _) };
+            if trap.is_null() {
+                Ok(())
+            } else {
+                Err(Into::<Trap>::into(trap).into())
             }
-            break;
-        }
-
-        if !trap.is_null() {
-            return Err(Into::<Trap>::into(trap).into());
-        }
+        })?;
 
         let values = unsafe {
             let results = std::ptr::slice_from_raw_parts(results.data, results.size);

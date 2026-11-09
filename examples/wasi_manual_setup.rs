@@ -16,7 +16,7 @@
 //! Ready?
 
 use wasmer::{Instance, Module, Store, wat2wasm};
-use wasmer_wasix::WasiEnv;
+use wasmer_wasix::{AsyncifyFunction, WasiEnv};
 
 const HELLO_WASI_WAT: &[u8] = br#"
 (module
@@ -73,9 +73,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     wasi_env.initialize(&mut store, instance.clone())?;
 
     println!("Call WASI `_start` function...");
-    // And we just call the `_start` function!
+    // And we just call the `_start` function! `call_asyncify` lets syscalls
+    // that unwind the stack (fork, exec, longjmp) complete.
     let start = instance.exports.get_function("_start")?;
-    start.call(&mut store, &[])?;
+    start.call_asyncify(&mut store, &wasi_env.env, &[])?;
 
     wasi_env.on_exit(&mut store, None);
 

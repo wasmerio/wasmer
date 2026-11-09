@@ -1,5 +1,5 @@
 use crate::{
-    WasiError, WasiFunctionEnv,
+    AsyncifyFunction, WasiError, WasiFunctionEnv,
     utils::thread_local_executor::{
         ThreadLocalExecutor, ThreadLocalSpawner, ThreadLocalSpawnerError,
     },
@@ -118,7 +118,7 @@ impl ContextSwitchingEnvironment {
             .threading
             .enable_asynchronous_threading
         {
-            let result = entrypoint.call(&mut store, &params);
+            let result = entrypoint.call_asyncify(&mut store, &ctx.env, &params);
             return (store, result);
         }
 
@@ -136,7 +136,7 @@ impl ContextSwitchingEnvironment {
         // Do a normal call and dont install the context switching env, if the engine does not support async
         let engine_supports_async = store.engine().supports_async();
         if !engine_supports_async {
-            let result = entrypoint.call(&mut store, &params);
+            let result = entrypoint.call_asyncify(&mut store, &ctx.env, &params);
             return (store, result);
         }
 
@@ -154,7 +154,11 @@ impl ContextSwitchingEnvironment {
 
         // Turn the store into an async store and run the entrypoint
         let store_async = store.into_async();
-        let result = local_executor.run_until(entrypoint.call_async(&store_async, params));
+        let result = local_executor.run_until(entrypoint.call_async_asyncify(
+            &store_async,
+            &ctx.env,
+            params,
+        ));
 
         // Process if this was terminated by a context entrypoint returning
         let result = match &result {

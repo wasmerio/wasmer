@@ -1,5 +1,6 @@
 #![allow(clippy::result_large_err)]
 use super::{BinaryPackage, BinaryPackageCommand, CommandBinaryPackage};
+use crate::{AsyncifyFunction, Runtime, WasiEnv, WasiFunctionEnv};
 use crate::{
     RewindState, SpawnError, WasiError, WasiRuntimeError,
     os::task::{
@@ -16,7 +17,6 @@ use crate::{
     state::context_switching::ContextSwitchingEnvironment,
     syscalls::rewind_ext,
 };
-use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 use std::{borrow::Cow, sync::Arc};
 use tracing::*;
 use virtual_mio::block_on;
@@ -200,7 +200,7 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     {
         // This does not need a context switching environment as the documentation
         // states that that is only available after the first call to main
-        let result = initialize.call(&mut store, &[]);
+        let result = initialize.call_asyncify(&mut store, &ctx.env, &[]);
 
         if let Err(err) = result {
             thread.thread.set_status_finished(Err(err.into()));

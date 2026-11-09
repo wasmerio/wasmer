@@ -4,7 +4,7 @@ use super::{StoreObjects, inner::StoreInner};
 use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 #[cfg(feature = "experimental-async")]
 use crate::{AsStoreAsync, StoreAsync};
-use wasmer_types::{ExternType, OnCalledAction};
+use wasmer_types::ExternType;
 //use wasmer_vm::{StoreObjects, TrapHandlerFn};
 
 #[cfg(feature = "sys")]
@@ -120,18 +120,6 @@ impl StoreMut<'_> {
         // returns and the guard is dropped.
         let _guard = unsafe { super::StoreContext::install(ptr) };
         f()
-    }
-
-    // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-    /// Sets the unwind callback which will be invoked when the call finishes
-    pub fn on_called<F>(&mut self, callback: F)
-    where
-        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        self.inner.on_called.replace(Box::new(callback));
     }
 }
 

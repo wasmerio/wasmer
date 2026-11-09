@@ -13,9 +13,10 @@ use crate::{
     },
 };
 use crate::{
-    BackendFunction, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
-    StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
+    BackendFunction, CallWrapper, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction,
+    RuntimeError, StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
+    entities::function::call_wrapper::call_wrapped,
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     vm::{VMExtern, VMExternFunction},
@@ -458,6 +459,7 @@ impl Function {
     fn call_wasm(
         &self,
         store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
         trampoline: VMTrampoline,
         params: &[Value],
         results: &mut [Value],
@@ -504,13 +506,14 @@ impl Function {
         }
 
         // Invoke the call
-        self.call_wasm_raw(store, trampoline, values_vec, results)?;
+        self.call_wasm_raw(store, wrapper, trampoline, values_vec, results)?;
         Ok(())
     }
 
     fn call_wasm_raw(
         &self,
         store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
         trampoline: VMTrampoline,
         mut params: Vec<RawValue>,
         results: &mut [Value],
@@ -532,17 +535,15 @@ impl Function {
             let store_install_guard =
                 unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
 
-            let mut r;
-            // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-            loop {
+            let r = call_wrapped(store, wrapper, |store| {
                 let storeref = store.as_store_ref();
                 let vm_function = self.handle.get(storeref.objects().as_sys());
                 let config = storeref.engine().tunables().vmconfig();
                 let signal_handler = storeref.signal_handler();
-                r = unsafe {
+                unsafe {
                     // Safety: This is the intended use-case for StoreContext::pause, as
                     // documented in the function's doc comments.
-                    let pause_guard = StoreContext::pause(store_id);
+                    let _pause_guard = StoreContext::pause(store_id);
                     wasmer_call_trampoline(
                         signal_handler,
                         config,
@@ -551,24 +552,9 @@ impl Function {
                         vm_function.anyfunc.as_ptr().as_ref().func_ptr,
                         params.as_mut_ptr() as *mut u8,
                     )
-                };
-                let store_mut = store.as_store_mut();
-                if let Some(callback) = store_mut.inner.on_called.take() {
-                    match callback(store_mut) {
-                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
-                            continue;
-                        }
-                        Ok(wasmer_types::OnCalledAction::Finish) => {
-                            break;
-                        }
-                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-                            return Err(RuntimeError::user(trap));
-                        }
-                        Err(trap) => return Err(RuntimeError::user(trap)),
-                    }
                 }
-                break;
-            }
+                .map_err(RuntimeError::from)
+            });
 
             drop(store_install_guard);
             #[cfg(feature = "experimental-host-interrupt")]
@@ -577,9 +563,7 @@ impl Function {
             r
         };
 
-        if let Err(error) = result {
-            return Err(error.into());
-        }
+        result?;
 
         // Load the return values out of `values_vec`.
         let signature = self.ty(store);
@@ -601,6 +585,15 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        self.call_wrapped(store, None, params)
+    }
+
+    pub(crate) fn call_wrapped(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
                 .get(store.objects_mut().as_sys())
@@ -610,7 +603,7 @@ impl Function {
                 .call_trampoline
         };
         let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm(store, trampoline, params, &mut results)?;
+        self.call_wasm(store, wrapper, trampoline, params, &mut results)?;
         Ok(results.into_boxed_slice())
     }
 
@@ -642,7 +635,7 @@ impl Function {
                 .call_trampoline
         };
         let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm_raw(store, trampoline, params, &mut results)?;
+        self.call_wasm_raw(store, None, trampoline, params, &mut results)?;
         Ok(results.into_boxed_slice())
     }
 

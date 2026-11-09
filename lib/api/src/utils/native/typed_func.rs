@@ -10,8 +10,8 @@
 #[cfg(feature = "experimental-async")]
 use crate::AsStoreAsync;
 use crate::{
-    AsStoreMut, BackendStore, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError,
-    WasmTypeList, store::AsStoreRef,
+    AsStoreMut, BackendStore, CallWrapper, FromToNativeWasmType, Function, NativeWasmTypeInto,
+    RuntimeError, WasmTypeList, store::AsStoreRef,
 };
 use std::future::Future;
 use std::marker::PhantomData;
@@ -72,6 +72,24 @@ macro_rules! impl_native_traits {
                     #[cfg(feature = "js")]
                     BackendStore::Js(_) => self.call_js(store, $([<p_ $x>]),*),
 
+                }
+            }
+
+            /// Call the typed func through a [`CallWrapper`], which decides
+            /// when and how many times the function is entered.
+            #[allow(clippy::too_many_arguments)]
+            pub fn call_wrapped(&self, store: &mut impl AsStoreMut, wrapper: &mut dyn CallWrapper, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where $( $x: FromToNativeWasmType, )*
+            {
+                $(
+                    let [<p_ $x>] = $x;
+                )*
+                match store.as_store_mut().inner.store {
+                    #[cfg(feature = "sys")]
+                    BackendStore::Sys(_) => self.call_wrapped_sys(store, Some(wrapper), $([<p_ $x>]),*),
+                    #[cfg(feature = "v8")]
+                    BackendStore::V8(_) => self.call_wrapped_v8(store, Some(wrapper), $([<p_ $x>]),*),
+                    #[cfg(feature = "js")]
+                    BackendStore::Js(_) => self.call_wrapped_js(store, Some(wrapper), $([<p_ $x>]),*),
                 }
             }
 
