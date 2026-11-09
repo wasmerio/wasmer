@@ -39,7 +39,10 @@ pub fn fd_sync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno
                             #[allow(clippy::await_holding_lock)]
                             let mut handle = handle.write().unwrap();
                             handle.flush().await.map_err(map_io_err)?;
-                            Ok(handle.size())
+                            handle
+                                .metadata()
+                                .map(|md| md.len)
+                                .map_err(fs_error_into_wasi_err)
                         })?)
                     };
 
