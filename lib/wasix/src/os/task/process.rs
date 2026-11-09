@@ -455,7 +455,7 @@ impl WasiProcess {
         impl SignalHandlerAbi for SignalHandler {
             fn signal(&self, signal: u8) -> Result<(), SignalDeliveryError> {
                 if let Ok(signal) = signal.try_into() {
-                    signal_process_internal(&self.0, signal);
+                    signal_foreground_internal(&self.0, signal);
                     Ok(())
                 } else {
                     Err(SignalDeliveryError)
@@ -598,10 +598,13 @@ impl WasiProcess {
         tracing::trace!(%pid, %tid, "signal-thread({:?})", signal);
 
         let inner = self.inner.0.lock().unwrap();
-
-        wake_atomic_waiters(&inner, signal);
-        if let Some(thread) = inner.threads.get(&tid) {
+        if let Some(thread) = inner
+            .threads
+            .get(&tid)
+            .filter(|thread| thread.try_join().is_none())
+        {
             thread.signal(signal);
+            wake_atomic_waiters(&inner, signal);
         } else {
             trace!(
                 "wasi[{}]::lost-signal(tid={}, sig={:?})",
@@ -612,9 +615,13 @@ impl WasiProcess {
         }
     }
 
-    /// Signals all the threads in this process
+    /// Sends a process-directed signal to one live thread.
     pub fn signal_process(&self, signal: Signal) {
         signal_process_internal(&self.inner, signal);
+    }
+
+    fn signal_foreground(&self, signal: Signal) {
+        signal_foreground_internal(&self.inner, signal);
     }
 
     /// Registers the shared memory used by this process.
@@ -865,17 +872,43 @@ impl WasiProcess {
         // Need special logic for the main thread.
         let guard = self.inner.0.lock().unwrap();
         for thread in guard.threads.values() {
-            thread.set_status_finished(Ok(exit_code))
+            thread.set_status_finished(Ok(exit_code));
+            // Syscall waiters subscribe to signals, not task status changes.
+            thread.signal(Signal::Sigwakeup);
         }
+        wake_all_atomic_waiters(&guard);
     }
 }
 
-/// Signals all the threads in this process
 fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
+    let guard = process.0.lock().unwrap();
+    let pid = guard.pid;
+    tracing::trace!(%pid, "signal-process({:?})", signal);
+
+    let recipient = guard
+        .threads
+        .values()
+        .find(|thread| thread.is_main() && thread.try_join().is_none())
+        .or_else(|| {
+            guard
+                .threads
+                .values()
+                .find(|thread| thread.try_join().is_none())
+        });
+
+    if let Some(thread) = recipient {
+        thread.signal(signal);
+        wake_atomic_waiters(&guard, signal);
+    } else {
+        tracing::trace!(%pid, ?signal, "signal has no live recipient");
+    }
+}
+
+fn signal_foreground_internal(process: &LockableWasiProcessInner, signal: Signal) {
     #[allow(unused_mut)]
     let mut guard = process.0.lock().unwrap();
     let pid = guard.pid;
-    tracing::trace!(%pid, "signal-process({:?})", signal);
+    tracing::trace!(%pid, "signal-foreground({:?})", signal);
 
     // If the snapshot on ctrl-c is currently registered then we need
     // to take a snapshot and exit
@@ -899,24 +932,19 @@ fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
         };
     }
 
-    // Check if there are subprocesses that will receive this signal
-    // instead of this process
     if guard.waiting.load(Ordering::Acquire) > 0 {
-        let mut triggered = false;
-        for child in guard.children.iter() {
-            child.signal_process(signal);
-            triggered = true;
-        }
-        if triggered {
+        let children = guard.children.clone();
+        if !children.is_empty() {
+            drop(guard);
+            for child in children {
+                child.signal_foreground(signal);
+            }
             return;
         }
     }
 
-    // Otherwise just send the signal to all the threads
-    wake_atomic_waiters(&guard, signal);
-    for thread in guard.threads.values() {
-        thread.signal(signal);
-    }
+    drop(guard);
+    signal_process_internal(process, signal);
 }
 
 fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
@@ -924,46 +952,236 @@ fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
         return;
     };
 
-    if signal == Signal::Sigkill {
-        // On kill, disable atomics to prevent threads from resuming.
-        // NOTE: disable_atomics also wakes all current waiters.
-        if let Err(err) = memory.disable_atomics() {
-            tracing::trace!(
-                pid=%process.pid,
-                error = &err as &dyn std::error::Error,
-                "failed to wake atomic waiters"
-            );
-        }
+    let result = if signal == Signal::Sigkill {
+        memory.disable_atomics()
+    } else {
+        memory.wake_all_atomic_waiters()
+    };
+    if let Err(err) = result {
+        tracing::trace!(
+            pid=%process.pid,
+            error = &err as &dyn std::error::Error,
+            "failed to wake atomic waiters"
+        );
     }
+}
 
-    // TODO: Should other signals also wake up waiters?
-    // We have low confidence this is useful outside the kill path.
-    // SEE https://github.com/wasmerio/wasmer/pull/6536
-    //
-    // Atomic wait wakeups are memory-wide, so only use them for signals
-    // that should interrupt or terminate execution anyway.
-    // if matches!(
-    //     signal,
-    //     Signal::Sigkill
-    //         | Signal::Sigterm
-    //         | Signal::Sigabrt
-    //         | Signal::Sigquit
-    //         | Signal::Sigint
-    //         | Signal::Sigstop
-    //         | Signal::Sigpipe
-    //         | Signal::Sigwakeup
-    // ) {
-    //    memory.wake_all_atomic_waiters();
-    // }
+fn wake_all_atomic_waiters(process: &WasiProcessInner) {
+    let Some(memory) = &process.memory else {
+        return;
+    };
+    if let Err(err) = memory.wake_all_atomic_waiters() {
+        tracing::trace!(
+            pid=%process.pid,
+            error = &err as &dyn std::error::Error,
+            "failed to wake atomic waiters during process shutdown"
+        );
+    }
 }
 
 impl SignalHandlerAbi for WasiProcess {
     fn signal(&self, sig: u8) -> Result<(), SignalDeliveryError> {
         if let Ok(sig) = sig.try_into() {
-            self.signal_process(sig);
+            self.signal_foreground(sig);
             Ok(())
         } else {
             Err(SignalDeliveryError)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{WasiControlPlane, os::task::control_plane::ControlPlaneConfig};
+
+    fn process_with_two_threads() -> (
+        WasiControlPlane,
+        WasiProcess,
+        WasiThreadHandle,
+        WasiThreadHandle,
+    ) {
+        let plane = WasiControlPlane::new(ControlPlaneConfig::default());
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let main = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let worker = process
+            .new_thread(
+                WasiMemoryLayout::default(),
+                ThreadStartType::ThreadSpawn { start_ptr: 0 },
+            )
+            .unwrap();
+        (plane, process, main, worker)
+    }
+
+    #[test]
+    fn process_signal_selects_one_live_thread() {
+        let (_plane, process, main, worker) = process_with_two_threads();
+
+        process.signal_process(Signal::Sigusr1);
+
+        assert_eq!(main.pop_signals(), vec![Signal::Sigusr1]);
+        assert!(worker.pop_signals().is_empty());
+    }
+
+    #[test]
+    fn process_signal_falls_back_when_main_thread_finished() {
+        let (_plane, process, main, worker) = process_with_two_threads();
+        main.set_status_finished(Ok(Errno::Success.into()));
+
+        process.signal_process(Signal::Sigusr1);
+
+        assert!(main.pop_signals().is_empty());
+        assert_eq!(worker.pop_signals(), vec![Signal::Sigusr1]);
+    }
+
+    #[test]
+    fn selected_main_thread_exit_finishes_the_process() {
+        let (_plane, process, main, worker) = process_with_two_threads();
+
+        process.signal_process(Signal::Sigusr1);
+        main.set_status_finished(Ok(Errno::Success.into()));
+        drop(main);
+
+        assert!(worker.try_join().is_none());
+        assert_eq!(process.try_join().unwrap().unwrap().raw(), 0);
+        assert!(worker.pop_signals().is_empty());
+    }
+
+    #[test]
+    fn process_signal_selects_a_live_worker_without_a_main_thread() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig::default());
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let workers: Vec<_> = (0..2)
+            .map(|_| {
+                process
+                    .new_thread(
+                        WasiMemoryLayout::default(),
+                        ThreadStartType::ThreadSpawn { start_ptr: 0 },
+                    )
+                    .unwrap()
+            })
+            .collect();
+        workers[0].set_status_finished(Ok(Errno::Success.into()));
+
+        process.signal_process(Signal::Sigusr1);
+
+        assert!(process.try_join().is_none());
+        assert!(workers[0].pop_signals().is_empty());
+        assert_eq!(workers[1].pop_signals(), vec![Signal::Sigusr1]);
+    }
+
+    #[test]
+    fn unknown_thread_signal_does_not_queue_a_signal() {
+        let (_plane, process, main, worker) = process_with_two_threads();
+
+        process.signal_thread(&u32::MAX.into(), Signal::Sigusr1);
+
+        assert!(main.pop_signals().is_empty());
+        assert!(worker.pop_signals().is_empty());
+    }
+
+    #[test]
+    fn foreground_signal_reaches_waited_on_child() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig::default());
+        let parent = plane.new_process(ModuleHash::random()).unwrap();
+        let parent_main = parent
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let child = plane.new_process(ModuleHash::random()).unwrap();
+        let child_main = child
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        parent.lock().children.push(child);
+        parent.waiting.store(1, Ordering::Release);
+
+        SignalHandlerAbi::signal(&parent, Signal::Sigint as u8).unwrap();
+
+        assert!(parent_main.pop_signals().is_empty());
+        assert_eq!(child_main.pop_signals(), vec![Signal::Sigint]);
+    }
+
+    #[test]
+    fn addressed_signal_stays_with_waiting_parent() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig::default());
+        let parent = plane.new_process(ModuleHash::random()).unwrap();
+        let parent_main = parent
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let child = plane.new_process(ModuleHash::random()).unwrap();
+        let child_main = child
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        parent.lock().children.push(child);
+        parent.waiting.store(1, Ordering::Release);
+
+        parent.signal_process(Signal::Sigusr1);
+
+        assert_eq!(parent_main.pop_signals(), vec![Signal::Sigusr1]);
+        assert!(child_main.pop_signals().is_empty());
+    }
+
+    #[test]
+    fn terminate_finishes_every_thread_with_original_exit_code() {
+        #[derive(Default)]
+        struct WakeCounter(AtomicU32);
+
+        impl std::task::Wake for WakeCounter {
+            fn wake(self: Arc<Self>) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let (_plane, process, main, worker) = process_with_two_threads();
+        let exit_code = ExitCode::from(37);
+        let main_wakes = Arc::new(WakeCounter::default());
+        let worker_wakes = Arc::new(WakeCounter::default());
+        main.signals_subscribe(&Waker::from(main_wakes.clone()));
+        worker.signals_subscribe(&Waker::from(worker_wakes.clone()));
+
+        process.terminate(exit_code);
+        process.terminate(ExitCode::from(0));
+
+        assert_eq!(main.try_join().unwrap().unwrap(), exit_code);
+        assert_eq!(worker.try_join().unwrap().unwrap(), exit_code);
+        assert_eq!(main_wakes.0.load(Ordering::SeqCst), 1);
+        assert_eq!(worker_wakes.0.load(Ordering::SeqCst), 1);
+        for thread in [main, worker] {
+            assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
+            assert!(thread.signals().lock().unwrap().1.is_empty());
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    #[test]
+    fn terminate_wakes_atomic_waiters_after_publishing_exit_code() {
+        use std::{sync::mpsc, thread, time::Instant};
+        use wasmer::{Memory, MemoryLocation, MemoryType, Store};
+
+        let (_plane, process, main, worker) = process_with_two_threads();
+        let mut store = Store::new(wasmer::sys::EngineBuilder::headless().engine());
+        let memory = Memory::new(&mut store, MemoryType::new(1, Some(1), true)).unwrap();
+        let shared = memory.as_shared(&store).unwrap();
+        process.register_memory(shared.ops());
+        let (done_tx, done_rx) = mpsc::channel();
+        let waiter = thread::spawn(move || {
+            let result = shared.wait(MemoryLocation::new_32(0), Some(Duration::from_secs(5)));
+            done_tx.send((result, worker.try_join())).unwrap();
+        });
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let (result, status) = loop {
+            process.terminate(ExitCode::from(37));
+            match done_rx.recv_timeout(Duration::from_millis(1)) {
+                Ok(result) => break result,
+                Err(mpsc::RecvTimeoutError::Timeout) if Instant::now() < deadline => continue,
+                Err(err) => panic!("atomic waiter did not finish: {err}"),
+            }
+        };
+        waiter.join().unwrap();
+        assert_eq!(result.unwrap(), 0);
+        assert_eq!(status.unwrap().unwrap(), ExitCode::from(37));
+        assert_eq!(main.try_join().unwrap().unwrap(), ExitCode::from(37));
     }
 }
