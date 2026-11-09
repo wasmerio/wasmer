@@ -34,9 +34,9 @@ use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
     Module, StoreMut,
-    asyncify::{
-        AsyncifyCallWrapper, AsyncifyEnv, AsyncifyFunction, OnCalledAction, OnCalledHandler,
-    },
+};
+use wasmer_asyncify::{
+    AsyncifyCallWrapper, AsyncifyEnv, AsyncifyFunction, OnCalledAction, OnCalledHandler,
 };
 use wasmer_config::package::PackageSource;
 use wasmer_types::ModuleHash;
@@ -427,11 +427,7 @@ impl WasiEnv {
             .map(|handles| {
                 handles
                     .static_module_instance_handles()
-                    .map(|handles| {
-                        handles.asyncify_get_state.is_some()
-                            && handles.asyncify_start_rewind.is_some()
-                            && handles.asyncify_start_unwind.is_some()
-                    })
+                    .map(|handles| handles.asyncify.is_some())
                     .unwrap_or(false)
             })
             .unwrap_or(false)

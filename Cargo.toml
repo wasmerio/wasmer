@@ -38,6 +38,7 @@ members = [
   "fuzz",
   "lib/api",
   "lib/api/macro-wasmer-engine-test",
+  "lib/asyncify",
   "lib/backend-api",
   "lib/c-api",
   "lib/c-api-imports",

@@ -1,13 +1,13 @@
-use macro_wasmer_engine_test::engine_test;
-use wasmer::{
-    asyncify::{
-        AsyncifyCallWrapper, AsyncifyEnv, AsyncifyFunction, OnCalledAction, OnCalledHandler,
-    },
-    *,
-};
+//! The call loop, with a host function that leaves handlers without
+//! actually unwinding.
 
-#[cfg(feature = "js")]
-use wasm_bindgen_test::wasm_bindgen_test;
+use wasmer::{
+    Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, TypedFunction, Value, imports,
+    wat2wasm,
+};
+use wasmer_asyncify::{
+    AsyncifyCallWrapper, AsyncifyEnv, AsyncifyFunction, OnCalledAction, OnCalledHandler,
+};
 
 /// Environment whose host function leaves an unwind handler on its first
 /// `unwinds_left` entries.
@@ -43,7 +43,7 @@ fn instantiate(
     let wat = r#"(module
         (func $enter (import "env" "enter") (result i32))
         (func (export "run") (result i32) call $enter))"#;
-    let module = Module::new(store, wat)?;
+    let module = Module::new(store, wat2wasm(wat.as_bytes())?)?;
     let env = FunctionEnv::new(
         store,
         Unwinder {
@@ -60,7 +60,7 @@ fn instantiate(
     Ok((instance.exports.get_function("run")?.clone(), env))
 }
 
-#[engine_test]
+#[test]
 fn call_asyncify_reenters_while_handlers_ask_for_it() -> anyhow::Result<()> {
     let mut store = Store::default();
     let (run, env) = instantiate(&mut store, 2, || OnCalledAction::InvokeAgain)?;
@@ -74,7 +74,7 @@ fn call_asyncify_reenters_while_handlers_ask_for_it() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[engine_test]
+#[test]
 fn call_asyncify_finishes_or_traps_as_the_handler_says() -> anyhow::Result<()> {
     let mut store = Store::default();
     let (run, env) = instantiate(&mut store, 1, || OnCalledAction::Finish)?;

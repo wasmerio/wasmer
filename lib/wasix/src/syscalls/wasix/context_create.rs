@@ -3,8 +3,9 @@ use futures::FutureExt;
 use tracing::instrument;
 use wasmer::{
     AsStoreRef, Function, FunctionEnvMut, MemorySize, RuntimeError, StoreMut, TypedFunction, Value,
-    WasmPtr, asyncify::AsyncifyFunction,
+    WasmPtr,
 };
+use wasmer_asyncify::AsyncifyFunction;
 use wasmer_wasix_types::wasi::Errno;
 
 /// Return the function corresponding to the given entrypoint index if it exists and has the signature `() -> ()`

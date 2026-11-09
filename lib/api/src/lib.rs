@@ -453,7 +453,6 @@ cfg_compiler! {
     mod backend;
     pub use backend::*;
     mod vm;
-    pub mod asyncify;
 }
 
 // TODO: cannot be placed into cfg_compiler due to: error: `inner` is ambiguous

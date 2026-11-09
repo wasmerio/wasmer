@@ -25,6 +25,9 @@ wasmer-wasix-types = { path = "../wasi-types", version = "0.705.0", features = [
   "enable-serde",
 ] }
 wasmer-types = { path = "../types", version = "=7.5.0", default-features = false }
+wasmer-asyncify = { path = "../asyncify", version = "=7.5.0", features = [
+  "experimental-async",
+] }
 wasmer = { path = "../api", version = "=7.5.0", default-features = false, features = [
   "experimental-async",
 ] }
