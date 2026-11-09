@@ -85,9 +85,12 @@ pub(crate) use virtual_net::StreamSecurity;
 pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
     Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
-    OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
+    Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
-pub(crate) use wasmer_wasix_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
+pub(crate) use wasmer_asyncify::{
+    Asyncify, AsyncifyData, AsyncifyError, AsyncifyFunction, OnCalledAction,
+};
+pub(crate) use wasmer_wasix_types::wasi::EventUnion;
 #[cfg(target_os = "windows")]
 pub use windows::*;
 
@@ -1141,7 +1144,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                     thread_start,
                     thread_layout.clone(),
                 ) {
-                    return wasmer_types::OnCalledAction::Trap(err.into());
+                    return OnCalledAction::Trap(err.into());
                 }
             }
 
@@ -1165,7 +1168,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                         &mut guard,
                         SnapshotTrigger::Idle,
                     ) {
-                        return wasmer_types::OnCalledAction::Trap(err.into());
+                        return OnCalledAction::Trap(err.into());
                     }
                 }
             }
@@ -1192,6 +1195,21 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     }
 }
 
+/// The asyncify exports of the static module, when it was built with asyncify.
+fn static_module_asyncify(env: &WasiEnv) -> Option<Asyncify> {
+    env.inner()
+        .static_module_instance_handles()
+        .and_then(|handles| handles.asyncify.clone())
+}
+
+fn asyncify_err_to_errno(err: AsyncifyError) -> Errno {
+    match err {
+        AsyncifyError::Memory(err) => mem_error_to_wasi(err),
+        AsyncifyError::InvalidData => Errno::Overflow,
+        _ => Errno::Unknown,
+    }
+}
+
 #[must_use = "you must return the result immediately so the stack can unwind"]
 pub fn unwind<M: MemorySize, F>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -1214,44 +1232,25 @@ where
         }
     };
 
-    // Perform a check to see if we have enough room
     let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-
-    // Write the addresses to the start of the stack space
-    let unwind_pointer = env.layout.stack_lower;
-    let unwind_data_start =
-        unwind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
-    let unwind_data = __wasi_asyncify_t::<M::Offset> {
-        start: wasi_try_ok!(unwind_data_start.try_into().map_err(|_| Errno::Overflow)),
-        end: wasi_try_ok!(
-            (env.layout.stack_upper - memory_stack.len() as u64)
-                .try_into()
-                .map_err(|_| Errno::Overflow)
-        ),
-    };
-    let unwind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> = WasmPtr::new(wasi_try_ok!(
-        unwind_pointer.try_into().map_err(|_| Errno::Overflow)
-    ));
-    wasi_try_mem_ok!(unwind_data_ptr.write(&memory, unwind_data));
-
-    // Invoke the callback that will prepare to unwind
-    // We need to start unwinding the stack
-    let asyncify_data = wasi_try_ok!(wasm32_ptr_to_i32_arg(unwind_pointer));
-    if let Some(asyncify_start_unwind) = env
-        .inner()
-        .static_module_instance_handles()
-        .and_then(|handles| handles.asyncify_start_unwind.clone())
-    {
-        asyncify_start_unwind.call(&mut ctx, asyncify_data);
-    } else {
-        warn!("failed to unwind the stack because the asyncify_start_unwind export is missing");
+    let Some(asyncify) = static_module_asyncify(env) else {
+        warn!("failed to unwind the stack because the module does not export asyncify");
         return Err(WasiError::Exit(Errno::Noexec.into()));
-    }
+    };
+
+    // The free part of the stack holds the asyncify data while unwinding
+    let data = AsyncifyData {
+        header: env.layout.stack_lower,
+        end: env.layout.stack_upper - memory_stack.len() as u64,
+    };
+    wasi_try_ok!(
+        asyncify
+            .start_unwind(&mut ctx, data)
+            .map_err(asyncify_err_to_errno)
+    );
 
     // Set callback that will be invoked when this process finishes
     let env = ctx.data();
-    let unwind_stack_begin: u64 = unwind_data.start.into();
     let total_stack_space = env.layout.stack_size;
     let func = ctx.as_ref();
     trace!(
@@ -1263,22 +1262,10 @@ where
         memory_stack.len(),
         total_stack_space
     );
-    ctx.as_store_mut().on_called(move |mut store| {
+    ctx.data_mut().set_on_called(move |mut store| {
         let mut ctx = func.into_mut(&mut store);
-        let env = ctx.data();
-        let memory = env
-            .try_memory_view(&ctx)
-            .ok_or_else(|| "failed to save stack: stack pointer overflow - unable to access the memory of the instance".to_string())?;
-
-        let unwind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> = WasmPtr::new(
-            unwind_pointer
-                .try_into()
-                .map_err(|_| Errno::Overflow)
-                .unwrap(),
-        );
-        let unwind_data_result = unwind_data_ptr.read(&memory).unwrap();
-        let unwind_stack_finish: u64 = unwind_data_result.start.into();
-        let unwind_size = unwind_stack_finish - unwind_stack_begin;
+        let saved = asyncify.stop_unwind(&mut ctx, data)?;
+        let unwind_size = saved.end - saved.start;
         trace!(
             "wasi[{}:{}]::unwound (memory_stack_size={} unwind_size={})",
             ctx.data().pid(),
@@ -1288,8 +1275,13 @@ where
         );
 
         // Read the memory stack into a vector
+        let memory = ctx
+            .data()
+            .try_memory_view(&ctx)
+            .ok_or_else(|| "failed to save stack: stack pointer overflow - unable to access the memory of the instance".to_string())?;
         let unwind_stack_ptr = WasmPtr::<u8, M>::new(
-            unwind_stack_begin
+            saved
+                .start
                 .try_into()
                 .map_err(|_| "failed to save stack: stack pointer overflow".to_string())?,
         );
@@ -1302,18 +1294,6 @@ where
             )
             .and_then(|memory_stack| memory_stack.read_to_bytes())
             .map_err(|err| format!("failed to read stack: {err}"))?;
-
-        // Notify asyncify that we are no longer unwinding
-        if let Some(asyncify_stop_unwind) = env
-            .inner()
-            .static_module_instance_handles()
-            .and_then(|i| i.asyncify_stop_unwind.clone())
-        {
-            asyncify_stop_unwind.call(&mut ctx);
-        } else {
-            warn!("failed to unwind the stack because the asyncify_stop_unwind export is missing");
-            return Ok(OnCalledAction::Finish);
-        }
 
         Ok(callback(ctx, memory_stack, unwind_stack))
     });
@@ -1379,10 +1359,17 @@ pub fn rewind_ext<M: MemorySize>(
         }
     };
 
-    // Write the addresses to the start of the stack space
-    let rewind_pointer = env.layout.stack_lower;
-    let rewind_data_start =
-        rewind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
+    let Some(asyncify) = static_module_asyncify(env) else {
+        warn!("failed to rewind the stack because the module does not export asyncify");
+        return Errno::Noexec;
+    };
+
+    // The stack space holds the asyncify data while rewinding
+    let data = AsyncifyData {
+        header: env.layout.stack_lower,
+        end: env.layout.stack_upper,
+    };
+    let rewind_data_start = data.header + asyncify.header_size();
     let rewind_data_end = rewind_data_start + (rewind_stack.len() as u64);
     if rewind_data_end > env.layout.stack_upper {
         warn!(
@@ -1391,19 +1378,6 @@ pub fn rewind_ext<M: MemorySize>(
         );
         return Errno::Overflow;
     }
-    let rewind_data = __wasi_asyncify_t::<M::Offset> {
-        start: wasi_try!(rewind_data_end.try_into().map_err(|_| Errno::Overflow)),
-        end: wasi_try!(
-            env.layout
-                .stack_upper
-                .try_into()
-                .map_err(|_| Errno::Overflow)
-        ),
-    };
-    let rewind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> = WasmPtr::new(wasi_try!(
-        rewind_pointer.try_into().map_err(|_| Errno::Overflow)
-    ));
-    wasi_try_mem!(rewind_data_ptr.write(&memory, rewind_data));
 
     // Copy the data to the address
     let rewind_stack_ptr = WasmPtr::<u8, M>::new(wasi_try!(
@@ -1419,19 +1393,11 @@ pub fn rewind_ext<M: MemorySize>(
     );
 
     // Invoke the callback that will prepare to rewind
-    let asyncify_data = wasi_try!(wasm32_ptr_to_i32_arg(rewind_pointer));
-    if let Some(asyncify_start_rewind) = env
-        .inner()
-        .static_module_instance_handles()
-        .and_then(|a| a.asyncify_start_rewind.clone())
-    {
-        asyncify_start_rewind.call(ctx, asyncify_data);
-    } else {
-        warn!(
-            "failed to rewind the stack because the asyncify_start_rewind export is missing or inaccessible"
-        );
-        return Errno::Noexec;
-    }
+    wasi_try!(
+        asyncify
+            .start_rewind(ctx, data, rewind_stack.len() as u64)
+            .map_err(asyncify_err_to_errno)
+    );
 
     Errno::Success
 }
@@ -1522,18 +1488,12 @@ where
         let memory_stack = result.memory_stack;
 
         // Notify asyncify that we are no longer rewinding
-        let env = ctx.data();
-        if let Some(asyncify_stop_rewind) = env
-            .inner()
-            .static_module_instance_handles()
-            .and_then(|handles| handles.asyncify_stop_rewind.clone())
-        {
-            asyncify_stop_rewind.call(ctx);
-        } else {
-            warn!(
-                "failed to handle rewind because the asyncify_stop_rewind export is missing or inaccessible"
-            );
+        let Some(asyncify) = static_module_asyncify(ctx.data()) else {
+            warn!("failed to handle rewind because the module does not export asyncify");
             return Some(None);
+        };
+        if let Err(err) = asyncify.stop_rewind(ctx) {
+            warn!("failed to stop rewinding the stack - {err}");
         }
 
         // Restore the memory stack

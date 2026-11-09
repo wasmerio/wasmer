@@ -16,7 +16,6 @@ use wasmer_vm::TrapHandlerFn;
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     pub(crate) store: BackendStore,
-    pub(crate) on_called: Option<OnCalledHandler>,
 }
 
 impl std::fmt::Debug for StoreInner {
@@ -24,7 +23,6 @@ impl std::fmt::Debug for StoreInner {
         f.debug_struct("StoreInner")
             .field("objects", &self.objects)
             .field("store", &self.store)
-            .field("on_called", &"<...>")
             .finish()
     }
 }
@@ -43,15 +41,6 @@ impl AsStoreMut for StoreInner {
         &mut self.objects
     }
 }
-
-/// Call handler for a store.
-// TODO: better documentation!
-pub type OnCalledHandler = Box<
-    dyn FnOnce(
-        StoreMut<'_>,
-    )
-        -> Result<wasmer_types::OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
->;
 
 gen_rt_ty! {
     #[derive(derive_more::From, Debug)]

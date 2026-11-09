@@ -21,6 +21,7 @@ use std::{borrow::Cow, sync::Arc};
 use tracing::*;
 use virtual_mio::block_on;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer_asyncify::AsyncifyFunction;
 use wasmer_wasix_types::wasi::Errno;
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.package.id))]
@@ -200,7 +201,7 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     {
         // This does not need a context switching environment as the documentation
         // states that that is only available after the first call to main
-        let result = initialize.call(&mut store, &[]);
+        let result = initialize.call_asyncify(&mut store, &ctx.env, &[]);
 
         if let Err(err) = result {
             thread.thread.set_status_finished(Err(err.into()));

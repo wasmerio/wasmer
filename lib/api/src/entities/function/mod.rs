@@ -10,6 +10,9 @@ pub use host::*;
 pub(crate) mod env;
 pub use env::*;
 
+pub(crate) mod call_wrapper;
+pub use call_wrapper::{CallWrapper, WasmCall};
+
 #[cfg(feature = "experimental-async")]
 pub(crate) mod async_host;
 #[cfg(feature = "experimental-async")]
@@ -329,6 +332,35 @@ impl Function {
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         self.0.call(store, params)
+    }
+
+    /// Calls the function through a [`CallWrapper`], which decides when and
+    /// how many times the function is entered.
+    ///
+    /// ```
+    /// # use wasmer::{imports, wat2wasm, Instance, Module, Store, Value, WasmCall};
+    /// # let mut store = Store::default();
+    /// # let wasm_bytes = wat2wasm(br#"(module (func (export "one") (result i32) i32.const 1))"#).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    /// let one = instance.exports.get_function("one").unwrap();
+    ///
+    /// let mut entries = 0;
+    /// let mut count_entries = |call: &mut WasmCall<'_>| {
+    ///     entries += 1;
+    ///     call.invoke()
+    /// };
+    /// let results = one.call_wrapped(&mut store, &mut count_entries, &[]).unwrap();
+    /// assert_eq!(results.to_vec(), vec![Value::I32(1)]);
+    /// assert_eq!(entries, 1);
+    /// ```
+    pub fn call_wrapped(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: &mut dyn CallWrapper,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        self.0.call_wrapped(store, wrapper, params)
     }
 
     /// Calls the function asynchronously.
