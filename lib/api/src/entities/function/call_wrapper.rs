@@ -42,10 +42,7 @@ pub struct WasmCall<'a> {
 impl WasmCall<'_> {
     /// Enters the wrapped function.
     ///
-    /// Invoking again enters the function again. The arguments of a re-entry
-    /// are unspecified (they may hold the previous results), so re-entering
-    /// only makes sense for code that restores its own state, such as an
-    /// asyncify rewind.
+    /// Invoking again enters the function again, with the same arguments.
     pub fn invoke(&mut self) -> Result<(), RuntimeError> {
         self.call.invoke()
     }
@@ -88,6 +85,8 @@ where
     F: FnMut(&mut S) -> Result<(), RuntimeError>,
 {
     fn invoke(&mut self) -> Result<(), RuntimeError> {
+        // Cleared first, so an entry that unwinds never counts as completed.
+        self.completed = false;
         let result = (self.invoke)(self.store);
         self.completed = result.is_ok();
         result

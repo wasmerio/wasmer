@@ -530,12 +530,20 @@ impl Function {
                 }
             };
 
-            // Safety: the store context is uninstalled before we return, and the
-            // store mut is valid for the duration of the call.
-            let store_install_guard =
-                unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
+            // The trampoline writes the results over the arguments, so a
+            // wrapper that enters again gets them restored first.
+            let original_params = wrapper.is_some().then(|| params.clone());
 
             let r = call_wrapped(store, wrapper, |store| {
+                if let Some(original_params) = &original_params {
+                    params.copy_from_slice(original_params);
+                }
+                // Safety: the store context is uninstalled before this entry
+                // returns, and the store mut is valid for its duration. It is
+                // installed only while Wasm runs: the wrapper holds the store
+                // between entries, so it must not be lendable then.
+                let _store_install_guard =
+                    unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
                 let storeref = store.as_store_ref();
                 let vm_function = self.handle.get(storeref.objects().as_sys());
                 let config = storeref.engine().tunables().vmconfig();
@@ -556,7 +564,6 @@ impl Function {
                 .map_err(RuntimeError::from)
             });
 
-            drop(store_install_guard);
             #[cfg(feature = "experimental-host-interrupt")]
             drop(interrupt_guard);
 
