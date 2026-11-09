@@ -67,7 +67,7 @@ fn bench_wasmer(store: &mut Store, wasm: &[u8], group: &mut BenchmarkGroup<'_, W
     hello.call(store).unwrap();
     assert_eq!(*env.as_ref(store), HOST_CALLS_PER_INVOCATION);
 
-    group.bench_function(format!("with_env/wasmer/llvm"), |b| {
+    group.bench_function("with_env/wasmer/llvm", |b| {
         b.iter(|| {
             *env.as_mut(store) = 0;
             hello.call(store).unwrap();
