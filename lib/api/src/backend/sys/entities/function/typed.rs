@@ -74,12 +74,19 @@ macro_rules! impl_native_traits {
                     }
                 };
 
-                // Install the store into the store context
-                let store_install_guard = unsafe {
-                    StoreContext::install(store.as_store_mut().inner as *mut _)
-                };
+                // The trampoline writes the results over the arguments, so a
+                // wrapper that enters again gets them restored first.
+                let original_args = wrapper.is_some().then(|| args_rets.to_vec());
 
                 let r = call_wrapped(store, wrapper, |store| {
+                    if let Some(original_args) = &original_args {
+                        args_rets.copy_from_slice(original_args);
+                    }
+                    // Installed only while Wasm runs: the wrapper holds the
+                    // store between entries, so it must not be lendable then.
+                    let _store_install_guard = unsafe {
+                        StoreContext::install(store.as_store_mut().inner as *mut _)
+                    };
                     let storeref = store.as_store_ref();
                     let config = storeref.engine().tunables().vmconfig();
                     unsafe {
@@ -98,7 +105,6 @@ macro_rules! impl_native_traits {
                     .map_err(RuntimeError::from)
                 });
 
-                drop(store_install_guard);
                 #[cfg(feature = "experimental-host-interrupt")]
                 drop(interrupt_guard);
 
