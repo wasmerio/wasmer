@@ -33,7 +33,7 @@ fn build_v8() {
         .join(WEE8_RELEASE_VERSION)
         .join(platform_name);
     let archive_path = cache_dir.join(asset_name);
-    let v8_lib_dir = cache_dir.join("lib");
+    let v8_lib_dir = PathBuf::from("/tmp/v8/lib");
     let v8_lib_path = v8_lib_dir.join(if cfg!(target_os = "windows") {
         "v8.lib"
     } else {
