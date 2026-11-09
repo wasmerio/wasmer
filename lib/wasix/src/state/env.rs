@@ -1,9 +1,8 @@
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
-    AsyncifyCallWrapper, AsyncifyFunction, OnCalledAction, OnCalledHandler, Runtime,
-    VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiResult,
-    WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
+    Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
+    WasiResult, WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
     bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand, CommandBinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
@@ -35,6 +34,9 @@ use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
     Module, StoreMut,
+    asyncify::{
+        AsyncifyCallWrapper, AsyncifyEnv, AsyncifyFunction, OnCalledAction, OnCalledHandler,
+    },
 };
 use wasmer_config::package::PackageSource;
 use wasmer_types::ModuleHash;
@@ -243,8 +245,7 @@ pub struct WasiEnv {
     pub(crate) context_switching_environment: Option<ContextSwitchingEnvironment>,
 
     /// Callback left by a syscall that started an asyncify unwind, run by
-    /// [`AsyncifyCallWrapper`](crate::AsyncifyCallWrapper) once the stack has
-    /// unwound to the host.
+    /// [`AsyncifyCallWrapper`] once the stack has unwound to the host.
     ///
     /// It belongs to the call in flight on this store, so it is never cloned.
     pub(crate) on_called: Option<OnCalledHandler>,
@@ -281,6 +282,12 @@ impl Clone for WasiEnv {
             context_switching_environment: None,
             on_called: None,
         }
+    }
+}
+
+impl AsyncifyEnv for WasiEnv {
+    fn take_on_called(&mut self) -> Option<OnCalledHandler> {
+        self.on_called.take()
     }
 }
 

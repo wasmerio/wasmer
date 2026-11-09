@@ -1,9 +1,9 @@
-use crate::{AsyncifyFunction, WasiEnv, WasiError};
+use crate::{WasiEnv, WasiError};
 use futures::FutureExt;
 use tracing::instrument;
 use wasmer::{
     AsStoreRef, Function, FunctionEnvMut, MemorySize, RuntimeError, StoreMut, TypedFunction, Value,
-    WasmPtr,
+    WasmPtr, asyncify::AsyncifyFunction,
 };
 use wasmer_wasix_types::wasi::Errno;
 
