@@ -11,12 +11,18 @@
 //! inode (see module comment in `mod.rs`).
 
 use super::fd::{Fd, FdInner};
+use super::stale_close;
 use wasmer_wasix_types::wasi::Fd as WasiFd;
 
 #[derive(Debug)]
 pub struct FdList {
     fds: Vec<Option<Fd>>,
     first_free: Option<usize>,
+    /// Allocation generation per slot: bumped every time a slot is (re)occupied.
+    /// Lets a caller tell whether a numeric fd still refers to the descriptor it
+    /// saw earlier or to a re-allocation of the same number (see `stale_close`).
+    generations: Vec<u64>,
+    next_generation: u64,
 }
 
 pub struct FdListIterator<'a> {
@@ -41,7 +47,34 @@ impl FdList {
         Self {
             fds: vec![],
             first_free: None,
+            generations: vec![],
+            next_generation: 0,
         }
+    }
+
+    /// Allocation generation of the descriptor currently occupying `idx`.
+    pub fn generation(&self, idx: WasiFd) -> Option<u64> {
+        let idx = idx as usize;
+        match self.fds.get(idx) {
+            Some(Some(_)) => {
+                debug_assert!(
+                    idx < self.generations.len(),
+                    "occupied fd slot {idx} has no allocation generation"
+                );
+                Some(self.generations.get(idx).copied().unwrap_or(0))
+            }
+            _ => None,
+        }
+    }
+
+    /// Records that slot `idx` was just (re)occupied.
+    fn mark_allocated(&mut self, idx: usize) {
+        if self.generations.len() < self.fds.len() {
+            self.generations.resize(self.fds.len(), 0);
+        }
+        self.next_generation += 1;
+        self.generations[idx] = self.next_generation;
+        stale_close::note_allocation();
     }
 
     pub fn next_free_fd(&self) -> WasiFd {
@@ -60,10 +93,12 @@ impl FdList {
     }
 
     pub fn get(&self, idx: WasiFd) -> Option<&Fd> {
+        stale_close::note_lookup(idx);
         self.fds.get(idx as usize).and_then(|x| x.as_ref())
     }
 
     pub fn get_mut(&mut self, idx: WasiFd) -> Option<&mut FdInner> {
+        stale_close::note_lookup(idx);
         self.fds
             .get_mut(idx as usize)
             .and_then(|x| x.as_mut())
@@ -72,7 +107,7 @@ impl FdList {
 
     pub fn insert_first_free(&mut self, fd: Fd) -> WasiFd {
         fd.inode.acquire_handle();
-        match self.first_free {
+        let idx = match self.first_free {
             Some(free) => {
                 assert!(self.fds[free].is_none());
 
@@ -80,13 +115,15 @@ impl FdList {
 
                 self.first_free = self.first_free_after(free as WasiFd + 1);
 
-                free as WasiFd
+                free
             }
             None => {
                 self.fds.push(Some(fd));
-                (self.fds.len() - 1) as WasiFd
+                self.fds.len() - 1
             }
-        }
+        };
+        self.mark_allocated(idx);
+        idx as WasiFd
     }
 
     pub fn insert_first_free_after(&mut self, fd: Fd, after_or_equal: WasiFd) -> WasiFd {
@@ -115,21 +152,23 @@ impl FdList {
                 // This is handled by insert or insert_first_free in every other case, but not this one
                 fd.inode.acquire_handle();
 
-                match self.first_free_after(after_or_equal) {
+                let idx = match self.first_free_after(after_or_equal) {
                     // Found a suitable hole, and it's guaranteed to not be the first since
                     // that's checked in the previous Some case, so filling it has no effect
                     // on self.first_free
                     Some(free) => {
                         self.fds[free] = Some(fd);
-                        free as WasiFd
+                        free
                     }
 
                     // No holes - insert at the end
                     None => {
                         self.fds.push(Some(fd));
-                        (self.fds.len() - 1) as WasiFd
+                        self.fds.len() - 1
                     }
-                }
+                };
+                self.mark_allocated(idx);
+                idx as WasiFd
             }
         }
     }
@@ -171,6 +210,7 @@ impl FdList {
 
         fd.inode.acquire_handle();
         self.fds[idx] = Some(fd);
+        self.mark_allocated(idx);
 
         if self.first_free == Some(idx) {
             self.first_free = self.first_free_after(idx as WasiFd + 1);
@@ -205,6 +245,7 @@ impl FdList {
         }
 
         self.fds.clear();
+        self.generations.clear();
         self.first_free = None;
     }
 
@@ -238,6 +279,8 @@ impl Clone for FdList {
         Self {
             fds: self.fds.clone(),
             first_free: self.first_free,
+            generations: self.generations.clone(),
+            next_generation: self.next_generation,
         }
     }
 }
@@ -707,5 +750,44 @@ mod tests {
         fd.inode.drop_one_handle();
 
         assert_panic!(drop(l), &str, "InodeGuard handle dropped too many times");
+    }
+
+    #[test]
+    fn generation_changes_when_a_slot_is_reused() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        let first = l.generation(1).unwrap();
+        assert_ne!(l.generation(0).unwrap(), first);
+
+        // Removing keeps the number free but does not report a generation.
+        l.remove(1);
+        assert_eq!(l.generation(1), None);
+
+        // Re-occupying the same number through any insert path bumps it.
+        l.insert_first_free(useless_fd(2));
+        let second = l.generation(1).unwrap();
+        assert_ne!(first, second);
+
+        l.remove(1);
+        assert!(l.insert(true, 1, useless_fd(3)));
+        let third = l.generation(1).unwrap();
+        assert_ne!(second, third);
+
+        l.remove(1);
+        l.insert_first_free_after(useless_fd(4), 1);
+        let fourth = l.generation(1).unwrap();
+        assert_ne!(third, fourth);
+
+        // Extending the list through a far insert gives the new slot a generation
+        // and leaves the untouched hole without one.
+        assert!(l.insert(true, 5, useless_fd(5)));
+        assert!(l.generation(5).is_some());
+        assert_eq!(l.generation(3), None);
+
+        // Clones carry the generations along.
+        let c = l.clone();
+        assert_eq!(c.generation(1), l.generation(1));
+        assert_eq!(c.generation(5), l.generation(5));
     }
 }
