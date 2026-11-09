@@ -61,11 +61,13 @@ macro_rules! impl_native_traits {
 
                  let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().unwrap_v_8()) };
 
-                let mut params = unsafe {std::mem::zeroed()};
-                unsafe {wasm_val_vec_new(&mut params, params_list.len(), params_list.as_ptr())};
-
                  call_wrapped(store, wrapper, |_| {
-                    let trap = unsafe { wasm_func_call(func, &params, &mut results) };
+                    // `wasm_func_call` takes the arguments, so every entry gets its own.
+                    let mut params = unsafe { std::mem::zeroed() };
+                    let trap = unsafe {
+                        wasm_val_vec_new(&mut params, params_list.len(), params_list.as_ptr());
+                        wasm_func_call(func, &params, &mut results)
+                    };
                     if trap.is_null() {
                         Ok(())
                     } else {

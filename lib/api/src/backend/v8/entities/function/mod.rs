@@ -385,16 +385,10 @@ impl Function {
 
         // let wasm_func_param_arity(self.handle)
 
-        let mut args = unsafe {
-            let mut wasm_params = params
-                .iter()
-                .map(|v| IntoCApiValue::into_cv(v.clone()))
-                .collect::<Vec<_>>()
-                .into_boxed_slice();
-            let mut vec = Default::default();
-            wasm_val_vec_new(&mut vec, wasm_params.len(), wasm_params.as_ptr());
-            vec
-        };
+        let wasm_params = params
+            .iter()
+            .map(|v| IntoCApiValue::into_cv(v.clone()))
+            .collect::<Vec<_>>();
 
         let size = unsafe { wasm_func_result_arity(self.handle) };
 
@@ -407,8 +401,12 @@ impl Function {
         };
 
         call_wrapped(store, wrapper, |_| {
-            let trap =
-                unsafe { wasm_func_call(self.handle, &mut args as _, &mut results as *mut _) };
+            // `wasm_func_call` takes the arguments, so every entry gets its own.
+            let mut args = Default::default();
+            let trap = unsafe {
+                wasm_val_vec_new(&mut args, wasm_params.len(), wasm_params.as_ptr());
+                wasm_func_call(self.handle, &mut args as _, &mut results as *mut _)
+            };
             if trap.is_null() {
                 Ok(())
             } else {
