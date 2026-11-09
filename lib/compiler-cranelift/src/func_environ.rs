@@ -2145,12 +2145,8 @@ impl FuncEnvironment<'_> {
         let bytes = pos.ins().load(pointer_type, flags, definition, offset);
         let pages = pos
             .ins()
-            .ushr_imm_u(bytes, wasmer_types::WASM_PAGE_SIZE.trailing_zeros() as i64);
-        Ok(if pointer_type == I32 {
-            pages
-        } else {
-            pos.ins().ireduce(I32, pages)
-        })
+            .udiv_imm_u(bytes, wasmer_types::WASM_PAGE_SIZE as i64);
+        Ok(pos.ins().ireduce(I32, pages))
     }
 
     #[allow(clippy::too_many_arguments)]
