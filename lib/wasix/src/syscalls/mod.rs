@@ -86,6 +86,7 @@ pub(crate) use wasmer::{
     AsStoreMut, AsStoreRef, Extern, Function, FunctionEnv, FunctionEnvMut, Global, Instance,
     Memory, Memory32, Memory64, MemoryAccessError, MemoryError, MemorySize, MemoryView, Module,
     Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
+    asyncify::{AsyncifyFunction, OnCalledAction},
 };
 pub(crate) use wasmer_wasix_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
 #[cfg(target_os = "windows")]
@@ -110,23 +111,6 @@ pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
 };
-pub(crate) use crate::{
-    AsyncifyFunction, OnCalledAction, Runtime, VirtualTaskManager, WasiEnv, WasiError,
-    WasiFunctionEnv, WasiModuleTreeHandles, WasiVFork,
-    bin_factory::spawn_exec_module,
-    import_object_for_all_wasi_versions, mem_error_to_wasi,
-    net::{
-        read_ip_port,
-        socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
-        write_ip_port,
-    },
-    runtime::SpawnType,
-    state::{
-        self, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder, WasiFutex, WasiState,
-        iterate_poll_events,
-    },
-    utils::{self, map_io_err},
-};
 use crate::{
     DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
     WasiResult, WasiRuntimeError,
@@ -140,6 +124,23 @@ use crate::{
         thread::{RewindResult, RewindResultType},
     },
     utils::store::StoreSnapshot,
+};
+pub(crate) use crate::{
+    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiModuleTreeHandles,
+    WasiVFork,
+    bin_factory::spawn_exec_module,
+    import_object_for_all_wasi_versions, mem_error_to_wasi,
+    net::{
+        read_ip_port,
+        socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
+        write_ip_port,
+    },
+    runtime::SpawnType,
+    state::{
+        self, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder, WasiFutex, WasiState,
+        iterate_poll_events,
+    },
+    utils::{self, map_io_err},
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 

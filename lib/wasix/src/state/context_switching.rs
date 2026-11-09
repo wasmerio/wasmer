@@ -1,5 +1,5 @@
 use crate::{
-    AsyncifyFunction, WasiError, WasiFunctionEnv,
+    WasiError, WasiFunctionEnv,
     utils::thread_local_executor::{
         ThreadLocalExecutor, ThreadLocalSpawner, ThreadLocalSpawnerError,
     },
@@ -18,7 +18,7 @@ use std::{
 };
 use thiserror::Error;
 use tracing::trace;
-use wasmer::{RuntimeError, Store};
+use wasmer::{RuntimeError, Store, asyncify::AsyncifyFunction};
 use wasmer_wasix_types::wasi::ExitCode;
 
 /// The context-switching environment represents all state for WASIX context-switching

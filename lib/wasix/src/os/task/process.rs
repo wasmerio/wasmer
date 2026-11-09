@@ -229,9 +229,9 @@ impl WasiProcessInner {
     ) -> WasiResult<MaybeCheckpointResult<'_>> {
         // Enter the lock which will determine if we are in a checkpoint or not
 
-        use crate::OnCalledAction;
         use bytes::Bytes;
         use wasmer::AsStoreMut;
+        use wasmer::asyncify::OnCalledAction;
 
         use crate::{WasiError, os::task::thread::RewindResultType, rewind_ext};
         let guard = inner.0.lock().unwrap();
