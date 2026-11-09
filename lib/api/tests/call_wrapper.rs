@@ -168,8 +168,9 @@ fn call_wrappers_cannot_take_the_store_from_the_context() -> anyhow::Result<()> 
 /// An entry that panics never completes the call, even when the wrapper
 /// catches the panic after an earlier entry succeeded.
 ///
-/// Native only: panics abort on `wasm32-unknown-unknown`.
-#[cfg(not(target_arch = "wasm32"))]
+/// Not on `wasm32-unknown-unknown`, where panics abort, nor V8, where a host
+/// function's panic cannot unwind through the engine's frames.
+#[cfg(not(any(target_arch = "wasm32", feature = "v8")))]
 #[engine_test]
 fn call_wrapped_rejects_ok_after_a_panicking_entry() -> anyhow::Result<()> {
     use std::panic::{AssertUnwindSafe, catch_unwind};
