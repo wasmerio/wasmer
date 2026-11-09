@@ -20,9 +20,8 @@ use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 use std::{borrow::Cow, sync::Arc};
 use tracing::*;
 use virtual_mio::block_on;
-use wasmer::{
-    Function, Memory32, Memory64, Module, RuntimeError, Store, Value, asyncify::AsyncifyFunction,
-};
+use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer_asyncify::AsyncifyFunction;
 use wasmer_wasix_types::wasi::Errno;
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.package.id))]

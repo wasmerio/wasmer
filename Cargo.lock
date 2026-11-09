@@ -7223,6 +7223,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-asyncify"
+version = "7.5.0"
+dependencies = [
+ "anyhow",
+ "wasmer",
+]
+
+[[package]]
 name = "wasmer-backend-api"
 version = "0.705.0"
 dependencies = [
@@ -7887,6 +7895,7 @@ dependencies = [
  "wasm-bindgen-test",
  "wasm-encoder 0.263.0",
  "wasmer",
+ "wasmer-asyncify",
  "wasmer-config",
  "wasmer-journal",
  "wasmer-package",

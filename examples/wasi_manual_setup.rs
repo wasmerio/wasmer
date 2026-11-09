@@ -15,8 +15,8 @@
 //!
 //! Ready?
 
-use wasmer::{Instance, Module, Store, asyncify::AsyncifyFunction, wat2wasm};
-use wasmer_wasix::WasiEnv;
+use wasmer::{Instance, Module, Store, wat2wasm};
+use wasmer_wasix::{WasiEnv, wasmer_asyncify::AsyncifyFunction};
 
 const HELLO_WASI_WAT: &[u8] = br#"
 (module

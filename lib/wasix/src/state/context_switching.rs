@@ -18,7 +18,8 @@ use std::{
 };
 use thiserror::Error;
 use tracing::trace;
-use wasmer::{RuntimeError, Store, asyncify::AsyncifyFunction};
+use wasmer::{RuntimeError, Store};
+use wasmer_asyncify::AsyncifyFunction;
 use wasmer_wasix_types::wasi::ExitCode;
 
 /// The context-switching environment represents all state for WASIX context-switching

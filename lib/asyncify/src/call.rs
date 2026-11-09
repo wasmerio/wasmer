@@ -1,28 +1,13 @@
-//! Completing [asyncify] stack unwinds that host functions start.
-//!
-//! A module built with asyncify can unwind its own stack back to the host and
-//! later be rewound to where it left off. A host function drives this:
-//!
-//! 1. It calls the module's `asyncify_start_unwind` export, leaves an
-//!    [`OnCalledHandler`] on its function environment and returns.
-//! 2. The guest unwinds back to the host call that entered it. When that call
-//!    was made through [`AsyncifyFunction`], the handler runs there, with the
-//!    stack fully unwound.
-//! 3. The handler calls `asyncify_stop_unwind` and decides what happens next
-//!    through [`OnCalledAction`]: re-enter the function (after starting a
-//!    rewind), finish the call, or trap.
-//!
-//! The environment type tells the call where the handler is through
-//! [`AsyncifyEnv`].
-//!
-//! [asyncify]: https://emscripten.org/docs/porting/asyncify.html
+//! Calling into WebAssembly so that the unwinds host functions start complete.
 
 #[cfg(feature = "experimental-async")]
 use std::future::Future;
 
 #[cfg(feature = "experimental-async")]
-use crate::AsStoreAsync;
-use crate::{AsStoreMut, CallWrapper, Function, FunctionEnv, RuntimeError, StoreMut, Value, WasmCall};
+use wasmer::AsStoreAsync;
+use wasmer::{
+    AsStoreMut, CallWrapper, Function, FunctionEnv, RuntimeError, StoreMut, Value, WasmCall,
+};
 
 /// What the call does once the guest stack has unwound to the host.
 #[derive(Debug)]
@@ -42,6 +27,18 @@ pub type OnCalledHandler = Box<
         + Send
         + Sync,
 >;
+
+/// Boxes `callback` as an [`OnCalledHandler`], so closures need no type
+/// annotations.
+pub fn on_called<F>(callback: F) -> OnCalledHandler
+where
+    F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
+        + Send
+        + Sync
+        + 'static,
+{
+    Box::new(callback)
+}
 
 /// Function environment that holds the [`OnCalledHandler`] its host functions
 /// leave when they start an unwind.
@@ -98,7 +95,7 @@ fn resume_after_unwind<T: AsyncifyEnv>(
 /// functions complete.
 ///
 /// Typed functions get the same behaviour from
-/// [`TypedFunction::call_wrapped`](crate::TypedFunction::call_wrapped) with an
+/// [`TypedFunction::call_wrapped`](wasmer::TypedFunction::call_wrapped) with an
 /// [`AsyncifyCallWrapper`].
 pub trait AsyncifyFunction {
     /// Calls the function, completing unwinds left on `env`.
