@@ -832,6 +832,82 @@ fn issue_exnref_global(mut config: crate::Config) {
         .unwrap();
 }
 
+/// Exception payloads must use the VM's RawValue slots in both directions.
+#[compiler_test(issues)]
+fn issue_7036_exception_payload(mut config: crate::Config) -> Result<()> {
+    if config.compiler == crate::Compiler::Singlepass {
+        return Ok(());
+    }
+
+    let cases = [
+        ("", "", vec![]),
+        ("f64", "(f64.const 121894)", vec![Value::F64(121894.0)]),
+        (
+            "f32 f64",
+            "(f32.const -1.5) (f64.const 121894)",
+            vec![Value::F32(-1.5), Value::F64(121894.0)],
+        ),
+        (
+            "f64 f32",
+            "(f64.const 121894) (f32.const -1.5)",
+            vec![Value::F64(121894.0), Value::F32(-1.5)],
+        ),
+        (
+            "i32 f64",
+            "(i32.const 7) (f64.const 121894)",
+            vec![Value::I32(7), Value::F64(121894.0)],
+        ),
+        (
+            "i64 i64",
+            "(i64.const 5) (i64.const 6)",
+            vec![Value::I64(5), Value::I64(6)],
+        ),
+        (
+            "f32 f32",
+            "(f32.const -1.5) (f32.const 2.5)",
+            vec![Value::F32(-1.5), Value::F32(2.5)],
+        ),
+        (
+            "i32 i32 i32 i32 i32",
+            "(i32.const 1) (i32.const 2) (i32.const 3) (i32.const 4) (i32.const 5)",
+            (1..=5).map(Value::I32).collect(),
+        ),
+    ];
+
+    let mut store = config.store();
+    for (types, values, expected) in cases {
+        let wat = format!(
+            r#"(module
+                (tag $e (export "tag") (param {types}))
+                (func (export "throw")
+                    (throw $e {values}))
+                (func (export "catch") (param exnref) (result {types})
+                    (block $caught (result {types})
+                        (try_table (catch $e $caught)
+                            (throw_ref (local.get 0)))
+                        unreachable)))"#
+        );
+        let module = Module::new(&store, wat2wasm(wat.as_bytes())?)?;
+        let instance = Instance::new(&mut store, &module, &imports! {})?;
+        let error = instance
+            .exports
+            .get_function("throw")?
+            .call(&mut store, &[])
+            .expect_err("the function must throw");
+        let exception = error.to_exception().expect("expected a Wasm exception");
+        assert_eq!(exception.payload(&mut store), expected, "payload: {types}");
+
+        let tag: &Tag = instance.exports.get::<Tag>("tag")?;
+        let host_exception = Exception::new(&mut store, tag, &expected);
+        let catch = instance.exports.get_function("catch")?;
+        for exception in [exception, host_exception] {
+            let result = catch.call(&mut store, &[Value::ExceptionRef(Some(exception))])?;
+            assert_eq!(result.as_ref(), expected, "catch: {types}");
+        }
+    }
+    Ok(())
+}
+
 #[cfg(not(target_os = "windows"))]
 #[compiler_test(issues)]
 fn issue_6004_exception(mut config: crate::Config) {
