@@ -190,7 +190,7 @@ fn build_v8() {
     println!("cargo:rustc-link-lib=static=v8prefixed");
 
     // Static link dependencies must follow the archive that references them.
-    if cfg!(any(target_os = "linux",)) {
+    if cfg!(any(target_os = "linux")) {
         println!("cargo:rustc-link-lib=stdc++");
     } else if cfg!(target_os = "windows") {
         println!("cargo:rustc-link-lib=winmm");
@@ -198,6 +198,11 @@ fn build_v8() {
         println!("cargo:rustc-link-lib=shlwapi");
     } else {
         println!("cargo:rustc-link-lib=c++");
+    }
+
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=framework=CoreFoundation");
+        println!("cargo:rustc-link-lib=framework=Security");
     }
 
     fn stable_target_dir(out_path: &Path) -> PathBuf {
