@@ -18,7 +18,6 @@ fn build_v8() {
     ) {
         ("macos", "aarch64", _) => ("v8-darwin-aarch64.tar.xz", "darwin-aarch64"),
         ("linux", "x86_64", "gnu") => ("v8-linux-amd64.tar.xz", "linux-amd64"),
-        ("linux", "aarch64", "gnu") => ("v8-linux-arm64.tar.xz", "linux-arm64"),
         ("windows", "x86_64", _) => ("v8-windows-amd64.tar.xz", "windows-amd64"),
         ("android", "aarch64", _) => ("v8-android-arm64.tar.xz", "android-arm64"),
         (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
