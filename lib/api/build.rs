@@ -7,7 +7,7 @@ fn build_v8() {
         sync::{LazyLock, Mutex},
     };
 
-    const WEE8_RELEASE_VERSION: &str = "11.9.7";
+    const WEE8_RELEASE_VERSION: &str = "15.9.111.0";
 
     let (asset_name, platform_name) = match (
         env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
@@ -18,7 +18,6 @@ fn build_v8() {
     ) {
         ("macos", "aarch64", _) => ("v8-darwin-aarch64.tar.xz", "darwin-aarch64"),
         ("linux", "x86_64", "gnu") => ("v8-linux-amd64.tar.xz", "linux-amd64"),
-        ("linux", "x86_64", "musl") => ("v8-linux-musl.tar.xz", "linux-musl"),
         ("windows", "x86_64", _) => ("v8-windows-amd64.tar.xz", "windows-amd64"),
         ("android", "aarch64", _) => ("v8-android-arm64.tar.xz", "android-arm64"),
         (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
@@ -33,7 +32,7 @@ fn build_v8() {
         .join(WEE8_RELEASE_VERSION)
         .join(platform_name);
     let archive_path = cache_dir.join(asset_name);
-    let v8_lib_dir = PathBuf::from("/tmp/v8/lib");
+    let v8_lib_dir = cache_dir.join("lib");
     let v8_lib_path = v8_lib_dir.join(if cfg!(target_os = "windows") {
         "v8.lib"
     } else {
