@@ -62,10 +62,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     // `liking.wast` has different wording but the same meaning
     wast.allow_trap_message("out of bounds memory access", "memory out of bounds");
     // V8-specific
-    wast.allow_trap_message(
-        "uninitialized element",
-        "null function",
-    );
+    wast.allow_trap_message("uninitialized element", "null function");
     wast.allow_trap_message("out of bounds table access", "table index is out of bounds");
     wast.allow_trap_message("out of bounds memory access", "memory access out of bounds");
     wast.allow_trap_message("out of bounds memory access", "is out of bounds");
@@ -73,10 +70,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "out of bounds table access",
         "element segment out of bounds",
     );
-    wast.allow_trap_message(
-        "indirect call type mismatch",
-        "function signature mismatch",
-    );
+    wast.allow_trap_message("indirect call type mismatch", "function signature mismatch");
     wast.allow_trap_message("undefined element", "table index is out of bounds");
     wast.allow_trap_message(
         "unaligned atomic",
