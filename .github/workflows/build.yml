@@ -36,7 +36,7 @@ jobs:
   build:
     name: ${{ matrix.build }}
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: ${{ matrix.build == 'linux-x64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.build == 'linux-arm64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-arm64' || 'aux-pub-trusted-16cpu-arm64') || matrix.os }}
+    runs-on: ${{ matrix.build == 'linux-x64' && (github.event_name == 'pull_request' && 'aux-pub-u22-16cpu-amd64' || 'aux-pub-trusted-u22-16cpu-amd64') || matrix.build == 'linux-arm64' && (github.event_name == 'pull_request' && 'aux-pub-u22-16cpu-arm64' || 'aux-pub-trusted-u22-16cpu-arm64') || matrix.os }}
     needs: setup
     strategy:
       fail-fast: false
