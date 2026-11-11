@@ -21,6 +21,7 @@ wasmer-middlewares = { path = "../lib/middlewares" }
 wasmprinter.workspace = true
 
 [features]
+sanitizer = ["wasmer/sanitizer"]
 cranelift = ["wasmer-compiler-cranelift"]
 llvm = ["wasmer-compiler-llvm"]
 singlepass = ["wasmer-compiler-singlepass"]
