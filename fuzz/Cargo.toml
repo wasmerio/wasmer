@@ -12,7 +12,7 @@ cargo-fuzz = true
 anyhow.workspace = true
 wasm-smith.workspace = true
 libfuzzer-sys.workspace = true
-wasmer = { path = "../lib/api", features = ["sanitizer"] }
+wasmer = { path = "../lib/api" }
 wasmer-compiler-cranelift = { path = "../lib/compiler-cranelift", optional = true }
 wasmer-compiler-llvm = { path = "../lib/compiler-llvm", optional = true }
 wasmer-compiler-singlepass = { path = "../lib/compiler-singlepass", optional = true }
@@ -21,6 +21,7 @@ wasmer-middlewares = { path = "../lib/middlewares" }
 wasmprinter.workspace = true
 
 [features]
+sanitizer = ["wasmer/sanitizer"]
 cranelift = ["wasmer-compiler-cranelift"]
 llvm = ["wasmer-compiler-llvm"]
 singlepass = ["wasmer-compiler-singlepass"]
