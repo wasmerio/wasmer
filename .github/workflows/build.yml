@@ -278,17 +278,12 @@ jobs:
         run: |
           rustup target add x86_64-pc-windows-gnu
       - name: Install Windows 10 SDK with xwin
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          mkdir -p /tmp/xwin
           mkdir -p /tmp/xwindownload
           mkdir -p /tmp/xwincache
-          git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
-            clone https://github.com/Jake-Shadle/xwin --depth=1 /tmp/xwin
-          cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
-          /tmp/xwin/target/release/xwin \
+          cargo install xwin --locked
+          xwin \
             --accept-license \
             --cache-dir /tmp/xwincache \
             --timeout 180s \
