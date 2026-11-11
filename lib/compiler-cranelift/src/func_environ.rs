@@ -1145,18 +1145,14 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         let sig_index = self.module.tags[tag_index];
         let func_type = &self.module.signatures[sig_index];
         let mut offset = 0u32;
-        let mut max_align = 1u32;
         let mut fields = SmallVec::<[ExceptionFieldLayout; 4]>::new();
 
         for wasm_ty in func_type.params() {
             let ir_ty = self.map_wasmer_type_to_ir(*wasm_ty)?;
-            let field_size = ir_ty.bytes();
-            let align = field_size.max(1);
-            max_align = max_align.max(align);
-            offset = offset.next_multiple_of(align);
+            // The VM stores each payload value in a separate RawValue slot.
             fields.push(ExceptionFieldLayout { offset, ty: ir_ty });
             offset = offset
-                .checked_add(field_size)
+                .checked_add(size_of::<wasmer_types::RawValue>() as u32)
                 .ok_or_else(|| WasmError::Unsupported("exception payload too large".to_string()))?;
         }
 
