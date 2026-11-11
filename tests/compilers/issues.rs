@@ -839,6 +839,11 @@ fn issue_7036_exception_payload(mut config: crate::Config) -> Result<()> {
         return Ok(());
     }
 
+    // The VMExceptionRef is unsupported for V8
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
     let cases = [
         ("", "", vec![]),
         ("f64", "(f64.const 121894)", vec![Value::F64(121894.0)]),
