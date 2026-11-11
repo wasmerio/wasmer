@@ -237,7 +237,6 @@ symbolic-demangle = { version = "13", default-features = false, features = [
   "cpp",
   "msvc",
 ] }
-rusty_pool = "1.0.0"
 saffron = "0.1.0"
 schemars = "1.1.0"
 scopeguard = "1.1.0"
