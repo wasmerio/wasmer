@@ -58,14 +58,11 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     // `bulk-memory-operations/bulk.wast` checks for a message that
     // specifies which element is uninitialized, but our traps don't
     // shepherd that information out.
-    wast.allow_trap_message("uninitialized element 2", "uninitialized element");
+    wast.allow_trap_message("uninitialized element 2", "null function");
     // `liking.wast` has different wording but the same meaning
     wast.allow_trap_message("out of bounds memory access", "memory out of bounds");
     // V8-specific
-    wast.allow_trap_message(
-        "uninitialized element",
-        "null function or function signature mismatch",
-    );
+    wast.allow_trap_message("uninitialized element", "null function");
     wast.allow_trap_message("out of bounds table access", "table index is out of bounds");
     wast.allow_trap_message("out of bounds memory access", "memory access out of bounds");
     wast.allow_trap_message("out of bounds memory access", "is out of bounds");
@@ -73,10 +70,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "out of bounds table access",
         "element segment out of bounds",
     );
-    wast.allow_trap_message(
-        "indirect call type mismatch",
-        "null function or function signature mismatch",
-    );
+    wast.allow_trap_message("indirect call type mismatch", "function signature mismatch");
     wast.allow_trap_message("undefined element", "table index is out of bounds");
     wast.allow_trap_message(
         "unaligned atomic",
@@ -92,6 +86,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     wast.allow_trap_message("integer overflow", "float unrepresentable in integer range");
     wast.allow_trap_message("call stack exhausted", "Maximum call stack size exceeded");
     wast.allow_trap_message("cast failure", "illegal cast");
+    wast.allow_trap_message("uninitialized element 2", "uninitialized element");
     wast.allow_trap_message(
         "uninitialized element 2",
         "null function or function signature mismatch",
