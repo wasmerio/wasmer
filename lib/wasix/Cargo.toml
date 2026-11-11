@@ -54,7 +54,6 @@ derive_more.workspace = true
 wasm-encoder.workspace = true
 
 xxhash-rust = { workspace = true, features = ["xxh64"] }
-rusty_pool = { workspace = true, optional = true }
 thiserror.workspace = true
 tracing.workspace = true
 getrandom.workspace = true
@@ -246,7 +245,7 @@ package-authoring = ["wasmer-package/authoring"]
 sys-default = ["sys"]
 sys-poll = []
 extra-logging = []
-sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]
+sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility

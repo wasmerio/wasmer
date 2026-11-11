@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use futures::{Future, future::BoxFuture};
 use tokio::runtime::{Handle, Runtime};
@@ -45,34 +45,10 @@ impl RuntimeOrHandle {
     }
 }
 
-#[derive(Clone)]
-pub struct ThreadPool {
-    inner: rusty_pool::ThreadPool,
-}
-
-impl std::ops::Deref for ThreadPool {
-    type Target = rusty_pool::ThreadPool;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl std::fmt::Debug for ThreadPool {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ThreadPool")
-            .field("name", &self.get_name())
-            .field("current_worker_count", &self.get_current_worker_count())
-            .field("idle_worker_count", &self.get_idle_worker_count())
-            .finish()
-    }
-}
-
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
 pub struct TokioTaskManager {
     rt: RuntimeOrHandle,
-    pool: Arc<ThreadPool>,
 }
 
 impl TokioTaskManager {
@@ -80,45 +56,14 @@ impl TokioTaskManager {
     where
         I: Into<RuntimeOrHandle>,
     {
-        let concurrency = std::thread::available_parallelism()
-            .unwrap_or(NonZeroUsize::new(1).unwrap())
-            .get();
-        let max_threads = 200usize.max(concurrency * 100);
-
-        Self {
-            rt: rt.into(),
-            pool: Arc::new(ThreadPool {
-                inner: rusty_pool::Builder::new()
-                    .name("TokioTaskManager Thread Pool".to_string())
-                    .core_size(max_threads)
-                    .max_size(max_threads)
-                    .build(),
-            }),
-        }
+        Self { rt: rt.into() }
     }
 
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
         self.rt.handle().clone()
     }
 
-    /// A thread pool for the caller's own blocking work. The task manager no
-    /// longer runs its tasks on it: each runs on a thread of its own, which
-    /// ends with the task.
-    pub fn pool_handle(&self) -> Arc<ThreadPool> {
-        self.pool.clone()
-    }
-
     /// Runs `task` on a thread of its own, which ends with the task.
-    ///
-    /// Not on `pool`, which only [`TokioTaskManager::pool_handle`] still
-    /// hands out. Below its core size, which was all of it, rusty_pool starts
-    /// a thread for every task even when idle ones are waiting, and core
-    /// threads never exit: an embedder that runs programs for a long time
-    /// kept every thread they ever ran, up to 100 per CPU, each holding its
-    /// stack. Letting idle threads time out instead races: a task handed to
-    /// a worker that is just timing out waits for another worker to free up,
-    /// which long-running program threads may never do. Below its core size
-    /// the pool already started a thread per task.
     fn spawn_thread(task: impl FnOnce() + Send + 'static) -> Result<(), WasiThreadError> {
         std::thread::Builder::new()
             .name("TokioTaskManager thread".to_string())
