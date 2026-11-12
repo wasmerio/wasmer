@@ -648,6 +648,34 @@ fn move_src_to_dst(emitter: &mut AssemblerX64, precision: Precision, src: XMM, d
     }
 }
 
+/// An XMM register outside `used`, for an SSE sequence that needs one more register than
+/// its operands. The caller keeps its value with `sse_spill`/`sse_unspill`.
+fn sse_scratch(used: &[XMM]) -> XMM {
+    [XMM::XMM0, XMM::XMM1, XMM::XMM2, XMM::XMM3, XMM::XMM4]
+        .into_iter()
+        .find(|r| !used.contains(r))
+        .unwrap()
+}
+
+// `lea` instead of `sub`/`add`: flags stay as the caller left them.
+fn sse_spill(emitter: &mut AssemblerX64, r: XMM) {
+    dynasm!(emitter ; lea rsp, [rsp - 16] ; movdqu [rsp], Rx(r));
+}
+
+fn sse_unspill(emitter: &mut AssemblerX64, r: XMM) {
+    dynasm!(emitter ; movdqu Rx(r), [rsp] ; lea rsp, [rsp + 16]);
+}
+
+fn sse_load(emitter: &mut AssemblerX64, precision: Precision, src: XMMOrMemory, dst: XMM) {
+    match src {
+        XMMOrMemory::XMM(x) => move_src_to_dst(emitter, precision, x, dst),
+        XMMOrMemory::Memory(base, disp) => match precision {
+            Precision::Single => dynasm!(emitter ; movss Rx(dst), [Rq(base) + disp]),
+            Precision::Double => dynasm!(emitter ; movsd Rx(dst), [Rq(base) + disp]),
+        },
+    }
+}
+
 macro_rules! avx_fn {
     ($ins:ident, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
@@ -661,8 +689,14 @@ macro_rules! sse_fn {
     ($ins:ident, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
         match $src2 {
             XMMOrMemory::XMM(x) => {
-                if x == $dst {
-                    dynasm!($emitter ; $ins Rx($dst), Rx($src1))
+                if x == $dst && $src1 != $dst {
+                    // Loading src1 into dst would overwrite src2: keep src2 in a scratch register.
+                    let tmp = sse_scratch(&[$src1, $dst]);
+                    sse_spill($emitter, tmp);
+                    dynasm!($emitter ; movaps Rx(tmp), Rx(x));
+                    move_src_to_dst($emitter, $precision, $src1, $dst);
+                    dynasm!($emitter ; $ins Rx($dst), Rx(tmp));
+                    sse_unspill($emitter, tmp);
                 } else {
                     move_src_to_dst($emitter, $precision, $src1, $dst);
                     dynasm!($emitter ; $ins Rx($dst), Rx(x))
@@ -674,18 +708,40 @@ macro_rules! sse_fn {
             }
         }
     };
-    ($ins:ident, $mode:expr, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
-        match $src2 {
-            XMMOrMemory::XMM(x) => {
-                move_src_to_dst($emitter, $precision, $src1, $dst);
-                dynasm!($emitter ; $ins Rx($dst), Rx(x), $mode)
+    ($ins:ident, $mode:expr, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {{
+        // SSE predicates 5 and 6 are NLT/NLE, true on NaN; GE/GT are LE/LT with the operands swapped.
+        let (a, b, mode): (XMMOrMemory, XMMOrMemory, u8) = match $mode {
+            5 | 6 => ($src2, XMMOrMemory::XMM($src1), 7 - $mode),
+            _ => (XMMOrMemory::XMM($src1), $src2, $mode),
+        };
+        match b {
+            XMMOrMemory::XMM(y) if y == $dst && a != XMMOrMemory::XMM($dst) => {
+                // Loading a into dst would overwrite b: keep b in a scratch register.
+                let a = match a {
+                    XMMOrMemory::Memory(GPR::RSP, disp) => XMMOrMemory::Memory(GPR::RSP, disp + 16),
+                    a => a,
+                };
+                let mut used = vec![$dst];
+                if let XMMOrMemory::XMM(r) = a {
+                    used.push(r);
+                }
+                let tmp = sse_scratch(&used);
+                sse_spill($emitter, tmp);
+                dynasm!($emitter ; movaps Rx(tmp), Rx(y));
+                sse_load($emitter, $precision, a, $dst);
+                dynasm!($emitter ; $ins Rx($dst), Rx(tmp), mode as i8);
+                sse_unspill($emitter, tmp);
+            }
+            XMMOrMemory::XMM(y) => {
+                sse_load($emitter, $precision, a, $dst);
+                dynasm!($emitter ; $ins Rx($dst), Rx(y), mode as i8)
             }
             XMMOrMemory::Memory(base, disp) => {
-                move_src_to_dst($emitter, $precision, $src1, $dst);
-                dynasm!($emitter ; $ins Rx($dst), [Rq(base) + disp], $mode)
+                sse_load($emitter, $precision, a, $dst);
+                dynasm!($emitter ; $ins Rx($dst), [Rq(base) + disp], mode as i8)
             }
         }
-    };
+    }};
 }
 
 macro_rules! avx_i2f_64_fn {
@@ -752,7 +808,7 @@ macro_rules! sse_round_fn {
                 if x != $dst {
                     move_src_to_dst($emitter, $precision, $src1, $dst);
                 }
-                dynasm!($emitter ; $ins Rx(x), Rx($dst), $mode)
+                dynasm!($emitter ; $ins Rx($dst), Rx(x), $mode)
             }
             XMMOrMemory::Memory(base, disp) => {
                 dynasm!($emitter ; $ins Rx($dst), [Rq(base) + disp], $mode)
@@ -2089,14 +2145,29 @@ impl EmitterX64 for AssemblerX64 {
                     dynasm!( self; vblendvps Rx(dst), Rx(mask), [Rq(base) + disp], Rx(src1))
                 }
             },
+            // Same operand roles as the AVX form above: dst = src1 ? src2 : mask, where src1 is a
+            // compare result (all ones or all zeros). SSE blendvps would read its mask from xmm0,
+            // so select with and/andn/or instead.
             Some(CpuFeature::SSE42) => match src2 {
                 XMMOrMemory::XMM(src2) => {
-                    move_src_to_dst(self, Precision::Single, src1, dst);
-                    dynasm!( self; blendvps Rx(dst), Rx(src2))
+                    let tmp = sse_scratch(&[src1, src2, mask, dst]);
+                    sse_spill(self, tmp);
+                    dynasm!(self ; movaps Rx(tmp), Rx(src1) ; andnps Rx(tmp), Rx(mask));
+                    if dst == src2 {
+                        dynasm!(self ; andps Rx(dst), Rx(src1));
+                    } else {
+                        if dst != src1 {
+                            dynasm!(self ; movaps Rx(dst), Rx(src1));
+                        }
+                        dynasm!(self ; andps Rx(dst), Rx(src2));
+                    }
+                    dynasm!(self ; orps Rx(dst), Rx(tmp));
+                    sse_unspill(self, tmp);
                 }
-                XMMOrMemory::Memory(base, disp) => {
-                    move_src_to_dst(self, Precision::Single, src1, dst);
-                    dynasm!( self; blendvps Rx(dst), [Rq(base) + disp])
+                XMMOrMemory::Memory(_, _) => {
+                    codegen_error!(
+                        "singlepass: SSE blendvps with a memory operand is not supported"
+                    )
                 }
             },
             _ => {}
@@ -2122,14 +2193,29 @@ impl EmitterX64 for AssemblerX64 {
                     dynasm!( self; vblendvpd Rx(dst), Rx(mask), [Rq(base) + disp], Rx(src1))
                 }
             },
+            // Same operand roles as the AVX form above: dst = src1 ? src2 : mask, where src1 is a
+            // compare result (all ones or all zeros). SSE blendvpd would read its mask from xmm0,
+            // so select with and/andn/or instead.
             Some(CpuFeature::SSE42) => match src2 {
                 XMMOrMemory::XMM(src2) => {
-                    move_src_to_dst(self, Precision::Double, src1, dst);
-                    dynasm!( self; blendvpd Rx(dst), Rx(src2))
+                    let tmp = sse_scratch(&[src1, src2, mask, dst]);
+                    sse_spill(self, tmp);
+                    dynasm!(self ; movaps Rx(tmp), Rx(src1) ; andnps Rx(tmp), Rx(mask));
+                    if dst == src2 {
+                        dynasm!(self ; andps Rx(dst), Rx(src1));
+                    } else {
+                        if dst != src1 {
+                            dynasm!(self ; movaps Rx(dst), Rx(src1));
+                        }
+                        dynasm!(self ; andps Rx(dst), Rx(src2));
+                    }
+                    dynasm!(self ; orps Rx(dst), Rx(tmp));
+                    sse_unspill(self, tmp);
                 }
-                XMMOrMemory::Memory(base, disp) => {
-                    move_src_to_dst(self, Precision::Double, src1, dst);
-                    dynasm!( self; blendvpd Rx(dst), [Rq(base) + disp])
+                XMMOrMemory::Memory(_, _) => {
+                    codegen_error!(
+                        "singlepass: SSE blendvpd with a memory operand is not supported"
+                    )
                 }
             },
             _ => {}
