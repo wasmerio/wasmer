@@ -7,7 +7,7 @@ fn build_v8() {
         sync::{LazyLock, Mutex},
     };
 
-    const WEE8_RELEASE_VERSION: &str = "15.9.111.1";
+    const WEE8_RELEASE_VERSION: &str = "11.9.7";
 
     let (asset_name, platform_name) = match (
         env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
@@ -18,6 +18,7 @@ fn build_v8() {
     ) {
         ("macos", "aarch64", _) => ("v8-darwin-aarch64.tar.xz", "darwin-aarch64"),
         ("linux", "x86_64", "gnu") => ("v8-linux-amd64.tar.xz", "linux-amd64"),
+        ("linux", "x86_64", "musl") => ("v8-linux-musl.tar.xz", "linux-musl"),
         ("windows", "x86_64", _) => ("v8-windows-amd64.tar.xz", "windows-amd64"),
         ("android", "aarch64", _) => ("v8-android-arm64.tar.xz", "android-arm64"),
         (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
@@ -189,7 +190,7 @@ fn build_v8() {
     println!("cargo:rustc-link-lib=static=v8prefixed");
 
     // Static link dependencies must follow the archive that references them.
-    if cfg!(any(target_os = "linux")) {
+    if cfg!(any(target_os = "linux",)) {
         println!("cargo:rustc-link-lib=stdc++");
     } else if cfg!(target_os = "windows") {
         println!("cargo:rustc-link-lib=winmm");
@@ -197,11 +198,6 @@ fn build_v8() {
         println!("cargo:rustc-link-lib=shlwapi");
     } else {
         println!("cargo:rustc-link-lib=c++");
-    }
-
-    if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-lib=framework=CoreFoundation");
-        println!("cargo:rustc-link-lib=framework=Security");
     }
 
     fn stable_target_dir(out_path: &Path) -> PathBuf {

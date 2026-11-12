@@ -320,9 +320,6 @@ else ifeq ($(IS_AARCH64), 1)
 	endif
 endif
 test_compilers := $(strip $(test_compilers))
-ifeq ($(LIBC), musl)
-	test_compilers := $(filter-out v8,$(test_compilers))
-endif
 ifeq ($(IS_WINDOWS), 1)
 	test_compilers := $(filter-out llvm,$(test_compilers))
 	test_compilers += v8-default
