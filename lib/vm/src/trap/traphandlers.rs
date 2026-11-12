@@ -911,16 +911,15 @@ pub unsafe fn check_stack_space() {
     /// Stack headroom reserved before entering `_Unwind_RaiseException`.
     /// Conservative safety margin for the native unwinder + sanitizer overhead.
     const UNWIND_STACK_HEADROOM: usize = 16 * 1024;
-    // Additional allowance for Trap::lib and its backtrace construction.
-    const TRAP_STACK_HEADROOM: usize = 4096;
 
     let limit = WASM_STACK_LIMIT.with(Cell::get);
     if limit != 0 {
         let sp = psm::stack_pointer() as usize;
-        if sp.saturating_sub(limit) < UNWIND_STACK_HEADROOM + TRAP_STACK_HEADROOM {
-            unsafe {
-                crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::StackOverflow))
-            }
+        if sp.saturating_sub(limit) < UNWIND_STACK_HEADROOM {
+            // WARNING: We might be very close to the stack limit, and so we can't effort
+            // a failure in `backtrace` as we might be holding a lock!
+            let trap = on_host_stack(|| crate::Trap::lib(wasmer_types::TrapCode::StackOverflow));
+            unsafe { crate::raise_lib_trap(trap) }
         }
     }
 }
@@ -1115,7 +1114,8 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     let stack = acquire_stack(stack_size);
     let mut stack = scopeguard::guard(stack, release_stack);
 
-    let stack_limit = stack.limit().get();
+    // Corosensei's Unix limit includes the inaccessible guard page.
+    let stack_limit = stack.limit().get() + region::page::size();
     let old_limit = WASM_STACK_LIMIT.with(Cell::get);
 
     // Create a coroutine with a new stack to run the function on.
