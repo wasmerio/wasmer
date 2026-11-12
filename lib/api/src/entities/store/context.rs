@@ -3,7 +3,8 @@
 //! a function is called, a pointer to the [`StoreInner`] in placed
 //! inside the store context so it can be retrieved when needed.
 //! This lets code that needs access to the store get it with
-//! just the store ID.
+//! just the store ID. Sys host functions retain their own raw store pointers;
+//! this context still tracks their borrows for suspension and `Store::with_current`.
 //!
 //! The currently active store context can be a sync or async
 //! context.
@@ -220,18 +221,11 @@ impl StoreContext {
     /// Install `store_ptr` as this thread's executing store until the returned
     /// guard is dropped.
     ///
-    /// A store already executing here gets a *second* entry rather than
-    /// re-using its first: the entries differ in which borrow their pointer was
-    /// derived from, and that difference is load-bearing. Every re-acquisition
-    /// ([`Self::get_current`] and friends) reborrows the top entry's pointer,
-    /// so re-using an outer entry would make the inner borrow a *sibling* of
-    /// the one the caller is still holding — creating it invalidates the
-    /// caller's, and the caller's next use of its own store is undefined
-    /// behaviour. Installing the pointer the caller just derived from its live
-    /// borrow makes the inner borrow a child of it instead, which is what lets
-    /// the caller carry on once the nested call returns. See the
-    /// `borrow_provenance` tests, which fail under Miri if this re-uses the
-    /// outer entry.
+    /// A store already executing here gets a second entry. Its pointer comes
+    /// from the caller's current borrow, and its borrow count starts at zero:
+    /// the caller has lent its store to this call. This is also how
+    /// [`StoreMut::parked`] makes a store available to [`crate::Store::with_current`]
+    /// without exposing other borrows still held by the caller.
     ///
     /// An async context is the exception, and installs nothing: it owns the
     /// store through a write guard held in the entry itself, and every
@@ -326,6 +320,26 @@ impl StoreContext {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
             })
         })
+    }
+
+    /// Track a host function's borrow without looking up its store pointer.
+    /// The pointer lives in the host function context; TLS only tracks whether
+    /// the executing store is available to `Store::with_current` or may suspend.
+    ///
+    /// # Safety
+    /// `store_ptr` must point to the executing store, held exclusively by this
+    /// thread. See [`Self::get_current`] for the reentrant borrowing rules.
+    pub(crate) unsafe fn borrow(store_ptr: *mut StoreInner) -> StorePtrWrapper {
+        let id = unsafe { (*store_ptr).objects.id() };
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack
+                .last_mut()
+                .expect("No store context installed on this thread");
+            assert_eq!(top.id, id, "Mismatched store context access");
+            top.borrow_count += 1;
+        });
+        StorePtrWrapper { store_ptr }
     }
 
     /// Safety: This method lets you borrow multiple mutable references
@@ -618,17 +632,9 @@ mod borrow_provenance {
     ///     shim carries on using its own borrow
     /// ```
     ///
-    /// Natively this always passes; it earns its keep under Miri, which is
-    /// where the last step is checked. If [`StoreContext::install`] ever goes
-    /// back to re-using an entry that is already active, the inner borrow
-    /// becomes a sibling of the shim's rather than a child of it, and this test
-    /// reports the shim's own store as invalidated:
-    ///
-    /// ```text
-    /// error: Undefined Behavior: trying to retag from <..> for Unique
-    ///        permission, but that tag does not exist in the borrow stack
-    ///   --> lib/api/src/entities/store/store_ref.rs   &mut self.inner.objects
-    /// ```
+    /// Miri checks that accessing the store through its context does not
+    /// invalidate the outer shim's borrow. The retained-pointer test below
+    /// also exercises the direct-pointer path used by sys host functions.
     ///
     /// Run it with:
     ///
@@ -670,6 +676,43 @@ mod borrow_provenance {
 
         drop(wrapper);
         drop(install);
+    }
+
+    /// Unlike a TLS pointer, a pointer retained by a host function predates
+    /// every subsequent embedder borrow. Re-enter through that same pointer,
+    /// then use both the host's and the embedder's borrows again.
+    #[test]
+    fn retained_pointer_survives_reentrant_store_access() {
+        let mut store = Store::default();
+        let raw_store = store.as_store_mut().inner as *mut StoreInner;
+        let env = crate::FunctionEnv::new(&mut store, 0_u32);
+        let id = store.id();
+        let mut caller = store.as_store_mut();
+        let install = unsafe { StoreContext::install(caller.as_store_mut().inner as *mut _) };
+        let mut wrapper = unsafe { StoreContext::borrow(raw_store) };
+        let mut shim = wrapper.as_mut();
+        *env.as_mut(&mut shim) = 1;
+
+        {
+            let inner_install =
+                unsafe { StoreContext::install(shim.as_store_mut().inner as *mut _) };
+            let pause = unsafe { StoreContext::pause(id) };
+            let mut inner_wrapper = unsafe { StoreContext::borrow(raw_store) };
+            *env.as_mut(&mut inner_wrapper.as_mut()) += 1;
+            drop(inner_wrapper);
+            drop(pause);
+            drop(inner_install);
+        }
+
+        assert_eq!(*env.as_ref(&shim), 2);
+        shim.parked(|| {
+            Store::with_current(|lent| *env.as_mut(lent) += 1).unwrap();
+        });
+        assert_eq!(*env.as_ref(&shim), 3);
+        drop(wrapper);
+        drop(install);
+        assert_eq!(*env.as_ref(&caller), 3);
+        assert_eq!(*env.as_ref(&store), 3);
     }
 
     /// The lending path, which is the nesting above with the inner entry

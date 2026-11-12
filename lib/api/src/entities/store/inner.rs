@@ -16,6 +16,11 @@ use wasmer_vm::TrapHandlerFn;
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     pub(crate) store: BackendStore,
+
+    // Host functions retain raw pointers back to this allocation. Making the
+    // pointee !Unpin suppresses rustc's `&mut StoreInner` noalias annotations:
+    // guest calls can re-enter the store through those pointers.
+    pub(crate) _marker: std::marker::PhantomPinned,
 }
 
 impl std::fmt::Debug for StoreInner {

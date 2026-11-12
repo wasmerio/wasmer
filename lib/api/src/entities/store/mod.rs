@@ -80,6 +80,7 @@ impl Store {
             inner: Box::new(StoreInner {
                 objects: StoreObjects::from_store_ref(&store),
                 store,
+                _marker: std::marker::PhantomPinned,
             }),
         }
     }
