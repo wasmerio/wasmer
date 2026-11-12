@@ -910,7 +910,7 @@ thread_local! {
 pub unsafe fn check_stack_space() {
     /// Stack headroom reserved before entering `_Unwind_RaiseException`.
     /// Conservative safety margin for the native unwinder + sanitizer overhead.
-    const UNWIND_STACK_HEADROOM: usize = 64 * 1024;
+    const UNWIND_STACK_HEADROOM: usize = 4 * 1024;
 
     let limit = WASM_STACK_LIMIT.with(Cell::get);
     if limit != 0 {
