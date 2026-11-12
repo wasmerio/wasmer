@@ -47,7 +47,7 @@ use crate::{
     table::{RawTableElement, TableElement},
 };
 use crate::{VMExceptionObj, probestack::PROBESTACK};
-use crate::{VMFuncRef, on_host_stack};
+use crate::{VMFuncRef, check_stack_space, on_host_stack};
 pub use eh::{throw, wasmer_eh_personality, wasmer_eh_personality2};
 pub use wasmer_types::LibCall;
 use wasmer_types::{
@@ -718,6 +718,9 @@ pub extern "C-unwind" fn wasmer_vm_dbg_str(ptr: usize, len: u32) {
 /// Calls libunwind to perform unwinding magic.
 #[unsafe(no_mangle)]
 pub unsafe extern "C-unwind" fn wasmer_vm_throw(vmctx: *mut VMContext, exnref: u32) -> ! {
+    unsafe {
+        check_stack_space();
+    }
     let instance = unsafe { (*vmctx).instance() };
     unsafe { eh::throw(instance.context(), exnref) }
 }

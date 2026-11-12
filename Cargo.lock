@@ -8005,6 +8005,7 @@ dependencies = [
  "mach2 0.7.0",
  "more-asserts",
  "parking_lot",
+ "psm",
  "region",
  "scopeguard",
  "serde",
