@@ -490,19 +490,20 @@ pub unsafe extern "C" fn wasmer_vm_table_grow(
     table_index: u32,
 ) -> u32 {
     unsafe {
-        check_stack_space();
-        let instance = (*vmctx).instance_mut();
-        let table_index = LocalTableIndex::from_u32(table_index);
+        on_host_stack(|| {
+            let instance = (*vmctx).instance_mut();
+            let table_index = LocalTableIndex::from_u32(table_index);
 
-        let init_value = match instance.get_local_table(table_index).ty().ty {
-            Type::ExternRef => TableElement::ExternRef(init_value.extern_ref),
-            Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
-            _ => panic!("Unrecognized table type: does not contain references"),
-        };
+            let init_value = match instance.get_local_table(table_index).ty().ty {
+                Type::ExternRef => TableElement::ExternRef(init_value.extern_ref),
+                Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
+                _ => panic!("Unrecognized table type: does not contain references"),
+            };
 
-        instance
-            .table_grow(table_index, delta, init_value)
-            .unwrap_or(u32::MAX)
+            instance
+                .table_grow(table_index, delta, init_value)
+                .unwrap_or(u32::MAX)
+        })
     }
 }
 
@@ -519,18 +520,19 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_grow(
     table_index: u32,
 ) -> u32 {
     unsafe {
-        check_stack_space();
-        let instance = (*vmctx).instance_mut();
-        let table_index = TableIndex::from_u32(table_index);
-        let init_value = match instance.get_table(table_index).ty().ty {
-            Type::ExternRef => TableElement::ExternRef(init_value.extern_ref),
-            Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
-            _ => panic!("Unrecognized table type: does not contain references"),
-        };
+        on_host_stack(|| {
+            let instance = (*vmctx).instance_mut();
+            let table_index = TableIndex::from_u32(table_index);
+            let init_value = match instance.get_table(table_index).ty().ty {
+                Type::ExternRef => TableElement::ExternRef(init_value.extern_ref),
+                Type::FuncRef => TableElement::FuncRef(init_value.func_ref),
+                _ => panic!("Unrecognized table type: does not contain references"),
+            };
 
-        instance
-            .imported_table_grow(table_index, delta, init_value)
-            .unwrap_or(u32::MAX)
+            instance
+                .imported_table_grow(table_index, delta, init_value)
+                .unwrap_or(u32::MAX)
+        })
     }
 }
 
@@ -561,10 +563,11 @@ pub unsafe extern "C" fn wasmer_vm_func_ref(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_elem_drop(vmctx: *mut VMContext, elem_index: u32) {
     unsafe {
-        check_stack_space();
-        let elem_index = ElemIndex::from_u32(elem_index);
-        let instance = (*vmctx).instance();
-        instance.elem_drop(elem_index);
+        on_host_stack(|| {
+            let elem_index = ElemIndex::from_u32(elem_index);
+            let instance = (*vmctx).instance();
+            instance.elem_drop(elem_index);
+        })
     }
 }
 
@@ -682,10 +685,11 @@ pub unsafe extern "C" fn wasmer_vm_memory32_init(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_data_drop(vmctx: *mut VMContext, data_index: u32) {
     unsafe {
-        check_stack_space();
-        let data_index = DataIndex::from_u32(data_index);
-        let instance = (*vmctx).instance();
-        instance.data_drop(data_index)
+        on_host_stack(|| {
+            let data_index = DataIndex::from_u32(data_index);
+            let instance = (*vmctx).instance();
+            instance.data_drop(data_index)
+        })
     }
 }
 
@@ -748,15 +752,16 @@ pub unsafe extern "C-unwind" fn wasmer_vm_throw(vmctx: *mut VMContext, exnref: u
 /// The vmctx pointer must be dereferenceable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C-unwind" fn wasmer_vm_alloc_exception(vmctx: *mut VMContext, tag: u32) -> u32 {
-    unsafe { check_stack_space() };
-    let instance = unsafe { (*vmctx).instance_mut() };
-    let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
-    let exn = VMExceptionObj::new_zeroed(
-        instance.context(),
-        InternalStoreHandle::from_index(unique_tag as usize).unwrap(),
-    );
-    let exnref = InternalStoreHandle::new(instance.context_mut(), exn);
-    exnref.index() as u32
+    on_host_stack(|| {
+        let instance = unsafe { (*vmctx).instance_mut() };
+        let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
+        let exn = VMExceptionObj::new_zeroed(
+            instance.context(),
+            InternalStoreHandle::from_index(unique_tag as usize).unwrap(),
+        );
+        let exnref = InternalStoreHandle::new(instance.context_mut(), exn);
+        exnref.index() as u32
+    })
 }
 
 /// Given a VMContext and an exnref (handle to an exception within the store),
