@@ -910,12 +910,14 @@ thread_local! {
 pub unsafe fn check_stack_space() {
     /// Stack headroom reserved before entering `_Unwind_RaiseException`.
     /// Conservative safety margin for the native unwinder + sanitizer overhead.
-    const UNWIND_STACK_HEADROOM: usize = 4 * 1024;
+    const UNWIND_STACK_HEADROOM: usize = 16 * 1024;
+    // Additional allowance for Trap::lib and its backtrace construction.
+    const TRAP_STACK_HEADROOM: usize = 4096;
 
     let limit = WASM_STACK_LIMIT.with(Cell::get);
     if limit != 0 {
         let sp = psm::stack_pointer() as usize;
-        if sp.saturating_sub(limit) < UNWIND_STACK_HEADROOM {
+        if sp.saturating_sub(limit) < UNWIND_STACK_HEADROOM + TRAP_STACK_HEADROOM {
             unsafe {
                 crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::StackOverflow))
             }
