@@ -74,10 +74,10 @@ struct ucontext_t {
 use libc::ucontext_t;
 
 /// Sets the process-wide default stack size for new Wasmer coroutines.
-/// The value is clamped to [8 KiB, MAX_STACK_SIZE].
+/// The value is clamped to [16 KiB, MAX_STACK_SIZE].
 pub fn set_stack_size(size: usize) {
     DEFAULT_STACK_SIZE.store(
-        size.clamp(ByteSize::kib(8).as_u64() as usize, MAX_STACK_SIZE),
+        size.clamp(ByteSize::kib(16).as_u64() as usize, MAX_STACK_SIZE),
         Ordering::Relaxed,
     );
 }
@@ -910,7 +910,7 @@ thread_local! {
 pub unsafe fn check_stack_space() {
     /// Stack headroom reserved before entering `_Unwind_RaiseException`.
     /// Conservative safety margin for the native unwinder + sanitizer overhead.
-    const UNWIND_STACK_HEADROOM: usize = 16 * 1024;
+    const UNWIND_STACK_HEADROOM: usize = ByteSize::kib(8).as_u64() as usize;
 
     let limit = WASM_STACK_LIMIT.with(Cell::get);
     if limit != 0 {
@@ -1352,8 +1352,8 @@ mod tests {
     fn set_stack_size_clamps_to_min() {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
-        set_stack_size(1); // way below 8 KiB minimum
-        assert_eq!(get_stack_size(), ByteSize::kib(8).as_u64() as usize);
+        set_stack_size(1); // way below 16 KiB minimum
+        assert_eq!(get_stack_size(), ByteSize::kib(16).as_u64() as usize);
     }
 
     #[test]
