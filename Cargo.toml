@@ -309,6 +309,11 @@ wasmparser = { version = "0.263.0", default-features = false, features = [
   "simd",
 ] }
 wasmprinter = "0.263.0"
+wasmtime = { version = "50.0.1", default-features = false, features = [
+  "cranelift",
+  "runtime",
+  "std",
+] }
 wast = "263.0.0"
 wat = "1.263.0"
 wcgi = "0.3.0"
@@ -349,6 +354,7 @@ tracing-subscriber = { workspace = true, default-features = false, features = [
 ] }
 reqwest = { workspace = true, features = ["blocking", "rustls"] }
 itertools.workspace = true
+wasmtime.workspace = true
 
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 wasmer = { version = "=7.5.0", path = "lib/api", default-features = false, features = [
@@ -445,12 +451,18 @@ name = "static_and_dynamic_functions"
 harness = false
 
 [[bench]]
+name = "host_guest"
+harness = false
+required-features = ["wat", "llvm"]
+
+[[bench]]
 name = "import_functions"
 harness = false
 
 [[bench]]
 name = "typed_call"
 harness = false
+required-features = ["singlepass"]
 
 [[example]]
 name = "early-exit"
