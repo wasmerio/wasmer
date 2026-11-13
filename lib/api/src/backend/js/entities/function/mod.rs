@@ -506,22 +506,28 @@ impl Function {
         let function = self.clone();
         let store = store.store();
         Box::pin(async move {
-            let function_type = function.handle.ty.clone();
             let write_lock = store.write_lock().await;
             let arguments = Array::new_with_length(params.len() as u32);
             for (index, param) in params.iter().enumerate() {
                 arguments.set(index as u32, param.as_jsvalue(&write_lock));
             }
 
-            let promising = jspi::promising(&function.handle.function)
-                .map_err(RuntimeError::from)?;
+            let promising = match function.handle.promising.get() {
+                Some(promising) => promising,
+                None => {
+                    let promising = jspi::promising(&function.handle.function)
+                        .map_err(RuntimeError::from)?;
+                    function.handle.promising.get_or_init(|| promising)
+                }
+            };
             // The guest runs with the write lock, in this span and in every
             // later one. Dropping this future while it waits cancels the call.
             let result = jspi::Call::enter(&store, write_lock, || {
-                Reflect::apply(&promising, &JsValue::NULL, &arguments)
+                Reflect::apply(promising, &JsValue::NULL, &arguments)
             })
             .await?;
             let mut write_lock = store.write_lock().await;
+            let function_type = &function.handle.ty;
             match function_type.results().len() {
                 0 => Ok(Box::<[Value]>::default()),
                 1 => Ok(vec![js_value_to_wasmer(
