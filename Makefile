@@ -643,7 +643,7 @@ test-v8: test-v8-api
 test-v8-api:
 	cargo nextest run --package=wasmer --release --features="v8-default" --no-default-features
 
-test-js: test-js-api test-js-wasi
+test-js: test-js-api test-js-jspi test-js-wasi
 
 # TODO: disabled because the no-std / core feature doesn't actually work at the moment.
 # See https://github.com/wasmerio/wasmer/issues/3429
@@ -658,9 +658,25 @@ test-js-api:
 
 lint-js:
 	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default" --locked -- -D clippy::all
+	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default,experimental-async" --locked -- -D clippy::all
 
 test-js-wasi:
 	cd lib/wasix && wasm-pack test --node -- --no-default-features --features test-js,wasmer/js,wasmer/std
+
+# The lib/api tests again with `experimental-async`, whose async calls need
+# JSPI. Node has it behind a flag in version 24 and always from version 25,
+# which rejects the flag: it is passed only to a Node that needs it.
+#
+# Node exits with success when a test waits for something that never happens,
+# so tests/fail_on_hang.cjs is loaded to make that a failure.
+test-js-jspi:
+	@has_jspi='process.exit(typeof WebAssembly.promising === "function" ? 0 : 1)'; \
+	node_args=--require=./tests/fail_on_hang.cjs; \
+	if node -e "$$has_jspi"; then :; \
+	elif node --experimental-wasm-jspi -e "$$has_jspi" 2>/dev/null; then node_args=$$node_args,--experimental-wasm-jspi; \
+	else echo "test-js-jspi: Node $$(node --version) has no JSPI; use Node 24 or later" >&2; exit 1; fi; \
+	set -x; \
+	cd lib/api && NODE_ARGS="$$node_args" wasm-pack test --node -- --no-default-features --features js-default,experimental-async,wat
 
 #####
 #
