@@ -27,9 +27,9 @@ use std::{
     rc::Rc,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
-    task::{Context, Poll},
+    task::{Context, Poll, Wake, Waker},
     time::{Duration, Instant},
 };
 
@@ -101,6 +101,20 @@ struct SetOnDrop(Rc<Cell<bool>>);
 impl Drop for SetOnDrop {
     fn drop(&mut self) {
         self.0.set(true);
+    }
+}
+
+/// A waker that counts how often it is used.
+#[derive(Default)]
+struct Wakes(AtomicUsize);
+impl Wake for Wakes {
+    fn wake(self: Arc<Self>) {
+        self.0.fetch_add(1, Ordering::SeqCst);
+    }
+}
+impl Wakes {
+    fn count(&self) -> usize {
+        self.0.load(Ordering::SeqCst)
     }
 }
 
@@ -632,4 +646,355 @@ fn dropping_a_suspended_call_unwinds_it() {
     expect_value("next call", &mut guest.run(0, 0), 42);
     assert_eq!(guest.after(), 1);
     guest.into_store();
+}
+
+/// A host future is polled for the first time on the coroutine of the call,
+/// inside the import call, and the coroutine suspends only if the future is
+/// pending. That poll has to behave as the poller's own polls do: the future
+/// can lock the store, keep it, panic, and call into guests.
+mod host_future_first_poll {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    use wasmer::{AsyncFunctionEnvHandleMut, AsyncFunctionEnvMut, FunctionEnv, FunctionEnvMut};
+
+    use super::*;
+
+    const WAT: &str = r#"
+    (module
+      (import "h" "f" (func $f (result i32)))
+      (import "h" "wait" (func $wait))
+      (import "h" "nested_f" (func $nested_f (result i32)))
+      (func (export "f") (result i32) (call $f))
+      (func (export "wait") (call $wait))
+      (func (export "f_then_wait") (result i32)
+        (local i32)
+        (local.set 0 (call $f))
+        (call $wait)
+        (local.get 0))
+      ;; `f` called through a host function.
+      (func (export "nested_f") (result i32) (call $nested_f)))
+    "#;
+
+    #[derive(Default)]
+    struct Env {
+        value: i32,
+        f: Option<Function>,
+    }
+
+    type HostResult = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>>;
+
+    /// What the host future of the `wait` import saw.
+    #[derive(Default)]
+    struct Wait {
+        open: Cell<bool>,
+        polls: Cell<usize>,
+        waker: RefCell<Option<Waker>>,
+    }
+
+    struct Guest {
+        store: StoreAsync,
+        instance: Instance,
+        wait: Rc<Wait>,
+        #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+        interrupter: wasmer::Interrupter,
+    }
+
+    impl Guest {
+        /// `f` is the async import of that name. `wait` is pending until it
+        /// is opened. `nested_f` is a synchronous host function that calls
+        /// the export `f`.
+        fn new(f: impl Fn(AsyncFunctionEnvMut<Env>) -> HostResult + 'static) -> Self {
+            let mut store = Store::default();
+            let module = Module::new(&store, WAT).unwrap();
+            let env = FunctionEnv::new(&mut store, Env::default());
+            let returns_i32 = FunctionType::new(vec![], vec![Type::I32]);
+            let f = Function::new_with_env_async(
+                &mut store,
+                &env,
+                returns_i32.clone(),
+                move |env, _| f(env),
+            );
+            let wait = Rc::new(Wait::default());
+            let wait_import = Function::new_async(&mut store, FunctionType::new(vec![], vec![]), {
+                let wait = wait.clone();
+                move |_| {
+                    let wait = wait.clone();
+                    std::future::poll_fn(move |cx| {
+                        wait.polls.set(wait.polls.get() + 1);
+                        if wait.open.get() {
+                            return Poll::Ready(Ok(vec![]));
+                        }
+                        *wait.waker.borrow_mut() = Some(cx.waker().clone());
+                        Poll::Pending
+                    })
+                }
+            });
+            let nested_f = Function::new_with_env(
+                &mut store,
+                &env,
+                returns_i32,
+                |mut env: FunctionEnvMut<Env>, _: &[Value]| {
+                    let f = env.data().f.clone().unwrap();
+                    f.call(&mut env, &[]).map(Vec::from)
+                },
+            );
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &imports! { "h" => { "f" => f, "wait" => wait_import, "nested_f" => nested_f } },
+            )
+            .unwrap();
+            env.as_mut(&mut store).f = Some(instance.exports.get_function("f").unwrap().clone());
+            Self {
+                #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+                interrupter: store.interrupter(),
+                store: store.into_async(),
+                instance,
+                wait,
+            }
+        }
+
+        fn export(&self, name: &str) -> Function {
+            self.instance.exports.get_function(name).unwrap().clone()
+        }
+
+        fn call(&self, name: &str) -> CallFuture {
+            Box::pin(self.export(name).call_async(&self.store, vec![]))
+        }
+
+        fn store_is_free(&self) -> bool {
+            Box::pin(self.store.write_lock())
+                .as_mut()
+                .poll(&mut Context::from_waker(&futures::task::noop_waker()))
+                .is_ready()
+        }
+    }
+
+    /// Adds 5 to the environment's value and returns it.
+    async fn add_five(env: AsyncFunctionEnvMut<Env>) -> Result<Vec<Value>, RuntimeError> {
+        let mut env = env.write().await;
+        env.data_mut().value += 5;
+        Ok(vec![Value::I32(env.data_mut().value)])
+    }
+
+    fn ready(value: i32) -> HostResult {
+        Box::pin(async move { Ok(vec![Value::I32(value)]) })
+    }
+
+    /// Where on the stack the caller is, give or take a frame.
+    #[inline(never)]
+    fn stack_position() -> usize {
+        let local = 0u8;
+        std::hint::black_box(&local) as *const u8 as usize
+    }
+
+    #[test]
+    fn it_happens_on_the_stack_of_the_call() {
+        let in_body = Rc::new(Cell::new(0usize));
+        let in_poll = Rc::new(Cell::new(0usize));
+        let guest = Guest::new({
+            let (in_body, in_poll) = (in_body.clone(), in_poll.clone());
+            move |_| {
+                // The body of an async import runs on the coroutine.
+                in_body.set(stack_position());
+                let in_poll = in_poll.clone();
+                Box::pin(std::future::poll_fn(move |_| {
+                    in_poll.set(stack_position());
+                    Poll::Ready(Ok(vec![Value::I32(1)]))
+                }))
+            }
+        });
+        expect_value("call", &mut guest.call("f"), 1);
+        let distance = in_body.get().abs_diff(in_poll.get());
+        assert!(distance < 64 * 1024, "polled {distance} bytes away");
+        assert!(in_poll.get().abs_diff(stack_position()) > 64 * 1024);
+    }
+
+    /// A pending future has been polled once when the call returns pending,
+    /// with the task context the call was polled with.
+    #[test]
+    fn it_is_given_the_context_of_the_poller() {
+        let guest = Guest::new(|_| ready(1));
+        let wakes = Arc::new(Wakes::default());
+        let waker = Waker::from(wakes.clone());
+        let mut call = guest.call("wait");
+        let poll = call.as_mut().poll(&mut Context::from_waker(&waker));
+        assert!(poll.is_pending());
+        assert_eq!(guest.wait.polls.get(), 1);
+        // Giving the store up woke nobody: nothing waits for it.
+        assert_eq!(wakes.count(), 0);
+        guest.wait.waker.take().unwrap().wake();
+        assert_eq!(wakes.count(), 1);
+        guest.wait.open.set(true);
+        assert!(matches!(poll_once(&mut call), Poll::Ready(Ok(_))));
+        assert_eq!(guest.wait.polls.get(), 2);
+    }
+
+    /// A call polled from inside another call's import has a task context of
+    /// its own. The outer call's next import gets the outer one again.
+    #[test]
+    fn it_is_given_the_context_of_its_own_poller_after_a_nested_poll() {
+        let inner = Guest::new(|_| ready(1));
+        let inner_wakes = Arc::new(Wakes::default());
+        let inner_wait = inner.wait.clone();
+        let outer = Guest::new({
+            let inner_wakes = inner_wakes.clone();
+            move |_| {
+                // Leaked, so that it would still be there if the outer call
+                // went on using it.
+                let waker: &'static Waker = Box::leak(Box::new(Waker::from(inner_wakes.clone())));
+                let cx = Box::leak(Box::new(Context::from_waker(waker)));
+                let mut call = inner.call("wait");
+                assert!(call.as_mut().poll(cx).is_pending());
+                inner.wait.open.set(true);
+                assert!(matches!(call.as_mut().poll(cx), Poll::Ready(Ok(_))));
+                ready(2)
+            }
+        });
+        let outer_wakes = Arc::new(Wakes::default());
+        let waker = Waker::from(outer_wakes.clone());
+        let mut call = outer.call("f_then_wait");
+        let poll = call.as_mut().poll(&mut Context::from_waker(&waker));
+        assert!(poll.is_pending());
+        inner_wait.waker.take().unwrap().wake();
+        outer.wait.waker.take().unwrap().wake();
+        assert_eq!((inner_wakes.count(), outer_wakes.count()), (1, 1));
+        outer.wait.open.set(true);
+        expect_value("outer", &mut call, 2);
+    }
+
+    #[test]
+    fn it_may_lock_the_store_and_be_ready() {
+        let guest = Guest::new(|env| Box::pin(add_five(env)));
+        expect_value("first", &mut guest.call("f"), 5);
+        expect_value("second", &mut guest.call("f"), 10);
+        // Also when a host function of the call holds a borrow of the store
+        // across the guest call that reaches the import.
+        expect_value("nested", &mut guest.call("nested_f"), 15);
+        assert!(guest.store.into_store().is_ok());
+    }
+
+    #[test]
+    fn it_may_keep_the_store_while_pending() {
+        let gate = Rc::new(Cell::new(false));
+        let guest = Guest::new({
+            let gate = gate.clone();
+            move |env| {
+                let gate = gate.clone();
+                Box::pin(async move {
+                    let mut env = env.write().await;
+                    Gate(gate).await;
+                    env.data_mut().value += 5;
+                    Ok(vec![Value::I32(env.data_mut().value)])
+                })
+            }
+        });
+        let mut call = guest.call("f");
+        expect_pending("call", &mut call);
+        assert!(!guest.store_is_free(), "the host future has the store");
+        gate.set(true);
+        expect_value("call", &mut call, 5);
+        drop(call);
+        assert!(guest.store.into_store().is_ok());
+    }
+
+    /// The guest cannot go on without the store, so the call waits for it.
+    #[test]
+    fn it_may_be_ready_and_leave_the_store_locked() {
+        let kept: Rc<RefCell<Option<AsyncFunctionEnvHandleMut<Env>>>> = Rc::default();
+        let guest = Guest::new({
+            let kept = kept.clone();
+            move |env| {
+                let kept = kept.clone();
+                Box::pin(async move {
+                    *kept.borrow_mut() = Some(env.write().await);
+                    Ok(vec![Value::I32(9)])
+                })
+            }
+        });
+        let mut call = guest.call("f");
+        expect_pending("the call waits for the store", &mut call);
+        expect_pending("and keeps waiting", &mut call);
+        kept.borrow_mut().take();
+        expect_value("call", &mut call, 9);
+        drop(call);
+
+        // A call dropped while it waits for the store is unwound like any
+        // other suspended call.
+        let mut call = guest.call("f");
+        expect_pending("the call waits for the store", &mut call);
+        drop(call);
+        kept.borrow_mut().take();
+        assert!(guest.store.into_store().is_ok());
+    }
+
+    #[test]
+    fn it_may_panic() {
+        let guest = Guest::new(|_| Box::pin(async { panic!("host future panicked") }));
+        let mut call = guest.call("f");
+        let caught = catch_unwind(AssertUnwindSafe(|| poll_once(&mut call)));
+        let message = *caught.unwrap_err().downcast::<&str>().unwrap();
+        assert_eq!(message, "host future panicked");
+        drop(call);
+        assert!(guest.store_is_free());
+        expect_host_panic(&mut guest.call("nested_f"));
+        assert!(guest.store.into_store().is_ok());
+    }
+
+    /// An interrupt of the store that arrives while the call is in host code
+    /// is noticed when the call next leaves its coroutine, also when it
+    /// leaves with a host future that it has polled already.
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+    #[test]
+    fn it_may_be_pending_in_a_store_that_was_interrupted() {
+        let interrupter: Rc<RefCell<Option<wasmer::Interrupter>>> = Rc::default();
+        let guest = Guest::new({
+            let interrupter = interrupter.clone();
+            move |_| {
+                interrupter.borrow().as_ref().unwrap().interrupt();
+                Box::pin(std::future::pending())
+            }
+        });
+        *interrupter.borrow_mut() = Some(guest.interrupter.clone());
+        let mut call = guest.call("f");
+        expect_trap("call", &mut call, TrapCode::HostInterrupt);
+    }
+
+    /// While the future is polled, no coroutine is current: guest code the
+    /// future calls into cannot suspend, not even when it runs in a store
+    /// that an outer `call_async` holds and could otherwise suspend with.
+    ///
+    /// Here the outer call polls the inner one from the body of an import,
+    /// and the inner call's host future enters the outer call's store, which
+    /// is the thread's current one while the inner call has lent its own.
+    #[test]
+    fn it_cannot_suspend_a_call_from_inside_the_poll() {
+        let outer_wait: Rc<RefCell<Option<Function>>> = Rc::default();
+        let inner = Guest::new({
+            let outer_wait = outer_wait.clone();
+            move |_| {
+                let outer_wait = outer_wait.borrow().clone().unwrap();
+                Box::pin(async move {
+                    let result = Store::with_current(|store| outer_wait.call(store, &[]))
+                        .expect("the outer call's store is current");
+                    assert_trap(
+                        "pending import",
+                        &result.unwrap_err(),
+                        TrapCode::YieldOutsideAsyncContext,
+                    );
+                    Ok(vec![Value::I32(3)])
+                })
+            }
+        });
+        let outer = Guest::new(move |_| {
+            let value = match poll_once(&mut inner.call("f")) {
+                Poll::Ready(Ok(values)) => values[0].unwrap_i32(),
+                other => panic!("inner call: {other:?}"),
+            };
+            ready(value + 4)
+        });
+        *outer_wait.borrow_mut() = Some(outer.export("wait"));
+        expect_value("outer", &mut outer.call("f"), 7);
+        assert!(outer.store.into_store().is_ok());
+    }
 }
