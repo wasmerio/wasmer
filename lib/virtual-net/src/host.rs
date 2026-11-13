@@ -173,10 +173,10 @@ impl VirtualNetworking for LocalNetworking {
     async fn bind_udp(
         &self,
         addr: SocketAddr,
+        only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
-        #[cfg(not(windows))]
         use socket2::{Domain, Socket, Type};
 
         if let Some(ruleset) = self.ruleset.as_ref()
@@ -186,7 +186,6 @@ impl VirtualNetworking for LocalNetworking {
             return Err(NetworkError::PermissionDenied);
         }
 
-        #[cfg(not(windows))]
         let socket = {
             let domain = if addr.is_ipv4() {
                 Domain::IPV4
@@ -194,20 +193,26 @@ impl VirtualNetworking for LocalNetworking {
                 Domain::IPV6
             };
             let std_sock = Socket::new(domain, Type::DGRAM, None).map_err(io_err_into_net_error)?;
+            if addr.is_ipv6() {
+                std_sock
+                    .set_only_v6(only_v6)
+                    .map_err(io_err_into_net_error)?;
+            }
             std_sock
                 .set_nonblocking(true)
                 .map_err(io_err_into_net_error)?;
-            std_sock
-                .set_reuse_address(reuse_addr)
-                .map_err(io_err_into_net_error)?;
-            std_sock
-                .set_reuse_port(reuse_port)
-                .map_err(io_err_into_net_error)?;
+            #[cfg(not(windows))]
+            {
+                std_sock
+                    .set_reuse_address(reuse_addr)
+                    .map_err(io_err_into_net_error)?;
+                std_sock
+                    .set_reuse_port(reuse_port)
+                    .map_err(io_err_into_net_error)?;
+            }
             std_sock.bind(&addr.into()).map_err(io_err_into_net_error)?;
             mio::net::UdpSocket::from_std(std_sock.into())
         };
-        #[cfg(windows)]
-        let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
 
         #[allow(unused_mut)]
         let mut ret = LocalUdpSocket {
