@@ -27,6 +27,7 @@ region.workspace = true
 corosensei.workspace = true
 fnv.workspace = true
 parking_lot.workspace = true
+psm.workspace = true
 # - Optional shared dependencies.
 tracing = { workspace = true, optional = true }
 crossbeam-queue.workspace = true

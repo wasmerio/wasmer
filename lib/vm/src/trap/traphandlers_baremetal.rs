@@ -43,6 +43,14 @@ pub fn get_stack_size() -> usize {
     panic!("get_stack_size is not supported in baremetal mode");
 }
 
+/// No-op — baremetal mode has no coroutine stacks.
+///
+/// # Safety
+///
+/// Matches the OS backend's requirement that callers tolerate a Wasm trap
+/// without running destructors.
+pub unsafe fn check_stack_space() {}
+
 /// No-op — no signal handlers to install.
 pub fn init_traps() {}
 

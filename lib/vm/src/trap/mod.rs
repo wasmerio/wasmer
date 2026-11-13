@@ -16,6 +16,7 @@ mod traphandlers;
 mod traphandlers;
 
 pub use trap::{Trap, UnwindReason};
+pub use traphandlers::check_stack_space;
 #[cfg(feature = "baremetal")]
 pub use traphandlers::install_unwinder;
 pub use traphandlers::{

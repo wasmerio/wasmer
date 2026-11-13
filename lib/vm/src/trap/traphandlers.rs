@@ -74,10 +74,10 @@ struct ucontext_t {
 use libc::ucontext_t;
 
 /// Sets the process-wide default stack size for new Wasmer coroutines.
-/// The value is clamped to [8 KiB, MAX_STACK_SIZE].
+/// The value is clamped to [16 KiB, MAX_STACK_SIZE].
 pub fn set_stack_size(size: usize) {
     DEFAULT_STACK_SIZE.store(
-        size.clamp(ByteSize::kib(8).as_u64() as usize, MAX_STACK_SIZE),
+        size.clamp(ByteSize::kib(16).as_u64() as usize, MAX_STACK_SIZE),
         Ordering::Relaxed,
     );
 }
@@ -897,6 +897,31 @@ where
 thread_local! {
     static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
+    /// Lower address boundary of the active Wasm coroutine stack (0 on the host stack).
+    /// Saved/restored per coroutine so nested calls see their own boundary.
+    static WASM_STACK_LIMIT: Cell<usize> = const { Cell::new(0) };
+}
+
+/// Trap if the Wasm coroutine stack lacks headroom for native code.
+///
+/// # Safety
+///
+/// The caller must be able to unwind via a Wasm trap without running destructors.
+pub unsafe fn check_stack_space() {
+    /// Stack headroom reserved before entering `_Unwind_RaiseException`.
+    /// Conservative safety margin for the native unwinder + sanitizer overhead.
+    const UNWIND_STACK_HEADROOM: usize = ByteSize::kib(8).as_u64() as usize;
+
+    let limit = WASM_STACK_LIMIT.with(Cell::get);
+    if limit != 0 {
+        let sp = psm::stack_pointer() as usize;
+        if sp.saturating_sub(limit) < UNWIND_STACK_HEADROOM {
+            // WARNING: We might be very close to the stack limit, and so we can't effort
+            // a failure in `backtrace` as we might be holding a lock!
+            let trap = on_host_stack(|| crate::Trap::lib(wasmer_types::TrapCode::StackOverflow));
+            unsafe { crate::raise_lib_trap(trap) }
+        }
+    }
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
@@ -1089,17 +1114,24 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     let stack = acquire_stack(stack_size);
     let mut stack = scopeguard::guard(stack, release_stack);
 
+    // Corosensei's Unix limit includes the inaccessible guard page.
+    let stack_limit = stack.limit().get() + region::page::size();
+    let old_limit = WASM_STACK_LIMIT.with(Cell::get);
+
     // Create a coroutine with a new stack to run the function on.
     let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
         // Save the yielder to TLS so that it can be used later.
         YIELDER.with(|cell| cell.set(Some(yielder.into())));
+        // Publish this coroutine's stack limit.
+        WASM_STACK_LIMIT.with(|cell| cell.set(stack_limit));
 
         Ok(f())
     });
 
-    // Ensure that YIELDER is reset on exit even if the coroutine panics,
+    // Restore TLS even when a trap forcibly resets the coroutine stack.
     defer! {
         YIELDER.with(|cell| cell.set(None));
+        WASM_STACK_LIMIT.with(|cell| cell.set(old_limit));
     }
 
     coro.scope(|mut coro_ref| {
@@ -1141,9 +1173,12 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
         None => return f(),
     };
 
-    // Restore YIELDER upon exiting normally or unwinding.
+    let stack_limit = WASM_STACK_LIMIT.with(|cell| cell.replace(0));
+
+    // Restore Wasm stack state upon exiting normally or unwinding.
     defer! {
         YIELDER.with(|cell| cell.set(yielder_ptr));
+        WASM_STACK_LIMIT.with(|cell| cell.set(stack_limit));
     }
 
     // on_parent_stack requires the closure to be Send so that the Yielder
@@ -1317,8 +1352,8 @@ mod tests {
     fn set_stack_size_clamps_to_min() {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
-        set_stack_size(1); // way below 8 KiB minimum
-        assert_eq!(get_stack_size(), ByteSize::kib(8).as_u64() as usize);
+        set_stack_size(1); // way below 16 KiB minimum
+        assert_eq!(get_stack_size(), ByteSize::kib(16).as_u64() as usize);
     }
 
     #[test]

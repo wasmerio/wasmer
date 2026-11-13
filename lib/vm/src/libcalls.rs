@@ -47,7 +47,7 @@ use crate::{
     table::{RawTableElement, TableElement},
 };
 use crate::{VMExceptionObj, probestack::PROBESTACK};
-use crate::{VMFuncRef, on_host_stack};
+use crate::{VMFuncRef, check_stack_space, on_host_stack};
 pub use eh::{throw, wasmer_eh_personality, wasmer_eh_personality2};
 pub use wasmer_types::LibCall;
 use wasmer_types::{
@@ -169,10 +169,12 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_memory32_size(vmctx: *mut VMContext, memory_index: u32) -> u32 {
     unsafe {
-        let instance = (*vmctx).instance();
-        let memory_index = LocalMemoryIndex::from_u32(memory_index);
+        on_host_stack(|| {
+            let instance = (*vmctx).instance();
+            let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-        instance.memory_size(memory_index).0
+            instance.memory_size(memory_index).0
+        })
     }
 }
 
@@ -187,10 +189,12 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_size(
     memory_index: u32,
 ) -> u32 {
     unsafe {
-        let instance = (*vmctx).instance();
-        let memory_index = MemoryIndex::from_u32(memory_index);
+        on_host_stack(|| {
+            let instance = (*vmctx).instance();
+            let memory_index = MemoryIndex::from_u32(memory_index);
 
-        instance.imported_memory_size(memory_index).0
+            instance.imported_memory_size(memory_index).0
+        })
     }
 }
 
@@ -209,6 +213,7 @@ pub unsafe extern "C" fn wasmer_vm_table_copy(
     len: u32,
 ) {
     unsafe {
+        check_stack_space();
         let result = {
             let dst_table_index = TableIndex::from_u32(dst_table_index);
             let src_table_index = TableIndex::from_u32(src_table_index);
@@ -237,6 +242,7 @@ pub unsafe extern "C" fn wasmer_vm_table_init(
     len: u32,
 ) {
     unsafe {
+        check_stack_space();
         let result = {
             let table_index = TableIndex::from_u32(table_index);
             let elem_index = ElemIndex::from_u32(elem_index);
@@ -263,6 +269,7 @@ pub unsafe extern "C" fn wasmer_vm_table_fill(
     len: u32,
 ) {
     unsafe {
+        check_stack_space();
         let result = {
             let table_index = TableIndex::from_u32(table_index);
             let instance = (*vmctx).instance_mut();
@@ -288,6 +295,7 @@ pub unsafe extern "C" fn wasmer_vm_table_fill(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_table_size(vmctx: *mut VMContext, table_index: u32) -> u32 {
     unsafe {
+        check_stack_space();
         let instance = (*vmctx).instance();
         let table_index = LocalTableIndex::from_u32(table_index);
 
@@ -306,6 +314,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_size(
     table_index: u32,
 ) -> u32 {
     unsafe {
+        check_stack_space();
         let instance = (*vmctx).instance();
         let table_index = TableIndex::from_u32(table_index);
 
@@ -325,6 +334,7 @@ pub unsafe extern "C" fn wasmer_vm_table_get(
     elem_index: u32,
 ) -> RawTableElement {
     unsafe {
+        check_stack_space();
         let instance = (*vmctx).instance();
         let table_index = LocalTableIndex::from_u32(table_index);
 
@@ -348,6 +358,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_get(
     elem_index: u32,
 ) -> RawTableElement {
     unsafe {
+        check_stack_space();
         let instance = (*vmctx).instance_mut();
         let table_index = TableIndex::from_u32(table_index);
 
@@ -375,6 +386,7 @@ pub unsafe extern "C" fn wasmer_vm_table_set(
     value: RawTableElement,
 ) {
     unsafe {
+        check_stack_space();
         let instance = (*vmctx).instance_mut();
         let table_index = LocalTableIndex::from_u32(table_index);
 
@@ -406,6 +418,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_set(
     value: RawTableElement,
 ) {
     unsafe {
+        check_stack_space();
         let instance = (*vmctx).instance_mut();
         let table_index = TableIndex::from_u32(table_index);
         let elem = match instance.get_table(table_index).ty().ty {
@@ -492,6 +505,7 @@ pub unsafe extern "C" fn wasmer_vm_func_ref(
     function_index: u32,
 ) -> VMFuncRef {
     unsafe {
+        check_stack_space();
         let instance = (*vmctx).instance();
         let function_index = FunctionIndex::from_u32(function_index);
 
@@ -530,6 +544,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_copy(
     len: u32,
 ) {
     unsafe {
+        check_stack_space();
         let result = {
             let dst_memory_index = MemoryIndex::from_u32(dst_memory_index);
             let src_memory_index = MemoryIndex::from_u32(src_memory_index);
@@ -556,6 +571,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_fill(
     len: u32,
 ) {
     unsafe {
+        check_stack_space();
         let result = {
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
             let instance = (*vmctx).instance();
@@ -581,11 +597,11 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_fill(
     len: u32,
 ) {
     unsafe {
-        let result = {
+        let result = on_host_stack(|| {
             let memory_index = MemoryIndex::from_u32(memory_index);
             let instance = (*vmctx).instance();
             instance.imported_memory_fill(memory_index, dst, val, len)
-        };
+        });
         if let Err(trap) = result {
             raise_lib_trap(trap);
         }
@@ -607,12 +623,12 @@ pub unsafe extern "C" fn wasmer_vm_memory32_init(
     len: u32,
 ) {
     unsafe {
-        let result = {
+        let result = on_host_stack(|| {
             let memory_index = MemoryIndex::from_u32(memory_index);
             let data_index = DataIndex::from_u32(data_index);
             let instance = (*vmctx).instance();
             instance.memory_init(memory_index, data_index, dst, src, len)
-        };
+        });
         if let Err(trap) = result {
             raise_lib_trap(trap);
         }
@@ -644,6 +660,7 @@ pub unsafe extern "C" fn wasmer_vm_data_drop(vmctx: *mut VMContext, data_index: 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
     unsafe {
+        check_stack_space();
         let trap = Trap::lib(trap_code);
         raise_lib_trap(trap)
     }
@@ -652,6 +669,7 @@ pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
 /// (debug) Print an usize.
 #[unsafe(no_mangle)]
 pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
+    unsafe { check_stack_space() };
     #[allow(clippy::print_stdout)]
     {
         println!("wasmer_vm_dbg_usize: {value}");
@@ -661,6 +679,7 @@ pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
 /// (debug) Print a string.
 #[unsafe(no_mangle)]
 pub extern "C-unwind" fn wasmer_vm_dbg_str(ptr: usize, len: u32) {
+    unsafe { check_stack_space() };
     #[allow(clippy::print_stdout)]
     unsafe {
         let str = std::str::from_utf8(std::slice::from_raw_parts(ptr as _, len as _))
@@ -676,8 +695,11 @@ pub extern "C-unwind" fn wasmer_vm_dbg_str(ptr: usize, len: u32) {
 /// Calls libunwind to perform unwinding magic.
 #[unsafe(no_mangle)]
 pub unsafe extern "C-unwind" fn wasmer_vm_throw(vmctx: *mut VMContext, exnref: u32) -> ! {
-    let instance = unsafe { (*vmctx).instance() };
-    unsafe { eh::throw(instance.context(), exnref) }
+    unsafe {
+        check_stack_space();
+        let instance = (*vmctx).instance();
+        eh::throw(instance.context(), exnref)
+    }
 }
 
 /// Implementation for allocating an exception. Returns the exnref, i.e. a handle to the
@@ -688,14 +710,16 @@ pub unsafe extern "C-unwind" fn wasmer_vm_throw(vmctx: *mut VMContext, exnref: u
 /// The vmctx pointer must be dereferenceable.
 #[unsafe(no_mangle)]
 pub unsafe extern "C-unwind" fn wasmer_vm_alloc_exception(vmctx: *mut VMContext, tag: u32) -> u32 {
-    let instance = unsafe { (*vmctx).instance_mut() };
-    let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
-    let exn = VMExceptionObj::new_zeroed(
-        instance.context(),
-        InternalStoreHandle::from_index(unique_tag as usize).unwrap(),
-    );
-    let exnref = InternalStoreHandle::new(instance.context_mut(), exn);
-    exnref.index() as u32
+    on_host_stack(|| {
+        let instance = unsafe { (*vmctx).instance_mut() };
+        let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
+        let exn = VMExceptionObj::new_zeroed(
+            instance.context(),
+            InternalStoreHandle::from_index(unique_tag as usize).unwrap(),
+        );
+        let exnref = InternalStoreHandle::new(instance.context_mut(), exn);
+        exnref.index() as u32
+    })
 }
 
 /// Given a VMContext and an exnref (handle to an exception within the store),
@@ -705,6 +729,7 @@ pub extern "C-unwind" fn wasmer_vm_read_exnref(
     vmctx: *mut VMContext,
     exnref: u32,
 ) -> *mut RawValue {
+    unsafe { check_stack_space() };
     let exn = eh::exn_obj_from_exnref(vmctx, exnref);
     unsafe { (*exn).payload().as_ptr() as *mut RawValue }
 }
@@ -718,6 +743,7 @@ pub extern "C-unwind" fn wasmer_vm_read_exnref(
 #[unsafe(no_mangle)]
 pub unsafe extern "C-unwind" fn wasmer_vm_exception_into_exnref(exception: *mut c_void) -> u32 {
     unsafe {
+        check_stack_space();
         let exnref = eh::read_exnref(exception);
         eh::delete_exception(exception);
         exnref
@@ -747,6 +773,8 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait32(
     timeout: i64,
 ) -> u32 {
     unsafe {
+        // Stay on the guest stack so host-interrupt signals can trap out of the wait.
+        check_stack_space();
         let result = {
             let instance = (*vmctx).instance_mut();
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
@@ -774,6 +802,8 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait32(
     timeout: i64,
 ) -> u32 {
     unsafe {
+        // Stay on the guest stack so host-interrupt signals can trap out of the wait.
+        check_stack_space();
         let result = {
             let instance = (*vmctx).instance_mut();
             let memory_index = MemoryIndex::from_u32(memory_index);
@@ -801,6 +831,8 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait64(
     timeout: i64,
 ) -> u32 {
     unsafe {
+        // Stay on the guest stack so host-interrupt signals can trap out of the wait.
+        check_stack_space();
         let result = {
             let instance = (*vmctx).instance_mut();
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
@@ -828,6 +860,8 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait64(
     timeout: i64,
 ) -> u32 {
     unsafe {
+        // Stay on the guest stack so host-interrupt signals can trap out of the wait.
+        check_stack_space();
         let result = {
             let instance = (*vmctx).instance_mut();
             let memory_index = MemoryIndex::from_u32(memory_index);
@@ -854,6 +888,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_notify(
     cnt: u32,
 ) -> u32 {
     unsafe {
+        check_stack_space();
         let result = {
             let instance = (*vmctx).instance_mut();
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
@@ -880,6 +915,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_notify(
     cnt: u32,
 ) -> u32 {
     unsafe {
+        check_stack_space();
         let result = {
             let instance = (*vmctx).instance_mut();
             let memory_index = MemoryIndex::from_u32(memory_index);
