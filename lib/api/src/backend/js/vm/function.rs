@@ -35,6 +35,10 @@ fn decode_types(types: &Array) -> Option<Vec<Type>> {
 pub struct VMFunction {
     pub(crate) function: JsHandle<JsFunction>,
     pub(crate) ty: FunctionType,
+    /// `WebAssembly.promising(function)`, which makes a new function every
+    /// time it is called: made by the first `call_async` and kept.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) promising: std::rc::Rc<std::cell::OnceCell<JsFunction>>,
 }
 
 unsafe impl Send for VMFunction {}
@@ -46,6 +50,8 @@ impl VMFunction {
         Self {
             function: JsHandle::new(function),
             ty,
+            #[cfg(feature = "experimental-async")]
+            promising: Default::default(),
         }
     }
 

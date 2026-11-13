@@ -32,7 +32,7 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-use js_sys::{Array, Function, Promise, Reflect, WebAssembly};
+use js_sys::{Array, Function, Reflect, WebAssembly};
 use wasm_bindgen::{
     JsCast, JsValue,
     prelude::{Closure, wasm_bindgen},
@@ -49,9 +49,6 @@ use crate::{
 pub(crate) type ImportFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>>;
 
 type LockFuture = Pin<Box<dyn Future<Output = StoreAsyncWriteLock>>>;
-
-/// What the engine calls when the promise of a guest is settled.
-type Reaction = Closure<dyn FnMut(JsValue)>;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum State {
@@ -86,8 +83,6 @@ struct Activation {
     relock: RefCell<Option<LockFuture>>,
     /// The error of a host function, kept as it is across the adapter's trap.
     error: RefCell<Option<RuntimeError>>,
-    /// The reactions on the guest's promise, until one of them runs.
-    reactions: RefCell<Option<[Reaction; 2]>>,
     /// How the guest's promise settled.
     result: RefCell<Option<Result<JsValue, JsValue>>>,
     /// Whoever awaits the call, while it has something to wait for.
@@ -124,6 +119,7 @@ struct Shim {
     hooks: ShimFunction,
     pend: ShimFunction,
     wake: ShimFunction,
+    settle: ShimFunction,
 }
 
 /// `wait` suspends the guest on the promise `pend` made for its token, which
@@ -149,6 +145,9 @@ return {
     resolvers[token] = undefined;
     if (resolve !== undefined) resolve();
   },
+  settle(promise, token) {
+    promise.then((value) => done(token, 0, value), (error) => done(token, 1, error));
+  },
   hooks(start, placeholder) {
     return {
       start(...args) {
@@ -171,10 +170,11 @@ impl Shim {
         Reflect::set(&descriptor, &"value".into(), &"i32".into()).unwrap();
         Reflect::set(&descriptor, &"mutable".into(), &true.into()).unwrap();
         let status = WebAssembly::Global::new(&descriptor, &adapter::READY.into()).unwrap();
+        let done = Closure::wrap(Box::new(done) as Box<dyn Fn(i32, i32, JsValue)>).into_js_value();
         let resume =
             Closure::wrap(Box::new(resume) as Box<dyn Fn(i32) -> JsValue>).into_js_value();
-        let shim = Function::new_with_args("status, resume", SHIM_SOURCE)
-            .call2(&JsValue::UNDEFINED, &status, &resume)
+        let shim = Function::new_with_args("status, done, resume", SHIM_SOURCE)
+            .call3(&JsValue::UNDEFINED, &status, &done, &resume)
             .unwrap();
         let get = |name: &str| Reflect::get(&shim, &name.into()).unwrap();
         Self {
@@ -186,6 +186,7 @@ impl Shim {
             hooks: get("hooks").unchecked_into(),
             pend: get("pend").unchecked_into(),
             wake: get("wake").unchecked_into(),
+            settle: get("settle").unchecked_into(),
         }
     }
 
@@ -284,7 +285,6 @@ impl Activation {
             activations.free.push(self.token);
         });
         self.switch_out(State::Done);
-        drop(self.reactions.take());
         drop(self.import.take());
         drop(self.outcome.take());
         drop(self.relock.take());
@@ -417,6 +417,13 @@ fn unwait(token: i32) -> Result<(), JsValue> {
     Err(cannot_suspend())
 }
 
+/// The reaction on the promise of every guest: `token` says whose it is.
+fn done(token: i32, rejected: i32, value: JsValue) {
+    if let Some(activation) = activation(token) {
+        activation.retire(if rejected == 0 { Ok(value) } else { Err(value) });
+    }
+}
+
 /// The caller's side of an activation. Dropping it cancels the call.
 pub(crate) struct Call(Rc<Activation>);
 
@@ -445,7 +452,6 @@ impl Call {
                 outcome: RefCell::new(None),
                 relock: RefCell::new(None),
                 error: RefCell::new(None),
-                reactions: RefCell::new(None),
                 result: RefCell::new(None),
                 caller: RefCell::new(None),
             });
@@ -457,19 +463,10 @@ impl Call {
         // the guest. The reaction is attached here, before anything else can
         // run: a rejection nobody handles ends the process on some hosts.
         match enter() {
-            Ok(promise) => {
-                let reaction = |rejected: bool| -> Reaction {
-                    let activation = activation.clone();
-                    Closure::new(move |value: JsValue| {
-                        activation.retire(if rejected { Err(value) } else { Ok(value) })
-                    })
-                };
-                let reactions = [reaction(false), reaction(true)];
-                let _ = promise
-                    .unchecked_into::<Promise>()
-                    .then2(&reactions[0], &reactions[1]);
-                *activation.reactions.borrow_mut() = Some(reactions);
-            }
+            Ok(promise) => SHIM.with(|shim| {
+                shim.settle
+                    .call_settle(&JsValue::UNDEFINED, &promise, activation.token)
+            }),
             Err(error) => activation.retire(Err(error)),
         }
         Self(activation)
@@ -544,6 +541,8 @@ extern "C" {
     #[wasm_bindgen(method, js_name = call)]
     fn call_token(this: &ShimFunction, receiver: &JsValue, token: i32);
     #[wasm_bindgen(method, js_name = call)]
+    fn call_settle(this: &ShimFunction, receiver: &JsValue, promise: &JsValue, token: i32);
+    #[wasm_bindgen(method, js_name = call)]
     fn call_hooks(
         this: &ShimFunction,
         receiver: &JsValue,
@@ -570,6 +569,7 @@ pub(crate) fn promising(function: &Function) -> Result<Function, JsValue> {
 mod tests {
     use super::*;
     use crate::{Function, Store, Type};
+    use js_sys::Promise;
     use wasm_bindgen_futures::JsFuture;
     use wasm_bindgen_test::wasm_bindgen_test;
 
@@ -638,5 +638,26 @@ mod tests {
         }
         let tokens = ACTIVATIONS.with(|activations| activations.borrow().slots.len());
         assert_eq!(tokens, 1, "tokens are not used again");
+    }
+
+    /// `WebAssembly.promising` is called for the first `call_async` of a
+    /// function, and never again.
+    #[wasm_bindgen_test]
+    async fn the_promising_wrapper_of_a_function_is_kept() {
+        let mut store = Store::default();
+        let host = Function::new_typed_async(&mut store, async |value: i32| value);
+        let again = host.clone();
+        let store = store.into_async();
+        let promising = || host.as_js().handle.promising.get().cloned();
+        assert!(promising().is_none());
+
+        host.call_async(&store, vec![Value::I32(1)]).await.unwrap();
+        let first = promising().expect("made by the first call");
+        again.call_async(&store, vec![Value::I32(2)]).await.unwrap();
+        assert!(js_sys::Object::is(&first, &promising().unwrap()));
+        assert!(js_sys::Object::is(
+            &first,
+            again.as_js().handle.promising.get().unwrap()
+        ));
     }
 }
