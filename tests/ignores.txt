@@ -34,8 +34,6 @@ llvm spec::threads::imports
 
 # Tail-call
 singlepass return_call
-cranelift+aarch64 return_call
-cranelift+aarch64 spec::try_table
 
 # Traps
 # Experimental Mach-O artifacts lack source-location DWARF; frame names and ordering work.

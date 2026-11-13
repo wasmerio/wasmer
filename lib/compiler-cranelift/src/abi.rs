@@ -54,13 +54,7 @@ pub(crate) fn signature_to_ir(
     arch: Architecture,
 ) -> ir::Signature {
     let return_abi = classify_returns(arch, signature.results());
-    // Cranelift's AArch64 tail convention does not support StructReturn.
-    let call_conv = if matches!(arch, Architecture::Aarch64(_)) {
-        config.default_call_conv
-    } else {
-        CallConv::Tail
-    };
-    let mut sig = ir::Signature::new(call_conv);
+    let mut sig = ir::Signature::new(CallConv::Tail);
 
     if matches!(return_abi, ReturnAbi::Sret(_)) {
         sig.params.push(AbiParam::special(

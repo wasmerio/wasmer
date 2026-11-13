@@ -272,7 +272,7 @@ pub trait Compiler: Send + std::fmt::Debug {
     }
 
     /// Whether local function entry points use Cranelift's tail calling convention.
-    fn uses_tail_call_conv(&self, _target: &Target) -> bool {
+    fn uses_tail_call_conv(&self) -> bool {
         false
     }
 
