@@ -8,7 +8,7 @@
 
 use super::trap::UnwindReason;
 use crate::Trap;
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+#[cfg(feature = "experimental-host-interrupt")]
 use crate::interrupt_registry;
 use backtrace::Backtrace;
 use bytesize::ByteSize;
@@ -897,6 +897,93 @@ where
 thread_local! {
     static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
+}
+
+/// The thread-local state of one *activation*: a chain of Wasm entries whose
+/// frames all live on one host stack. It is what the signal handler consults
+/// to find the Wasm code that is running: the trap handler and, with
+/// `experimental-host-interrupt`, the interrupt registry's active stores.
+///
+/// A thread that runs all its Wasm calls on one host stack never needs this
+/// type: its calls nest, and each entry restores what it found. It is for
+/// code that keeps several host stacks on one thread and switches between
+/// them while they have Wasm frames on them, as `Function::call_async` in the
+/// API crate does with one coroutine per call. Suspended activations can be
+/// resumed in any order, so the state has to follow the stack that is
+/// running: an activation that is not running keeps its state here, and
+/// [`Self::swap`] exchanges it with the thread's at every switch, in both
+/// directions. An embedder that switches such stacks itself has to do the
+/// same around its own switches.
+pub struct ActivationState {
+    trap_handler: *mut TrapHandlerContext,
+    #[cfg(feature = "experimental-host-interrupt")]
+    active_stores: interrupt_registry::ActiveStores,
+}
+
+impl Default for ActivationState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ActivationState {
+    /// The state of an activation that has not entered Wasm.
+    pub const fn new() -> Self {
+        Self {
+            trap_handler: ptr::null_mut(),
+            #[cfg(feature = "experimental-host-interrupt")]
+            active_stores: interrupt_registry::ActiveStores::new(),
+        }
+    }
+
+    /// Exchanges this state with the calling thread's.
+    ///
+    /// # Safety
+    ///
+    /// The state holds pointers into the host stack its activation runs on,
+    /// and the signal handler follows whichever of them the thread holds.
+    ///
+    /// - Calls come in pairs on one thread: one immediately before switching
+    ///   to the stack that owns this state, and one immediately after control
+    ///   comes back from it, whether it suspended, returned or unwound.
+    /// - It is called from host code, never while running on a Wasm stack
+    ///   (host functions run inside [`on_host_stack`], so they qualify).
+    /// - A state that is not empty (see [`Self::is_empty`]) must not be
+    ///   swapped in once the stack that owns it is gone, nor on another
+    ///   thread.
+    pub unsafe fn swap(&mut self) {
+        // The Wasm stack's yielder is not part of the exchange because it is
+        // unset on both sides: `on_host_stack` takes it for as long as host
+        // code runs, and `on_wasm_stack` clears it on the way out.
+        debug_assert!(
+            YIELDER.with(|cell| cell.get()).is_none(),
+            "activation switched while running on the Wasm stack"
+        );
+        compiler_fence(Ordering::Release);
+        TRAP_HANDLER.with(|ptr| {
+            self.trap_handler = ptr.swap(self.trap_handler, Ordering::Relaxed);
+        });
+        compiler_fence(Ordering::Acquire);
+        #[cfg(feature = "experimental-host-interrupt")]
+        self.active_stores.swap();
+    }
+
+    /// Whether this activation, while it is not running, has entered
+    /// `store_id` and the store was interrupted.
+    #[cfg(feature = "experimental-host-interrupt")]
+    pub fn is_interrupted(&self, store_id: wasmer_types::StoreId) -> bool {
+        self.active_stores.is_interrupted(store_id)
+    }
+
+    /// Whether nothing is installed: true before an activation first runs and
+    /// after it has finished, when nothing may be left pointing into its stack.
+    pub fn is_empty(&self) -> bool {
+        #[cfg(feature = "experimental-host-interrupt")]
+        if !self.active_stores.is_empty() {
+            return false;
+        }
+        self.trap_handler.is_null()
+    }
 }
 
 /// Read-only information that is used by signal handlers to handle and recover

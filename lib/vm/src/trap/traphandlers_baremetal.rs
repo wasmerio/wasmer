@@ -46,6 +46,61 @@ pub fn get_stack_size() -> usize {
 /// No-op — no signal handlers to install.
 pub fn init_traps() {}
 
+/// The thread-local state of one activation; see the signal-based backend.
+/// There is no trap handler and no separate Wasm stack here, so only the
+/// interrupt registry's active stores follow the activation.
+pub struct ActivationState {
+    #[cfg(feature = "experimental-host-interrupt")]
+    active_stores: crate::interrupt_registry::ActiveStores,
+    /// The state belongs to one thread, as on the signal-based backend.
+    _not_send: PhantomData<*mut ()>,
+}
+
+impl Default for ActivationState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ActivationState {
+    /// The state of an activation that has not entered Wasm.
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "experimental-host-interrupt")]
+            active_stores: crate::interrupt_registry::ActiveStores::new(),
+            _not_send: PhantomData,
+        }
+    }
+
+    /// Exchanges this state with the calling thread's.
+    ///
+    /// # Safety
+    ///
+    /// Same contract as the signal-based backend's: calls come in pairs on
+    /// one thread, immediately before switching to the stack that owns this
+    /// state and immediately after control comes back from it.
+    pub unsafe fn swap(&mut self) {
+        #[cfg(feature = "experimental-host-interrupt")]
+        self.active_stores.swap();
+    }
+
+    /// Whether this activation, while it is not running, has entered
+    /// `store_id` and the store was interrupted.
+    #[cfg(feature = "experimental-host-interrupt")]
+    pub fn is_interrupted(&self, store_id: wasmer_types::StoreId) -> bool {
+        self.active_stores.is_interrupted(store_id)
+    }
+
+    /// Whether nothing is installed.
+    pub fn is_empty(&self) -> bool {
+        #[cfg(feature = "experimental-host-interrupt")]
+        if !self.active_stores.is_empty() {
+            return false;
+        }
+        true
+    }
+}
+
 /// Runs `f` in-place (there is only one stack).
 pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     f()

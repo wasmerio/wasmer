@@ -199,6 +199,22 @@ impl StoreContext {
         ForcedStoreInstallGuard { store_id }
     }
 
+    /// Whether the entry on top of the thread's stack, the store that is
+    /// running, is held by an async context. A store entered synchronously
+    /// cannot be suspended, not even from a `call_async` coroutine further
+    /// down the stack: its caller holds a borrow of it across the call.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn top_is_async() -> bool {
+        STORE_CONTEXT_STACK.with(|cell| {
+            cell.borrow().last().is_some_and(|top| {
+                matches!(
+                    unsafe { top.entry.get().as_ref().unwrap() },
+                    StoreContextEntry::Async(_)
+                )
+            })
+        })
+    }
+
     /// Whether the active entry is `id`'s, held by an async context.
     fn active_is_async(id: StoreId) -> bool {
         STORE_CONTEXT_STACK.with(|cell| {
