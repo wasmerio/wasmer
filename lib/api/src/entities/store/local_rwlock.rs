@@ -93,9 +93,13 @@ impl<T> LocalRwLock<T> {
     /// Attempts to consume the lock if there are no active or waiting
     /// readers or writers, and returns the inner value if successful.
     pub fn consume(self) -> Result<T, Self> {
+        // A waiter that gave up leaves its slot behind, empty.
+        let no_waiters = |waiters: &RefCell<Vec<Option<Waker>>>| {
+            waiters.borrow().iter().all(|waiter| waiter.is_none())
+        };
         if self.inner.state.get() == LockState::Unlocked
-            && self.inner.read_waiters.borrow().is_empty()
-            && self.inner.write_waiters.borrow().is_empty()
+            && no_waiters(&self.inner.read_waiters)
+            && no_waiters(&self.inner.write_waiters)
         {
             match Rc::try_unwrap(self.inner) {
                 Ok(inner) => Ok(inner.value.into_inner()),
@@ -644,5 +648,56 @@ mod tests {
         );
         assert!(order.contains(&"reader1".to_string()));
         assert!(order.contains(&"reader2".to_string()));
+    }
+
+    /// A waiter that gave up leaves an empty slot behind. Releasing the lock
+    /// clears the writers' queue only if one of them is still waiting.
+    #[test]
+    fn test_consume_after_cancelled_write_waiter() {
+        let lock = LocalRwLock::new(42);
+        let mut cx = Context::from_waker(Waker::noop());
+
+        let guard = lock.try_write().unwrap();
+        let mut writer = Box::pin(lock.write());
+        assert!(writer.as_mut().poll(&mut cx).is_pending());
+        drop(writer);
+        drop(guard);
+
+        assert_eq!(lock.consume().ok(), Some(42));
+    }
+
+    /// Releasing the lock with a writer waiting leaves the readers' queue as
+    /// it is, with the slot of a reader that gave up.
+    #[test]
+    fn test_consume_after_cancelled_read_waiter() {
+        let lock = LocalRwLock::new(42);
+        let mut cx = Context::from_waker(Waker::noop());
+
+        let guard = lock.try_write().unwrap();
+        let mut reader = Box::pin(lock.read());
+        let mut writer = Box::pin(lock.write());
+        assert!(reader.as_mut().poll(&mut cx).is_pending());
+        assert!(writer.as_mut().poll(&mut cx).is_pending());
+        drop(reader);
+        drop(guard);
+        drop(writer);
+
+        assert_eq!(lock.consume().ok(), Some(42));
+    }
+
+    #[test]
+    fn test_consume_fails_while_locked_or_awaited() {
+        let lock = LocalRwLock::new(42);
+        let mut cx = Context::from_waker(Waker::noop());
+
+        let guard = lock.try_write().unwrap();
+        let lock = lock.consume().expect_err("locked");
+        let mut writer = Box::pin(lock.write());
+        assert!(writer.as_mut().poll(&mut cx).is_pending());
+        drop(guard);
+        let lock = lock.consume().expect_err("a writer is waiting");
+        drop(writer);
+
+        assert_eq!(lock.consume().ok(), Some(42));
     }
 }
