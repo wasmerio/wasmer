@@ -24,6 +24,54 @@ fn growable_memory(store: &mut Store) -> Memory {
         .expect("create memory")
 }
 
+#[cfg(feature = "experimental-async")]
+#[engine_test]
+fn async_store_try_write_lock_refuses_readers_and_writers_without_waiters() -> Result<(), String> {
+    let store = Store::default().into_async();
+    {
+        let first_reader = store.read();
+        let second_reader = store.read();
+        for _ in 0..16 {
+            assert!(store.try_write_lock().is_none());
+        }
+        drop(first_reader);
+        assert!(store.try_write_lock().is_none());
+        drop(second_reader);
+    }
+    {
+        let writer = store.try_write_lock().expect("an idle store is available");
+        for _ in 0..16 {
+            assert!(store.try_write_lock().is_none());
+        }
+        drop(writer);
+    }
+    drop(
+        store
+            .try_write_lock()
+            .expect("dropping a guard releases the lock"),
+    );
+    assert!(
+        store.into_store().is_ok(),
+        "refusals must not retain waiters or ownership"
+    );
+    Ok(())
+}
+
+#[cfg(feature = "experimental-async")]
+#[engine_test]
+fn async_store_try_write_guard_keeps_the_store_alive() -> Result<(), String> {
+    let mut store = Store::default();
+    let memory = growable_memory(&mut store);
+    let store = store.into_async();
+    let mut guard = store.try_write_lock().expect("an idle store is available");
+    drop(store);
+    memory
+        .grow(&mut guard, Pages(1))
+        .expect("the guard owns its store");
+    assert_eq!(memory.view(&guard).size(), Pages(2));
+    Ok(())
+}
+
 /// Calls `"run"` on a module whose only body is a call to the `"host"."run"`
 /// import, so `host` runs with a store the runtime installed for the call.
 fn run_host_function(store: &mut Store, host: Function) -> Result<(), String> {
