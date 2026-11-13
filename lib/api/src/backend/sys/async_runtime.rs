@@ -1,24 +1,25 @@
 use std::{
     cell::RefCell,
-    collections::HashMap,
     future::Future,
-    marker::PhantomData,
     pin::Pin,
-    ptr,
-    rc::Rc,
-    sync::{LazyLock, atomic::AtomicU64},
-    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+    task::{Context, Poll},
 };
 
 use corosensei::{Coroutine, CoroutineResult, Yielder};
-use dashmap::DashMap;
 
 use super::entities::function::Function as SysFunction;
 use crate::{
-    AsStoreAsync, AsStoreMut, AsStoreRef, ForcedStoreInstallGuard, LocalRwLockWriteGuard,
-    RuntimeError, Store, StoreAsync, StoreContext, StoreInner, StoreMut, StoreRef, Value,
+    AsStoreMut, AsStoreRef, ForcedStoreInstallGuard, RuntimeError, StoreAsync, StoreContext,
+    StoreMut, StoreRef, Value,
 };
 use wasmer_types::StoreId;
+
+#[cfg(all(
+    unix,
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+pub(crate) use interrupt::notify_pending_futures_of_interrupt;
 
 type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + 'static>>;
 
@@ -37,16 +38,14 @@ enum AsyncResume {
     HostFutureReady(Result<Vec<Value>, RuntimeError>),
 }
 
-type AsyncCallFutureId = u64;
-
-static NEXT_ASYNC_CALL_FUTURE_ID: AtomicU64 = AtomicU64::new(0);
-
-static ASYNC_CALL_FUTURE_WAKERS: LazyLock<DashMap<StoreId, HashMap<AsyncCallFutureId, Waker>>> =
-    LazyLock::new(DashMap::new);
-
 #[allow(clippy::type_complexity)]
 pub(crate) struct AsyncCallFuture {
-    id: AsyncCallFutureId,
+    #[cfg(all(
+        unix,
+        feature = "experimental-host-interrupt",
+        not(feature = "baremetal")
+    ))]
+    interrupt: interrupt::AsyncInterrupt,
 
     coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
@@ -130,7 +129,12 @@ impl AsyncCallFuture {
             });
 
         Self {
-            id: NEXT_ASYNC_CALL_FUTURE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+            #[cfg(all(
+                unix,
+                feature = "experimental-host-interrupt",
+                not(feature = "baremetal")
+            ))]
+            interrupt: interrupt::AsyncInterrupt::default(),
             coroutine: Some(coroutine),
             pending_store_install: None,
             pending_future: None,
@@ -140,16 +144,15 @@ impl AsyncCallFuture {
         }
     }
 
-    fn remove_from_wakers_list(&self) {
-        let mut wakers_entry = match ASYNC_CALL_FUTURE_WAKERS.entry(self.store.store_id()) {
-            dashmap::Entry::Occupied(o) => o,
-            dashmap::Entry::Vacant(v) => return,
-        };
-
-        let mut waker_map_ref = wakers_entry.get_mut();
-        waker_map_ref.remove(&self.id);
-        if waker_map_ref.is_empty() {
-            wakers_entry.remove();
+    #[cfg(all(
+        unix,
+        feature = "experimental-host-interrupt",
+        not(feature = "baremetal")
+    ))]
+    fn drop_coroutine(&mut self) {
+        if let Some(coroutine) = self.coroutine.take() {
+            let _trap_boundary = self.interrupt.enter_traps();
+            drop(coroutine);
         }
     }
 }
@@ -158,18 +161,23 @@ impl Future for AsyncCallFuture {
     type Output = Result<Box<[Value]>, RuntimeError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        loop {
-            let store_id = self.store.store_id();
+        #[cfg(all(
+            unix,
+            feature = "experimental-host-interrupt",
+            not(feature = "baremetal")
+        ))]
+        self.interrupt.update_waker(cx.waker());
 
-            #[cfg(feature = "experimental-host-interrupt")]
-            {
-                if super::vm::interrupt_registry::is_interrupted(store_id) {
-                    self.remove_from_wakers_list();
-                    return Poll::Ready(Err(super::vm::Trap::lib(
-                        super::vm::TrapCode::HostInterrupt,
-                    )
-                    .into()));
-                }
+        loop {
+            #[cfg(all(
+                unix,
+                feature = "experimental-host-interrupt",
+                not(feature = "baremetal")
+            ))]
+            if self.interrupt.is_interrupted() {
+                self.drop_coroutine();
+                self.interrupt.clear_waker();
+                return Poll::Ready(Err(interrupt::host_interrupt()));
             }
 
             if let Some(future) = self.pending_future.as_mut() {
@@ -184,13 +192,15 @@ impl Future for AsyncCallFuture {
 
             // If we're ready, return early
             if self.coroutine.is_none() {
-                self.remove_from_wakers_list();
+                #[cfg(all(
+                    unix,
+                    feature = "experimental-host-interrupt",
+                    not(feature = "baremetal")
+                ))]
+                {
+                    self.interrupt.clear_waker();
+                }
                 return Poll::Ready(self.result.take().expect("polled after completion"));
-            }
-
-            {
-                let mut wakers_entry = ASYNC_CALL_FUTURE_WAKERS.entry(store_id).or_default();
-                wakers_entry.insert(self.id, cx.waker().clone());
             }
 
             // Start a store installation if not in progress already
@@ -218,8 +228,28 @@ impl Future for AsyncCallFuture {
             };
 
             let resume_arg = self.next_resume.take().expect("no resume arg available");
-            let coroutine = self.coroutine.as_mut().unwrap();
-            match coroutine.resume(resume_arg) {
+            #[cfg(all(
+                unix,
+                feature = "experimental-host-interrupt",
+                not(feature = "baremetal")
+            ))]
+            if matches!(resume_arg, AsyncResume::Start) {
+                let store_id = self.store.id;
+                self.interrupt.enable(store_id, cx.waker());
+            }
+
+            let this = &mut *self;
+            let resume = || this.coroutine.as_mut().unwrap().resume(resume_arg);
+            let result = cfg_select! {
+                all(unix, feature = "experimental-host-interrupt", not(feature = "baremetal")) => {
+                    this.interrupt.resume(resume)
+                }
+                _ => {{
+                    let mut resume = resume;
+                    resume()
+                }}
+            };
+            match result {
                 CoroutineResult::Yield(AsyncYield(fut)) => {
                     self.pending_future = Some(fut);
                 }
@@ -236,9 +266,14 @@ impl Future for AsyncCallFuture {
     }
 }
 
+#[cfg(all(
+    unix,
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
 impl Drop for AsyncCallFuture {
     fn drop(&mut self) {
-        self.remove_from_wakers_list();
+        self.drop_coroutine();
     }
 }
 
@@ -296,17 +331,180 @@ where
     }
 }
 
-// This function will only *wake* pending futures belonging to the given store.
-// It is expected that the interrupt happens before this function is called, so
-// that the futures can catch and react to `interrupt_registry::is_interrupted`
-// correctly.
-pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
-    let dashmap::Entry::Occupied(entry) = ASYNC_CALL_FUTURE_WAKERS.entry(store_id) else {
-        return;
+#[cfg(all(
+    unix,
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+mod interrupt {
+    use super::{AsStoreRef, AsyncCallStoreMut, CoroutineResult, RuntimeError, StoreId};
+    use dashmap::DashMap;
+    use std::{
+        collections::HashMap,
+        sync::{
+            Arc, LazyLock,
+            atomic::{AtomicBool, AtomicU64, Ordering},
+        },
+        task::Waker,
     };
+    use wasmer_vm::{SavedTrapState, Trap, TrapCode, interrupt_registry};
 
-    for waker in entry.get().values() {
-        waker.wake_by_ref();
+    static INTERRUPT_WAKERS: LazyLock<DashMap<StoreId, HashMap<u64, Arc<Waker>>>> =
+        LazyLock::new(DashMap::new);
+
+    #[derive(Default)]
+    pub(super) struct AsyncInterrupt {
+        waker: Option<InterruptWaker>,
+        flag: Option<Arc<AtomicBool>>,
+        traps: SavedTrapState,
+    }
+
+    impl AsyncInterrupt {
+        pub(super) fn enable(&mut self, store_id: StoreId, waker: &Waker) {
+            // The write lock is installed and the coroutine hasn't borrowed it yet.
+            let store = AsyncCallStoreMut { store_id };
+            if store.as_store_ref().objects().as_sys().interrupts_enabled() {
+                let registration = InterruptWaker::new(store_id);
+                registration.register(waker);
+                self.waker = Some(registration);
+            }
+        }
+
+        pub(super) fn update_waker(&self, waker: &Waker) {
+            if let Some(registration) = &self.waker {
+                // Publish the current waker before observing the interrupt flag.
+                registration.register(waker);
+            }
+        }
+
+        pub(super) fn is_interrupted(&self) -> bool {
+            self.flag
+                .as_ref()
+                .is_some_and(|flag| flag.load(Ordering::Acquire))
+        }
+
+        pub(super) fn clear_waker(&mut self) {
+            self.waker = None;
+            self.flag = None;
+        }
+
+        pub(super) fn enter_traps(&mut self) -> TrapBoundary {
+            TrapBoundary::enter(std::mem::take(&mut self.traps))
+        }
+
+        pub(super) fn resume<Y, R>(
+            &mut self,
+            resume: impl FnOnce() -> CoroutineResult<Y, R>,
+        ) -> CoroutineResult<Y, R> {
+            let boundary = self.enter_traps();
+            let result = resume();
+            let state = boundary.leave();
+            if matches!(result, CoroutineResult::Yield(_)) {
+                self.traps = state;
+                if self.flag.is_none()
+                    && let Some(registration) = &self.waker
+                {
+                    // The VM registration stays live on the suspended stack.
+                    self.flag = interrupt_registry::interrupt_flag(registration.store);
+                }
+            }
+            result
+        }
+    }
+
+    pub(super) fn host_interrupt() -> RuntimeError {
+        Trap::lib(TrapCode::HostInterrupt).into()
+    }
+
+    pub(super) struct TrapBoundary {
+        caller: Option<SavedTrapState>,
+    }
+
+    impl TrapBoundary {
+        fn enter(coroutine: SavedTrapState) -> Self {
+            // The coroutine's stack remains alive until it yields or unwinds.
+            let caller = unsafe { coroutine.replace_current() };
+            Self {
+                caller: Some(caller),
+            }
+        }
+
+        fn leave(mut self) -> SavedTrapState {
+            // Restore the caller before polling any host future.
+            unsafe { self.caller.take().unwrap().replace_current() }
+        }
+    }
+
+    impl Drop for TrapBoundary {
+        fn drop(&mut self) {
+            // On unwind the engine stack may already be dead. Exchanging TLS
+            // does not dereference its pointers, and we discard them here.
+            if let Some(caller) = self.caller.take() {
+                unsafe { caller.replace_current() };
+            }
+        }
+    }
+
+    // This function will only *wake* pending futures belonging to the given store.
+    // It is expected that the interrupt happens before this function is called, so
+    // that the futures can observe their interrupt flag.
+    pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
+        let Some(entry) = INTERRUPT_WAKERS.get(&store_id) else {
+            return;
+        };
+
+        let wakers: Vec<_> = entry.values().cloned().collect();
+        drop(entry);
+        for waker in wakers {
+            waker.wake_by_ref();
+        }
+    }
+
+    struct InterruptWaker {
+        store: StoreId,
+        id: u64,
+    }
+
+    impl InterruptWaker {
+        fn new(store: StoreId) -> Self {
+            static NEXT_ID: AtomicU64 = AtomicU64::new(0);
+            Self {
+                store,
+                id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            }
+        }
+
+        fn register(&self, waker: &Waker) {
+            if INTERRUPT_WAKERS
+                .get(&self.store)
+                .and_then(|entry| entry.get(&self.id).map(|old| old.will_wake(waker)))
+                .unwrap_or(false)
+            {
+                return;
+            }
+            let waker = Arc::new(waker.clone());
+            let old = INTERRUPT_WAKERS
+                .entry(self.store)
+                .or_default()
+                .insert(self.id, waker);
+            drop(old);
+        }
+    }
+
+    impl Drop for InterruptWaker {
+        fn drop(&mut self) {
+            let dashmap::Entry::Occupied(mut entry) = INTERRUPT_WAKERS.entry(self.store) else {
+                return;
+            };
+            let waker = entry.get_mut().remove(&self.id);
+            if entry.get().is_empty() {
+                entry.remove();
+            } else {
+                drop(entry);
+            }
+            // A waker's destructor can run user code.
+            drop(waker);
+        }
     }
 }
 

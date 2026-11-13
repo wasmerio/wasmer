@@ -6,6 +6,7 @@
 
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{VMContext, VMFunctionBody};
+use wasmer_types::StoreId;
 
 #[allow(clippy::module_inception)]
 mod trap;
@@ -22,6 +23,13 @@ pub use traphandlers::{
     MAX_STACK_SIZE, TrapHandlerFn, VMConfig, catch_traps, drain_stack_pool, get_stack_size,
     on_host_stack, raise_lib_trap, raise_user_trap, set_stack_size,
 };
+#[cfg(all(
+    unix,
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+#[doc(hidden)]
+pub use traphandlers::{SavedTrapState, check_host_interrupt};
 pub use traphandlers::{init_traps, resume_panic};
 pub use wasmer_types::TrapCode;
 
@@ -39,16 +47,54 @@ pub unsafe fn wasmer_call_trampoline(
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     unsafe {
-        catch_traps(trap_handler, config, move || {
-            // pointer types are ABI-compatible; transmute to unsafe fn to preserve unsafety
-            std::mem::transmute::<
-                unsafe extern "C" fn(
-                    *mut VMContext,
-                    *const VMFunctionBody,
-                    *mut wasmer_types::RawValue,
-                ),
-                unsafe extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
-            >(trampoline)(vmctx, callee, values_vec);
-        })
+        wasmer_call_trampoline_with_store(
+            trap_handler,
+            config,
+            vmctx,
+            trampoline,
+            callee,
+            values_vec,
+            None,
+        )
     }
+}
+
+/// Call a Wasm trampoline with optional host interruption for its store.
+///
+/// # Safety
+/// All pointer arguments must be valid for the duration of the call. When
+/// present, the store ID must identify the store executing this call.
+#[doc(hidden)]
+pub unsafe fn wasmer_call_trampoline_with_store(
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
+    vmctx: VMFunctionContext,
+    trampoline: VMTrampoline,
+    callee: *const VMFunctionBody,
+    values_vec: *mut u8,
+    interrupt_store: Option<StoreId>,
+) -> Result<(), Trap> {
+    let invoke = move || unsafe {
+        // pointer types are ABI-compatible; transmute to unsafe fn to preserve unsafety
+        std::mem::transmute::<
+            unsafe extern "C" fn(
+                *mut VMContext,
+                *const VMFunctionBody,
+                *mut wasmer_types::RawValue,
+            ),
+            unsafe extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
+        >(trampoline)(vmctx, callee, values_vec);
+    };
+    #[cfg(all(
+        unix,
+        feature = "experimental-host-interrupt",
+        not(feature = "baremetal")
+    ))]
+    if let Some(store_id) = interrupt_store {
+        return unsafe {
+            traphandlers::catch_interruptible_traps(trap_handler, config, store_id, invoke)
+        };
+    }
+    let _ = interrupt_store;
+    unsafe { catch_traps(trap_handler, config, invoke) }
 }

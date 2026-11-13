@@ -168,7 +168,8 @@ impl Store {
         unsafe { CoroutineStoreGuard::new(self.inner.as_mut()) }
     }
 
-    /// Builds an [`Interrupter`] for this store. Calling [`Interrupter::interrupt`]
+    /// Enables host interruption for subsequent Wasm calls and returns a handle.
+    /// Calling [`Interrupter::interrupt`]
     /// will cause running WASM code to terminate immediately with a
     /// [`HostInterrupt`](crate::backend::sys::vm::TrapCode::HostInterrupt) trap.
     ///

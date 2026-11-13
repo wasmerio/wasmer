@@ -1,6 +1,8 @@
-#![cfg(all(unix, feature = "experimental-host-interrupt"))]
-
-// TODO: tests for recursive function calls across different stores
+#![cfg(all(
+    unix,
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
 
 use std::{
     sync::{
@@ -8,15 +10,23 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::Result;
 use wasmer::{
-    AsStoreMut, Exception, Function, FunctionEnv, Instance, Module, RuntimeError, Store, Tag,
-    imports,
+    AsStoreMut, Exception, Function, FunctionEnv, Instance, InstantiationError, Module,
+    RuntimeError, Store, Tag, imports,
 };
-use wasmer_vm::TrapCode;
+use wasmer_vm::{TrapCode, interrupt_registry};
+
+const CALL_IMPORT_WAT: &str = r#"
+    (module
+      (import "env" "f" (func $f))
+      (func (export "run")
+        call $f
+      )
+    )"#;
 
 const INFINITE_LOOP_WAT: &str = r#"
     (module
@@ -49,6 +59,136 @@ fn test_interrupt_hot_loop() -> Result<()> {
 #[test]
 fn test_interrupt_memory_wait() -> Result<()> {
     test_interruptible(INFINITE_ATOMIC_WAIT_WAT)
+}
+
+#[test]
+fn plain_call_does_not_register_store() -> Result<()> {
+    let mut store = Store::default();
+    let store_id = store.id();
+    let probe = Function::new_typed(&mut store, move || {
+        assert!(matches!(
+            interrupt_registry::interrupt(store_id),
+            Err(interrupt_registry::InterruptError::StoreNotRunning)
+        ));
+    });
+    let module = Module::new(&store, wat::parse_str(CALL_IMPORT_WAT)?)?;
+    let instance = Instance::new(&mut store, &module, &imports! { "env" => { "f" => probe } })?;
+    let run = instance.exports.get_function("run")?;
+    run.call(&mut store, &[])?;
+    run.typed::<(), ()>(&store)?.call(&mut store)?;
+    Ok(())
+}
+
+#[test]
+fn module_start_can_be_interrupted_after_store_opts_in() -> Result<()> {
+    let mut store = Store::default();
+    let store_id = store.id();
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let interrupt = Function::new_typed(&mut store, {
+        let interrupted = interrupted.clone();
+        move || match interrupt_registry::interrupt(store_id) {
+            Ok(()) => interrupted.store(true, Ordering::Relaxed),
+            Err(interrupt_registry::InterruptError::StoreNotRunning) => {}
+            Err(error) => panic!("unexpected interrupt failure: {error}"),
+        }
+    });
+    let module = Module::new(
+        &store,
+        wat::parse_str(
+            r#"(module
+                (import "env" "interrupt" (func $interrupt))
+                (func $start call $interrupt)
+                (start $start)
+            )"#,
+        )?,
+    )?;
+    let imports = imports! { "env" => { "interrupt" => interrupt } };
+
+    Instance::new(&mut store, &module, &imports)?;
+    assert!(!interrupted.load(Ordering::Relaxed));
+
+    let _interrupter = store.interrupter();
+    let Err(InstantiationError::Start(error)) = Instance::new(&mut store, &module, &imports) else {
+        panic!("expected the module start function to be interrupted");
+    };
+    assert!(interrupted.load(Ordering::Relaxed));
+    assert_eq!(error.to_trap(), Some(TrapCode::HostInterrupt));
+    Ok(())
+}
+
+#[test]
+fn interrupting_outer_store_does_not_interrupt_nested_plain_store() -> Result<()> {
+    const NESTED_WAIT_WAT: &str = r#"
+        (module
+          (import "env" "entered" (func $entered))
+          (memory 1 1 shared)
+          (func (export "wait") (result i32)
+            call $entered
+            i32.const 0
+            i32.const 0
+            i64.const 500000000
+            memory.atomic.wait32
+          )
+        )"#;
+
+    let (entered_tx, entered_rx) = crossbeam_channel::bounded(1);
+    let (done_tx, done_rx) = crossbeam_channel::bounded(1);
+    let worker = thread::spawn(move || -> Result<()> {
+        let mut store = Store::default();
+        let interrupter = store.interrupter();
+        let nested_wasm = wat::parse_str(NESTED_WAIT_WAT)?;
+        let nested = Function::new_typed(&mut store, move || {
+            let mut inner_store = Store::default();
+            let module = Module::new(&inner_store, &nested_wasm).unwrap();
+            let entered = Function::new_typed(&mut inner_store, {
+                let interrupter = interrupter.clone();
+                let entered_tx = entered_tx.clone();
+                move || entered_tx.send(interrupter.clone()).unwrap()
+            });
+            let instance = Instance::new(
+                &mut inner_store,
+                &module,
+                &imports! { "env" => { "entered" => entered } },
+            )
+            .unwrap();
+            let wait = instance
+                .exports
+                .get_typed_function::<(), i32>(&inner_store, "wait")
+                .unwrap();
+
+            // The inner wait must return "timed out" without trapping.
+            assert_eq!(wait.call(&mut inner_store).unwrap(), 2);
+        });
+        let module = Module::new(&store, wat::parse_str(CALL_IMPORT_WAT)?)?;
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &imports! { "env" => { "f" => nested } },
+        )?;
+        let run = instance
+            .exports
+            .get_typed_function::<(), ()>(&store, "run")?;
+        done_tx
+            .send(run.call(&mut store).map_err(|err| err.to_trap()))
+            .unwrap();
+        Ok(())
+    });
+
+    let timeout = Duration::from_secs(5);
+    let interrupter = entered_rx.recv_timeout(timeout)?;
+    let deadline = Instant::now() + timeout;
+    // Retry after the inner host import returns so the signal reaches the Wasm stack.
+    let result = loop {
+        interrupter.interrupt();
+        match done_rx.recv_timeout(Duration::from_millis(10)) {
+            Ok(result) => break result,
+            Err(crossbeam_channel::RecvTimeoutError::Timeout) if Instant::now() < deadline => {}
+            Err(err) => return Err(err.into()),
+        }
+    };
+    worker.join().unwrap()?;
+    assert_eq!(result, Err(Some(TrapCode::HostInterrupt)));
+    Ok(())
 }
 
 // TODO: update/fix this as we implement more of the feature

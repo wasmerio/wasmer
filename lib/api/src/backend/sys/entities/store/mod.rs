@@ -109,7 +109,10 @@ pub struct Interrupter {
 
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]
 impl Interrupter {
-    /// Builds a new interrupter.
+    /// Builds a handle for a store whose host interruption is enabled.
+    ///
+    /// Use [`crate::Store::interrupter`] to enable host interruption and obtain
+    /// a handle in one step.
     pub fn new(store_id: StoreId) -> Self {
         Self { store_id }
     }
@@ -128,7 +131,7 @@ impl Interrupter {
             interrupt_registry::interrupt(self.store_id),
             Err(interrupt_registry::InterruptError::StoreNotRunning)
         ) {
-            #[cfg(feature = "experimental-async")]
+            #[cfg(all(feature = "experimental-async", not(feature = "baremetal")))]
             crate::backend::sys::async_runtime::notify_pending_futures_of_interrupt(self.store_id);
         }
     }

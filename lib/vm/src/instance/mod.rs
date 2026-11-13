@@ -20,7 +20,9 @@ use crate::vmcontext::{
     VMTrampoline, memory_copy, memory_fill, memory32_atomic_check_notify, memory32_atomic_check32,
     memory32_atomic_check64,
 };
-use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
+use crate::{
+    FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline_with_store,
+};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::{export::VMExtern, threadconditions::ExpectedValue};
 pub use allocator::InstanceAllocator;
@@ -393,13 +395,14 @@ impl Instance {
             // Even though we already know the type of the function we need to call, in certain
             // specific cases trampoline prepare callee arguments for specific optimizations, such
             // as passing g0 and m0_base_ptr as parameters.
-            wasmer_call_trampoline(
+            wasmer_call_trampoline_with_store(
                 trap_handler,
                 config,
                 callee_vmctx,
                 trampoline,
                 callee_address,
                 values_vec.as_mut_ptr(),
+                self.context().interrupt_store_id(),
             )
         }
     }

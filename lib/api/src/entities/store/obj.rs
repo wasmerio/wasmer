@@ -78,13 +78,17 @@ impl StoreObjects {
     }
 
     #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-    /// Builds an [`Interrupter`] for this store
+    /// Enables host interruption for subsequent Wasm calls and returns a handle.
     pub fn interrupter(&self) -> Interrupter {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => Interrupter(InterrupterInner::Sys(
-                crate::backend::sys::store::Interrupter::new(s.id()),
-            )),
+            Self::Sys(s) => {
+                #[cfg(not(feature = "baremetal"))]
+                s.enable_interrupts();
+                Interrupter(InterrupterInner::Sys(
+                    crate::backend::sys::store::Interrupter::new(s.id()),
+                ))
+            }
             _ => panic!("Interrupters can only be built for stores from the sys backend"),
         }
     }
