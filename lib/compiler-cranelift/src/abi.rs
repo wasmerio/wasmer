@@ -57,10 +57,8 @@ pub(crate) fn signature_to_ir(
     let mut sig = ir::Signature::new(CallConv::Tail);
 
     if matches!(return_abi, ReturnAbi::Sret(_)) {
-        sig.params.push(AbiParam::special(
-            config.pointer_type(),
-            ArgumentPurpose::StructReturn,
-        ));
+        // Tail CC does not support StructReturn on every target. Native calls restore it.
+        sig.params.push(AbiParam::new(config.pointer_type()));
     }
     sig.params.push(AbiParam::special(
         config.pointer_type(),
@@ -102,6 +100,15 @@ pub(crate) fn signature_to_ir(
         ReturnAbi::Sret(_) => {}
     }
     sig
+}
+
+/// Get the explicit first argument of a structure-return function.
+pub(crate) fn sret_pointer(func: &ir::Function) -> ir::Value {
+    let entry = func
+        .layout
+        .entry_block()
+        .expect("sret function has an entry block");
+    func.dfg.block_params(entry)[0]
 }
 
 fn bitcast(builder: &mut FunctionBuilder, ty: ir::Type, value: ir::Value) -> ir::Value {

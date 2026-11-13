@@ -1356,7 +1356,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
 
 impl FuncEnvironment<'_> {
     pub(crate) fn is_wasm_parameter(&self, signature: &ir::Signature, index: usize) -> bool {
-        signature.params[index].purpose == ArgumentPurpose::Normal
+        // The first argument is either vmctx or the explicit return-area pointer (using ArgumentPurpose::Normal).
+        index != 0 && signature.params[index].purpose == ArgumentPurpose::Normal
     }
 
     pub(crate) fn translate_unreachable(
@@ -1703,10 +1704,7 @@ impl FuncEnvironment<'_> {
         let return_abi = abi::classify_returns(self.architecture, result_types);
         let sret = match &return_abi {
             ReturnAbi::Sret(types) => Some(if is_return_call {
-                let ptr = builder
-                    .func
-                    .special_param(ArgumentPurpose::StructReturn)
-                    .expect("tail caller has a StructReturn parameter");
+                let ptr = abi::sret_pointer(builder.func);
                 (ptr, abi::return_area_layout(types))
             } else {
                 abi::allocate_return_area(builder, types, self.target_config)
@@ -1789,6 +1787,9 @@ impl FuncEnvironment<'_> {
             builder.seal_block(block);
             let mut signature = signature.clone();
             signature.call_conv = call_conv;
+            if call_conv != CallConv::Tail && matches!(return_abi, ReturnAbi::Sret(_)) {
+                signature.params[0].purpose = ArgumentPurpose::StructReturn;
+            }
             let sig = builder.import_signature(signature);
             if is_return_call {
                 // Tail calls bypass all enclosing exception handlers.
@@ -2505,10 +2506,7 @@ impl FuncEnvironment<'_> {
         let return_abi = abi::classify_returns(self.architecture, &self.return_types);
         match &return_abi {
             ReturnAbi::Sret(types) => {
-                let ptr = builder
-                    .func
-                    .special_param(ArgumentPurpose::StructReturn)
-                    .expect("sret function has a StructReturn parameter");
+                let ptr = abi::sret_pointer(builder.func);
                 let layout = abi::return_area_layout(types);
                 abi::store_sret(builder, ptr, &layout, values);
                 builder.ins().return_(&[]);
