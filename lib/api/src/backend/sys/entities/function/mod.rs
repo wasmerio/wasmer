@@ -839,9 +839,9 @@ where
     ) {
         let result = on_host_stack(|| {
             panic::catch_unwind(AssertUnwindSafe(|| match (this.ctx.func)(values_vec) {
-                HostCallOutcome::Ready { func_ty, result } => to_invocation_result(
-                    unsafe { finalize_dynamic_call(this.ctx.raw_store, func_ty, values_vec, result) },
-                ),
+                HostCallOutcome::Ready { func_ty, result } => to_invocation_result(unsafe {
+                    finalize_dynamic_call(this.ctx.raw_store, func_ty, values_vec, result)
+                }),
                 #[cfg(feature = "experimental-async")]
                 HostCallOutcome::Future { func_ty, future } => {
                     let awaited = block_on_host_future(future);
@@ -1056,10 +1056,9 @@ macro_rules! impl_host_function {
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                let result = wasmer_vm::on_host_stack(|| {
+                let result = // wasmer_vm::on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
-                        let mut store_wrapper = unsafe { StoreContext::borrow(env.raw_store) };
-                        let mut store = store_wrapper.as_mut();
+                        let mut store = unsafe { StoreMut::from_raw(env.raw_store) };
                         $(
                             let $x = unsafe {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
@@ -1070,8 +1069,8 @@ macro_rules! impl_host_function {
                             func_env: env.env.as_sys().clone(),
                         }.into();
                         to_invocation_result((env.func)(f_env, $($x),* ).into_result())
-                    }))
-                });
+                    }));
+                //});
 
                 // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
