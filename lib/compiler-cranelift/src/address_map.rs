@@ -18,7 +18,7 @@ pub fn get_function_address_map(
     let mcr = context.compiled_code().unwrap();
     for &MachSrcLoc { start, end, loc } in mcr.buffer.get_srclocs_sorted() {
         instructions.push(InstructionAddressMap {
-            srcloc: SourceLoc::new(loc.bits()),
+            srcloc: SourceLoc::new(loc.as_abs().bits()),
             code_offset: start as usize,
             code_len: (end - start) as usize,
         });

@@ -96,7 +96,7 @@ impl TableData {
 
         let element_addr = pos.ins().iadd(base, offset);
 
-        let mut base_flags = ir::MemFlagsData::new().with_aligned();
+        let mut base_flags = ir::MemFlagsData::new().with_aligned(true);
         set_memflags_alias_region(pos.func, &mut base_flags, MemoryAliasRegion::Table);
         if enable_table_access_spectre_mitigation {
             // Short-circuit the computed table element address to a null pointer
