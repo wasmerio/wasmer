@@ -22,6 +22,11 @@ mod sys {
     fn test_env() {
         super::test_env();
     }
+
+    #[test]
+    fn test_fd_fdstat_get_stdin_pipe_reports_regular_file() {
+        super::test_fd_fdstat_get_stdin_pipe_reports_regular_file();
+    }
 }
 
 // #[cfg(feature = "js")]
@@ -212,4 +217,81 @@ fn test_stdin() {
     // let mut buf = Vec::new();
     // pipe.read_to_end(&mut buf).await.unwrap();
     // assert_eq!(buf.len(), 0);
+}
+
+fn test_fd_fdstat_get_stdin_pipe_reports_regular_file() {
+        #[cfg(not(target_arch = "wasm32"))]
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+        #[cfg(not(target_arch = "wasm32"))]
+        let handle = runtime.handle().clone();
+        #[cfg(not(target_arch = "wasm32"))]
+        let _guard = handle.enter();
+
+        let engine = wasmer::Engine::default();
+        let module = Module::new(
+                &engine,
+                br#"
+        (module
+            (import "wasi_snapshot_preview1" "fd_fdstat_get" (func $fd_fdstat_get (param i32 i32) (result i32)))
+            (import "wasi_snapshot_preview1" "fd_write" (func $fd_write (param i32 i32 i32 i32) (result i32)))
+
+            (memory (export "memory") 1)
+            (data (i32.const 100) "ok")
+            (data (i32.const 104) "bad")
+
+            (func (export "_start")
+                (drop (call $fd_fdstat_get (i32.const 0) (i32.const 8)))
+
+                (if (i32.eq (i32.load8_u (i32.const 8)) (i32.const 4))
+                    (then
+                        (i32.store (i32.const 0) (i32.const 100))
+                        (i32.store (i32.const 4) (i32.const 2))
+                    )
+                    (else
+                        (i32.store (i32.const 0) (i32.const 104))
+                        (i32.store (i32.const 4) (i32.const 3))
+                    )
+                )
+
+                (drop
+                    (call $fd_write
+                        (i32.const 1)
+                        (i32.const 0)
+                        (i32.const 1)
+                        (i32.const 20)
+                    )
+                )
+            )
+        )
+        "#,
+        )
+        .unwrap();
+
+        let (mut stdin_tx, stdin_rx) = Pipe::channel();
+        block_on(stdin_tx.write_all(b"python - <<'PY'\nprint(1)\nPY\n")).unwrap();
+
+        let (stdout_tx, mut stdout_rx) = Pipe::channel();
+
+        {
+                let mut runner = WasiRunner::new();
+                runner
+                        .with_stdin(Box::new(stdin_rx))
+                        .with_stdout(Box::new(stdout_tx));
+
+                runner
+                        .run_wasm(
+                                RuntimeOrEngine::Engine(engine),
+                                "command-name",
+                                module,
+                                ModuleHash::random(),
+                        )
+                        .unwrap();
+        }
+
+        let mut stdout_str = String::new();
+        block_on(stdout_rx.read_to_string(&mut stdout_str)).unwrap();
+        assert_eq!(stdout_str, "ok");
 }
