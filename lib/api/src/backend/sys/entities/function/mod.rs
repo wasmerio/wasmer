@@ -8,7 +8,7 @@ use crate::{
     AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync,
     entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
     sys::{
-        async_runtime::{AsyncRuntimeError, block_on_host_future, call_function_async},
+        async_runtime::{AsyncRuntimeError, HostFuture, block_on_host_future, call_function_async},
         function::env::AsyncFunctionEnvMutStore,
     },
 };
@@ -85,12 +85,7 @@ impl Function {
                     func_env: func_env.clone(),
                 }
                 .into();
-                let sig = func_ty.clone();
-                let result = func(env, &args);
-                HostCallOutcome::Ready {
-                    func_ty: sig,
-                    result,
-                }
+                HostCallOutcome::Ready(func(env, &args))
             }
         };
         let mut host_data = Box::new(VMDynamicFunctionContext {
@@ -98,6 +93,7 @@ impl Function {
             ctx: DynamicFunction {
                 func: wrapper,
                 store_id,
+                func_ty: function_type.clone(),
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -158,6 +154,24 @@ impl Function {
         F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
         Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
+        Self::new_with_env_async_boxed(store, env, ty, move |env, values| -> HostFuture {
+            Box::pin(func(env, values))
+        })
+    }
+
+    /// [`Self::new_with_env_async`] for a function that boxes its future
+    /// itself, as the typed wrappers do.
+    #[cfg(feature = "experimental-async")]
+    fn new_with_env_async_boxed<FT, F, T: 'static>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> HostFuture + 'static,
+    {
         let function_type = ty.into();
         let func_ty = function_type.clone();
         let func_env = env.clone().into_sys();
@@ -204,12 +218,7 @@ impl Function {
                         func_env: func_env.clone(),
                     },
                 ));
-                let sig = func_ty.clone();
-                let future = func(env, &args);
-                HostCallOutcome::Future {
-                    func_ty: sig,
-                    future: Box::pin(future),
-                }
+                HostCallOutcome::Future(func(env, &args))
             }
         };
         let mut host_data = Box::new(VMDynamicFunctionContext {
@@ -217,6 +226,7 @@ impl Function {
             ctx: DynamicFunction {
                 func: wrapper,
                 store_id,
+                func_ty: function_type.clone(),
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -307,7 +317,7 @@ impl Function {
         let args_sig = Arc::new(signature.clone());
         let results_sig = Arc::new(signature.clone());
         let func = Arc::new(func);
-        Self::new_with_env_async(
+        Self::new_with_env_async_boxed(
             store,
             &env,
             signature,
@@ -361,7 +371,7 @@ impl Function {
         let args_sig = Arc::new(signature.clone());
         let results_sig = Arc::new(signature.clone());
         let func = Arc::new(func);
-        Self::new_with_env_async(
+        Self::new_with_env_async_boxed(
             store,
             env,
             signature,
@@ -751,12 +761,12 @@ fn write_dynamic_results(
 
 fn finalize_dynamic_call(
     store_id: StoreId,
-    func_ty: FunctionType,
+    func_ty: &FunctionType,
     values_vec: *mut RawValue,
     result: Result<Vec<Value>, RuntimeError>,
 ) -> Result<(), RuntimeError> {
     match result {
-        Ok(values) => write_dynamic_results(store_id, &func_ty, values, values_vec),
+        Ok(values) => write_dynamic_results(store_id, func_ty, values, values_vec),
         Err(err) => Err(err),
     }
 }
@@ -810,21 +820,17 @@ where
 }
 
 pub(crate) enum HostCallOutcome {
-    Ready {
-        func_ty: FunctionType,
-        result: Result<Vec<Value>, RuntimeError>,
-    },
+    Ready(Result<Vec<Value>, RuntimeError>),
     #[cfg(feature = "experimental-async")]
-    Future {
-        func_ty: FunctionType,
-        future: Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>>,
-    },
+    Future(HostFuture),
 }
 
 /// Host state for a dynamic function.
 pub(crate) struct DynamicFunction<F> {
     func: F,
     store_id: StoreId,
+    /// The function's type, which its results are checked against.
+    func_ty: FunctionType,
 }
 
 impl<F> DynamicFunction<F>
@@ -839,11 +845,14 @@ where
     ) {
         let result = on_host_stack(|| {
             panic::catch_unwind(AssertUnwindSafe(|| match (this.ctx.func)(values_vec) {
-                HostCallOutcome::Ready { func_ty, result } => to_invocation_result(
-                    finalize_dynamic_call(this.ctx.store_id, func_ty, values_vec, result),
-                ),
+                HostCallOutcome::Ready(result) => to_invocation_result(finalize_dynamic_call(
+                    this.ctx.store_id,
+                    &this.ctx.func_ty,
+                    values_vec,
+                    result,
+                )),
                 #[cfg(feature = "experimental-async")]
-                HostCallOutcome::Future { func_ty, future } => {
+                HostCallOutcome::Future(future) => {
                     let awaited = block_on_host_future(future);
                     let result = match awaited {
                         Ok(value) => Ok(value),
@@ -854,7 +863,7 @@ where
                     };
                     to_invocation_result(finalize_dynamic_call(
                         this.ctx.store_id,
-                        func_ty,
+                        &this.ctx.func_ty,
                         values_vec,
                         result,
                     ))
