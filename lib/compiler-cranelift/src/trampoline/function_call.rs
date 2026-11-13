@@ -82,8 +82,9 @@ pub fn make_trampoline_function_call(
         let callee_args = signature
             .params
             .iter()
-            .map(|r| match r.purpose {
-                ir::ArgumentPurpose::StructReturn => sret.as_ref().unwrap().0,
+            .enumerate()
+            .map(|(i, r)| match r.purpose {
+                ir::ArgumentPurpose::Normal if i == 0 && sret.is_some() => sret.as_ref().unwrap().0,
                 ir::ArgumentPurpose::VMContext => vmctx_ptr_val,
                 ir::ArgumentPurpose::Normal => {
                     let value = builder.ins().load(

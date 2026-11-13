@@ -1588,6 +1588,7 @@ impl Artifact {
             .collect();
 
         module.m0_pass_param_enabled = compiler.m0_pass_param_enabled(&memory_styles);
+        module.uses_tail_call_conv = compiler.uses_tail_call_conv();
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),
             features: features.clone(),

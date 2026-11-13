@@ -18,7 +18,7 @@ use cranelift_codegen::{
         immediates::{Offset32, Uimm64},
         types::*,
     },
-    isa::TargetFrontendConfig,
+    isa::{CallConv, TargetFrontendConfig},
 };
 use cranelift_frontend::FunctionBuilder;
 use smallvec::SmallVec;
@@ -1356,7 +1356,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
 
 impl FuncEnvironment<'_> {
     pub(crate) fn is_wasm_parameter(&self, signature: &ir::Signature, index: usize) -> bool {
-        signature.params[index].purpose == ArgumentPurpose::Normal
+        // The first argument is either vmctx or the explicit return-area pointer (using ArgumentPurpose::Normal).
+        index != 0 && signature.params[index].purpose == ArgumentPurpose::Normal
     }
 
     pub(crate) fn translate_unreachable(
@@ -1688,21 +1689,36 @@ impl FuncEnvironment<'_> {
         }))
     }
 
-    fn prepare_wasm_call(
+    fn prepare_wasm_calls(
         &self,
         builder: &mut FunctionBuilder,
         result_types: &[WasmerType],
-    ) -> (ReturnAbi, Option<(ir::Value, abi::ReturnAreaLayout)>) {
+        vmctx: ir::Value,
+        call_args: &[ir::Value],
+        is_return_call: bool,
+    ) -> (
+        ReturnAbi,
+        Option<(ir::Value, abi::ReturnAreaLayout)>,
+        Vec<ir::Value>,
+    ) {
         let return_abi = abi::classify_returns(self.architecture, result_types);
         let sret = match &return_abi {
-            ReturnAbi::Sret(types) => Some(abi::allocate_return_area(
-                builder,
-                types,
-                self.target_config,
-            )),
+            ReturnAbi::Sret(types) => Some(if is_return_call {
+                let ptr = abi::sret_pointer(builder.func);
+                (ptr, abi::return_area_layout(types))
+            } else {
+                abi::allocate_return_area(builder, types, self.target_config)
+            }),
             _ => None,
         };
-        (return_abi, sret)
+
+        let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
+        if let Some((ptr, _)) = &sret {
+            real_call_args.push(*ptr);
+        }
+        real_call_args.push(vmctx);
+        real_call_args.extend_from_slice(call_args);
+        (return_abi, sret, real_call_args)
     }
 
     fn finish_wasm_call(
@@ -1721,16 +1737,107 @@ impl FuncEnvironment<'_> {
         }
     }
 
+    /// Dispatch directly to the callee using its calling convention.
+    #[allow(clippy::too_many_arguments)]
+    fn call_external(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        sig_index: SignatureIndex,
+        uses_tail_call_conv: ir::Value,
+        func_addr: ir::Value,
+        vmctx: ir::Value,
+        args: &[ir::Value],
+        landing_pad: Option<LandingPad>,
+        is_return_call: bool,
+    ) -> SmallVec<[ir::Value; 4]> {
+        let (return_abi, sret, real_call_args) = self.prepare_wasm_calls(
+            builder,
+            self.module.signatures[sig_index].results(),
+            vmctx,
+            args,
+            is_return_call,
+        );
+
+        let signature = self.signatures[sig_index].clone();
+        let tail_block = builder.create_block();
+        let native_block = builder.create_block();
+        let continuation = if is_return_call {
+            None
+        } else {
+            Some(builder.create_block())
+        };
+        let current = builder.current_block().expect("current block");
+        builder.insert_block_after(tail_block, current);
+        builder.insert_block_after(native_block, tail_block);
+        if let Some(continuation) = continuation {
+            builder.insert_block_after(continuation, native_block);
+            for result in &signature.returns {
+                builder.append_block_param(continuation, result.value_type);
+            }
+        }
+        builder
+            .ins()
+            .brif(uses_tail_call_conv, tail_block, &[], native_block, &[]);
+
+        for (block, call_conv) in [
+            (tail_block, CallConv::Tail),
+            (native_block, self.target_config.default_call_conv),
+        ] {
+            builder.switch_to_block(block);
+            builder.seal_block(block);
+            let mut signature = signature.clone();
+            signature.call_conv = call_conv;
+            if call_conv != CallConv::Tail && matches!(return_abi, ReturnAbi::Sret(_)) {
+                signature.params[0].purpose = ArgumentPurpose::StructReturn;
+            }
+            let sig = builder.import_signature(signature);
+            if is_return_call {
+                // Tail calls bypass all enclosing exception handlers.
+                if block == tail_block {
+                    builder
+                        .ins()
+                        .return_call_indirect(sig, func_addr, &real_call_args);
+                } else {
+                    let call = builder.ins().call_indirect(sig, func_addr, &real_call_args);
+                    let carriers = builder.inst_results(call).to_vec();
+                    builder.ins().return_(&carriers);
+                }
+            } else {
+                let return_values = self.call_indirect_with_handlers(
+                    builder,
+                    sig,
+                    func_addr,
+                    &real_call_args,
+                    Some(vmctx),
+                    landing_pad.clone(),
+                    false,
+                );
+                let results: SmallVec<[BlockArg; 4]> =
+                    return_values.into_iter().map(Into::into).collect();
+                builder.ins().jump(continuation.unwrap(), &results);
+            }
+        }
+
+        if let Some(continuation) = continuation {
+            builder.switch_to_block(continuation);
+            builder.seal_block(continuation);
+            let values = builder.func.dfg.block_params(continuation).to_vec();
+            self.finish_wasm_call(builder, &return_abi, &values, sret)
+        } else {
+            SmallVec::new()
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn translate_call_indirect(
         &mut self,
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
         sig_index: SignatureIndex,
-        sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
         landing_pad: Option<LandingPad>,
+        is_return_call: bool,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let pointer_type = self.pointer_type();
 
@@ -1787,35 +1894,29 @@ impl FuncEnvironment<'_> {
             }
         }
 
-        let (return_abi, sret) =
-            self.prepare_wasm_call(builder, self.module.signatures[sig_index].results());
-        let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
-        if let Some((ptr, _)) = &sret {
-            real_call_args.push(*ptr);
-        }
-
-        // First append the callee vmctx address.
+        // Load the callee vmctx address.
         let vmctx = builder.ins().load(
             pointer_type,
             mem_flags,
             anyfunc_ptr,
             i32::from(self.offsets.vmcaller_checked_anyfunc_vmctx()),
         );
-        real_call_args.push(vmctx);
-
-        // Then append the regular call arguments.
-        real_call_args.extend_from_slice(call_args);
-
-        let results = self.call_indirect_with_handlers(
-            builder,
-            sig_ref,
-            func_addr,
-            &real_call_args,
-            Some(vmctx),
-            landing_pad,
-            false,
+        let uses_tail_call_conv = builder.ins().load(
+            ir::types::I8,
+            mem_flags,
+            anyfunc_ptr,
+            i32::from(self.offsets.vmcaller_checked_anyfunc_uses_tail_call_conv()),
         );
-        Ok(self.finish_wasm_call(builder, &return_abi, &results, sret))
+        Ok(self.call_external(
+            builder,
+            sig_index,
+            uses_tail_call_conv,
+            func_addr,
+            vmctx,
+            call_args,
+            landing_pad,
+            is_return_call,
+        ))
     }
 
     pub(crate) fn translate_call(
@@ -1825,76 +1926,78 @@ impl FuncEnvironment<'_> {
         callee: ir::FuncRef,
         call_args: &[ir::Value],
         landing_pad: Option<LandingPad>,
+        is_return_call: bool,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
         let sig_index = self.module.functions[callee_index];
-        let (return_abi, sret) =
-            self.prepare_wasm_call(builder, self.module.signatures[sig_index].results());
-        let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
-        if let Some((ptr, _)) = &sret {
-            real_call_args.push(*ptr);
-        }
 
-        // Handle direct calls to locally-defined functions.
-        if !self.module.is_imported_function(callee_index) {
-            // Let's get the caller vmctx
+        Ok(if !self.module.is_imported_function(callee_index) {
             let caller_vmctx = builder
                 .func
                 .special_param(ArgumentPurpose::VMContext)
                 .unwrap();
-            // First append the callee vmctx address, which is the same as the caller vmctx in
-            // this case.
-            real_call_args.push(caller_vmctx);
-
-            // Then append the regular call arguments.
-            real_call_args.extend_from_slice(call_args);
-
-            let results = self.call_with_handlers(
+            let (return_abi, sret, real_call_args) = self.prepare_wasm_calls(
                 builder,
-                callee,
-                &real_call_args,
-                Some(caller_vmctx),
-                landing_pad,
-                false,
+                self.module.signatures[sig_index].results(),
+                caller_vmctx,
+                call_args,
+                is_return_call,
             );
-            return Ok(self.finish_wasm_call(builder, &return_abi, &results, sret));
-        }
 
-        // Handle direct calls to imported functions. We use an indirect call
-        // so that we don't have to patch the code at runtime.
-        let pointer_type = self.pointer_type();
-        let sig_ref = builder.func.dfg.ext_funcs[callee].signature;
-        let vmctx = self.vmctx(builder.func);
-        let base = materialize_global_value(&mut builder.cursor(), pointer_type, vmctx);
+            if is_return_call {
+                builder.ins().return_call(callee, &real_call_args);
+                SmallVec::new()
+            } else {
+                let results = self.call_with_handlers(
+                    builder,
+                    callee,
+                    &real_call_args,
+                    Some(caller_vmctx),
+                    landing_pad,
+                    false,
+                );
+                self.finish_wasm_call(builder, &return_abi, &results, sret)
+            }
+        } else {
+            // Handle direct calls to imported functions. We use an indirect call
+            // so that we don't have to patch the code at runtime.
+            let pointer_type = self.pointer_type();
+            let vmctx = self.vmctx(builder.func);
+            let base = materialize_global_value(&mut builder.cursor(), pointer_type, vmctx);
 
-        let mem_flags = ir::MemFlagsData::trusted();
+            let mem_flags = ir::MemFlagsData::trusted();
 
-        // Load the callee address.
-        let body_offset = vmctx_offset(self.offsets.vmctx_vmfunction_import_body(callee_index))?;
-        let func_addr = builder
-            .ins()
-            .load(pointer_type, mem_flags, base, body_offset);
+            // Load the callee address.
+            let body_offset =
+                vmctx_offset(self.offsets.vmctx_vmfunction_import_body(callee_index))?;
+            let func_addr = builder
+                .ins()
+                .load(pointer_type, mem_flags, base, body_offset);
 
-        // First append the callee vmctx address.
-        let vmctx_arg_offset =
-            vmctx_offset(self.offsets.vmctx_vmfunction_import_vmctx(callee_index))?;
-        let vmctx = builder
-            .ins()
-            .load(pointer_type, mem_flags, base, vmctx_arg_offset);
-        real_call_args.push(vmctx);
-
-        // Then append the regular call arguments.
-        real_call_args.extend_from_slice(call_args);
-
-        let results = self.call_indirect_with_handlers(
-            builder,
-            sig_ref,
-            func_addr,
-            &real_call_args,
-            Some(vmctx),
-            landing_pad,
-            false,
-        );
-        Ok(self.finish_wasm_call(builder, &return_abi, &results, sret))
+            // First append the callee vmctx address.
+            let vmctx_arg_offset =
+                vmctx_offset(self.offsets.vmctx_vmfunction_import_vmctx(callee_index))?;
+            let vmctx = builder
+                .ins()
+                .load(pointer_type, mem_flags, base, vmctx_arg_offset);
+            let convention_offset = vmctx_offset(
+                self.offsets
+                    .vmctx_vmfunction_import_uses_tail_call_conv(callee_index),
+            )?;
+            let uses_tail_call_conv =
+                builder
+                    .ins()
+                    .load(ir::types::I8, mem_flags, base, convention_offset);
+            self.call_external(
+                builder,
+                sig_index,
+                uses_tail_call_conv,
+                func_addr,
+                vmctx,
+                call_args,
+                landing_pad,
+                is_return_call,
+            )
+        })
     }
 
     pub(crate) fn tag_param_arity(&self, tag_index: TagIndex) -> usize {
@@ -2403,10 +2506,7 @@ impl FuncEnvironment<'_> {
         let return_abi = abi::classify_returns(self.architecture, &self.return_types);
         match &return_abi {
             ReturnAbi::Sret(types) => {
-                let ptr = builder
-                    .func
-                    .special_param(ArgumentPurpose::StructReturn)
-                    .expect("sret function has a StructReturn parameter");
+                let ptr = abi::sret_pointer(builder.func);
                 let layout = abi::return_area_layout(types);
                 abi::store_sret(builder, ptr, &layout, values);
                 builder.ins().return_(&[]);
