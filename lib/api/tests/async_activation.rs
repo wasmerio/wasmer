@@ -648,6 +648,66 @@ fn dropping_a_suspended_call_unwinds_it() {
     guest.into_store();
 }
 
+/// A call that had to wait for the store takes it through the lock future
+/// that holds its place among the waiters, also when the store is free by the
+/// time the call is polled again. That place is given up when the call gets
+/// the store: dropping the call later must not clear a waiter that has taken
+/// the same place since.
+#[test]
+fn a_call_that_waited_for_the_store_gives_up_its_place_among_the_waiters() {
+    let g = gates();
+    g[0].set(true);
+    let guest = Guest::new(&g);
+
+    let holder = guest.try_write().expect("store is free");
+    let mut call = guest.run(0, 0);
+    expect_pending("the call waits for the store", &mut call);
+    drop(holder);
+    expect_value("call", &mut call, 42);
+
+    let holder = guest.try_write().expect("store is free");
+    let wakes = Arc::new(Wakes::default());
+    let mut waiter = Box::pin(guest.store.write_lock());
+    let poll = waiter
+        .as_mut()
+        .poll(&mut Context::from_waker(&Waker::from(wakes.clone())));
+    assert!(poll.is_pending());
+    drop(call);
+    drop(holder);
+    assert_eq!(wakes.count(), 1, "the waiter is told the store is free");
+}
+
+/// A call polled from inside the store it runs in, by a host function of
+/// another call on that store, cannot have the store and says so. (The outer
+/// call does not survive the refusal, which is not what this test is about.)
+#[test]
+fn a_call_polled_from_inside_its_own_store_is_refused() {
+    let g = gates();
+    let guest = Guest::new(&g);
+    let refusal: Rc<RefCell<Option<String>>> = Rc::default();
+    guest.on_host({
+        let store = guest.store.store();
+        let run = guest.instance.exports.get_function("run").unwrap().clone();
+        let refusal = refusal.clone();
+        move || {
+            let args = vec![Value::I32(0), Value::I32(0)];
+            let mut call: CallFuture = Box::pin(run.call_async(&store, args));
+            let panic =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poll_once(&mut call)))
+                    .expect_err("the poll is refused");
+            *refusal.borrow_mut() = panic.downcast_ref::<&str>().map(|s| s.to_string());
+            Ok(())
+        }
+    });
+    let mut outer = guest.call("via_host", &[0]);
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poll_once(&mut outer)));
+    let refusal = refusal.borrow().clone().expect("a panic with a message");
+    assert!(
+        refusal.contains("cannot be polled recursively"),
+        "{refusal}"
+    );
+}
+
 /// A host future is polled for the first time on the coroutine of the call,
 /// inside the import call, and the coroutine suspends only if the future is
 /// pending. That poll has to behave as the poller's own polls do: the future
