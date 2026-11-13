@@ -3,12 +3,6 @@ use crate::{
     VMTable, VMTag,
 };
 use core::slice::Iter;
-#[cfg(all(
-    unix,
-    feature = "experimental-host-interrupt",
-    not(feature = "baremetal")
-))]
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
 use wasmer_types::StoreId;
 
@@ -53,12 +47,6 @@ impl_context_object! {
 #[derive(Debug, Default)]
 pub struct StoreObjects {
     id: StoreId,
-    #[cfg(all(
-        unix,
-        feature = "experimental-host-interrupt",
-        not(feature = "baremetal")
-    ))]
-    interrupts_enabled: AtomicBool,
     memories: Vec<VMMemory>,
     tables: Vec<VMTable>,
     globals: Vec<VMGlobal>,
@@ -87,12 +75,6 @@ impl StoreObjects {
     ) -> Self {
         Self {
             id,
-            #[cfg(all(
-                unix,
-                feature = "experimental-host-interrupt",
-                not(feature = "baremetal")
-            ))]
-            interrupts_enabled: AtomicBool::new(false),
             memories,
             tables,
             globals,
@@ -108,41 +90,6 @@ impl StoreObjects {
     /// Returns the ID of this context.
     pub fn id(&self) -> StoreId {
         self.id
-    }
-
-    /// Enables host interruption for subsequent calls into this store.
-    #[cfg(all(
-        unix,
-        feature = "experimental-host-interrupt",
-        not(feature = "baremetal")
-    ))]
-    pub fn enable_interrupts(&self) {
-        self.interrupts_enabled.store(true, Ordering::Relaxed);
-    }
-
-    /// Whether host interruption is enabled for this store.
-    #[cfg(all(
-        unix,
-        feature = "experimental-host-interrupt",
-        not(feature = "baremetal")
-    ))]
-    pub fn interrupts_enabled(&self) -> bool {
-        self.interrupts_enabled.load(Ordering::Relaxed)
-    }
-
-    /// Returns the store ID to use for host interruption when enabled.
-    #[doc(hidden)]
-    #[inline]
-    pub fn interrupt_store_id(&self) -> Option<StoreId> {
-        #[cfg(all(
-            unix,
-            feature = "experimental-host-interrupt",
-            not(feature = "baremetal")
-        ))]
-        if self.interrupts_enabled() {
-            return Some(self.id());
-        }
-        None
     }
 
     /// Sets the ID of this store

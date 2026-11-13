@@ -11,6 +11,13 @@ pub(crate) mod env;
 pub use env::*;
 
 pub(crate) mod call_wrapper;
+#[cfg(all(
+    unix,
+    feature = "sys",
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+pub use call_wrapper::InterruptCallWrapper;
 pub use call_wrapper::{CallWrapper, WasmCall};
 
 #[cfg(feature = "experimental-async")]

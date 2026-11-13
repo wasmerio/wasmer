@@ -2,7 +2,7 @@ use crate::backend::sys::engine::NativeEngineExt;
 use crate::{
     CallWrapper, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, StoreContext,
     TypedFunction, Value, WasmTypeList,
-    entities::function::call_wrapper::call_wrapped,
+    entities::function::call_wrapper::call_wrapped_with_interrupt,
     store::{AsStoreMut, AsStoreRef},
 };
 #[cfg(feature = "experimental-async")]
@@ -65,7 +65,7 @@ macro_rules! impl_native_traits {
                 // wrapper that enters again gets them restored first.
                 let original_args = wrapper.is_some().then(|| args_rets.to_vec());
 
-                let r = call_wrapped(store, wrapper, |store| {
+                let r = call_wrapped_with_interrupt(store, wrapper, |store, interruptible| {
                     if let Some(original_args) = &original_args {
                         args_rets.copy_from_slice(original_args);
                     }
@@ -87,7 +87,7 @@ macro_rules! impl_native_traits {
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,
                             args_rets.as_mut_ptr() as *mut u8,
-                            storeref.objects().as_sys().interrupt_store_id(),
+                            interruptible.then_some(store_id),
                         )
                     }
                     .map_err(RuntimeError::from)
@@ -189,25 +189,24 @@ macro_rules! impl_native_traits {
                     StoreContext::install(store.as_store_mut().inner as *mut _)
                 };
 
-                let r = call_wrapped(store, None, |store| {
+                let r = {
                     let storeref = store.as_store_ref();
                     let config = storeref.engine().tunables().vmconfig();
                     unsafe {
                         // Safety: This is the intended use-case for StoreContext::pause, as
                         // documented in the function's doc comments.
                         let _pause_guard = StoreContext::pause(store_id);
-                        wasmer_vm::wasmer_call_trampoline_with_store(
+                        wasmer_vm::wasmer_call_trampoline(
                             storeref.signal_handler(),
                             config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,
                             args_rets.as_mut_ptr() as *mut u8,
-                            storeref.objects().as_sys().interrupt_store_id(),
                         )
                     }
                     .map_err(RuntimeError::from)
-                });
+                };
 
                 drop(store_install_guard);
 

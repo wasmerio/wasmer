@@ -17,19 +17,19 @@ mod traphandlers;
 mod traphandlers;
 
 pub use trap::{Trap, UnwindReason};
-#[cfg(feature = "baremetal")]
-pub use traphandlers::install_unwinder;
-pub use traphandlers::{
-    MAX_STACK_SIZE, TrapHandlerFn, VMConfig, catch_traps, drain_stack_pool, get_stack_size,
-    on_host_stack, raise_lib_trap, raise_user_trap, set_stack_size,
-};
 #[cfg(all(
     unix,
     feature = "experimental-host-interrupt",
     not(feature = "baremetal")
 ))]
 #[doc(hidden)]
-pub use traphandlers::{SavedTrapState, check_host_interrupt};
+pub use traphandlers::host_interrupt_pending;
+#[cfg(feature = "baremetal")]
+pub use traphandlers::install_unwinder;
+pub use traphandlers::{
+    MAX_STACK_SIZE, TrapHandlerFn, VMConfig, catch_traps, drain_stack_pool, get_stack_size,
+    on_host_stack, raise_lib_trap, raise_user_trap, set_stack_size,
+};
 pub use traphandlers::{init_traps, resume_panic};
 pub use wasmer_types::TrapCode;
 

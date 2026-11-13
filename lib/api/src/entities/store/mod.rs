@@ -168,28 +168,22 @@ impl Store {
         unsafe { CoroutineStoreGuard::new(self.inner.as_mut()) }
     }
 
-    /// Enables host interruption for subsequent Wasm calls and returns a handle.
-    /// Calling [`Interrupter::interrupt`]
-    /// will cause running WASM code to terminate immediately with a
-    /// [`HostInterrupt`](crate::backend::sys::vm::TrapCode::HostInterrupt) trap.
+    /// Builds an [`Interrupter`] for this store.
     ///
-    /// Best effort is made to ensure interrupts are handled. However, there is no
-    /// guarantee; under rare circumstances, it is possible for the interrupt to be
-    /// missed. One such case is when the target thread is about to call WASM code
-    /// but has not yet made the call.
+    #[cfg_attr(
+        all(feature = "sys", not(feature = "baremetal")),
+        doc = "For synchronous calls, pass an [`InterruptCallWrapper`](crate::InterruptCallWrapper) to [`Function::call_wrapped`](crate::Function::call_wrapped) to opt in."
+    )]
+    /// Native asynchronous calls continue to support interruption through
+    /// the handle.
     ///
-    /// To make sure the code is interrupted, the target thread should notify
-    /// the signalling thread that it has finished running in some way, and
-    /// the signalling thread must wait for that notification and retry the
-    /// interrupt if the notification is not received after some time. Embedders
-    /// are expected to implement this logic.
+    /// Interruption is best effort. If the store has not entered Wasm when
+    /// the signal arrives, the caller may need to retry until it observes that
+    /// the call has finished.
     ///
-    /// If an interrupt is delivered while an imported function is running,
-    /// the interrupt will simply be stored and processed only when the
-    /// imported function returns control to WASM code. No effort is made
-    /// to interrupt running imported functions. Embedders are expected to
-    /// implement support for interruption of long-running or blocking
-    /// imported functions separately.
+    /// A signal delivered while an imported function is running is handled when
+    /// that function returns to Wasm. Embedders must handle cancellation of
+    /// blocking host functions separately.
     #[cfg(all(unix, feature = "experimental-host-interrupt"))]
     pub fn interrupter(&self) -> Interrupter {
         self.inner.objects.interrupter()

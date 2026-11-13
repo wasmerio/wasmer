@@ -9,7 +9,7 @@
 use super::trap::UnwindReason;
 use crate::Trap;
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-use crate::interrupt_registry::{self, InterruptInstallGuard};
+use crate::interrupt_registry;
 use backtrace::Backtrace;
 use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
@@ -386,8 +386,8 @@ cfg_select! {
                 #[cfg(feature = "experimental-host-interrupt")]
                 libc::SIGUSR1 => {
                     let target = interrupt_registry::take_signal_target();
-                    if target == 0 || TrapHandlerContext::interrupt_guard()
-                        .is_none_or(|guard| guard.store_id().as_raw().get() != target)
+                    if target == 0 || TrapHandlerContext::interrupt_store()
+                        .is_none_or(|store_id| store_id.as_raw().get() != target)
                     {
                         return;
                     }
@@ -902,17 +902,15 @@ pub(super) unsafe fn catch_interruptible_traps<F, R: 'static>(
 where
     F: FnOnce() -> R + 'static,
 {
-    let interrupt_guard =
+    let _interrupt_guard =
         interrupt_registry::install(store_id).map_err(|_| Trap::lib(TrapCode::HostInterrupt))?;
-    unsafe { catch_traps_inner(trap_handler, config, Some(&interrupt_guard), closure) }
+    unsafe { catch_traps_inner(trap_handler, config, Some(store_id), closure) }
 }
 
 unsafe fn catch_traps_inner<F, R: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     config: &VMConfig,
-    #[cfg(all(unix, feature = "experimental-host-interrupt"))] interrupt_guard: Option<
-        &InterruptInstallGuard,
-    >,
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))] interrupt_store: Option<StoreId>,
     closure: F,
 ) -> Result<R, Trap>
 where
@@ -927,7 +925,7 @@ where
         stack_size,
         trap_handler,
         #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-        interrupt_guard,
+        interrupt_store,
         closure,
     )
     .map_err(UnwindReason::into_trap)
@@ -946,41 +944,12 @@ thread_local! {
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
 }
 
-/// Trap TLS belonging to a suspended native execution stack.
+/// Whether the active Wasm invocation has a deferred host interrupt.
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]
 #[doc(hidden)]
-#[derive(Default)]
-pub struct SavedTrapState {
-    handler: *mut TrapHandlerContext,
-    yielder: Option<NonNull<Yielder<(), UnwindReason>>>,
-}
-
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
-impl SavedTrapState {
-    /// Exchanges trap TLS without dereferencing either stack's pointers.
-    ///
-    /// # Safety
-    /// The referenced stacks must remain live on this thread while installed.
-    /// Restore the returned state before resuming its caller stack.
-    pub unsafe fn replace_current(self) -> Self {
-        compiler_fence(Ordering::Release);
-        let handler = TRAP_HANDLER.with(|ptr| ptr.swap(self.handler, Ordering::Relaxed));
-        let yielder = YIELDER.with(|cell| cell.replace(self.yielder));
-        compiler_fence(Ordering::Acquire);
-        Self { handler, yielder }
-    }
-}
-
-/// Raises a pending interrupt when a host import is about to return to Wasm.
-///
-/// # Safety
-/// A Wasm call must be active and unwinding the Wasm stack must be safe.
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
 #[inline]
-pub unsafe fn check_host_interrupt() {
-    if TrapHandlerContext::interrupt_guard().is_some_and(InterruptInstallGuard::is_interrupted) {
-        unsafe { raise_lib_trap(Trap::lib(TrapCode::HostInterrupt)) }
-    }
+pub fn host_interrupt_pending() -> bool {
+    TrapHandlerContext::interrupt_store().is_some_and(interrupt_registry::is_interrupted)
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
@@ -998,7 +967,7 @@ struct TrapHandlerContext {
     ) -> bool,
     custom_trap: Option<*const TrapHandlerFn<'static>>,
     #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-    interrupt_guard: Option<NonNull<InterruptInstallGuard>>,
+    interrupt_store: Option<StoreId>,
 }
 struct TrapHandlerContextInner<T> {
     /// Information about the currently running coroutine. This is used to
@@ -1008,19 +977,17 @@ struct TrapHandlerContextInner<T> {
 
 impl TrapHandlerContext {
     #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-    fn interrupt_guard() -> Option<&'static InterruptInstallGuard> {
+    fn interrupt_store() -> Option<StoreId> {
         let ptr = TRAP_HANDLER.with(|ptr| ptr.load(Ordering::Relaxed));
-        // The context and guard remain live while installed in trap TLS.
-        unsafe { ptr.as_ref()?.interrupt_guard.map(|guard| guard.as_ref()) }
+        // The context remains live while installed in trap TLS.
+        unsafe { ptr.as_ref()?.interrupt_store }
     }
 
     /// Runs the given function with a trap handler context. The previous
     /// trap handler context is preserved and restored afterwards.
     fn install<T, R>(
         custom_trap: Option<*const TrapHandlerFn<'static>>,
-        #[cfg(all(unix, feature = "experimental-host-interrupt"))] interrupt_guard: Option<
-            &InterruptInstallGuard,
-        >,
+        #[cfg(all(unix, feature = "experimental-host-interrupt"))] interrupt_store: Option<StoreId>,
         coro_trap_handler: CoroutineTrapHandler<Result<T, UnwindReason>>,
         f: impl FnOnce() -> R,
     ) -> R {
@@ -1049,7 +1016,7 @@ impl TrapHandlerContext {
             handle_trap: func::<T>,
             custom_trap,
             #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-            interrupt_guard: interrupt_guard.map(NonNull::from),
+            interrupt_store,
         };
 
         compiler_fence(Ordering::Release);
@@ -1191,9 +1158,7 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
 fn on_wasm_stack_inner<F: FnOnce() -> T + 'static, T: 'static>(
     stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
-    #[cfg(all(unix, feature = "experimental-host-interrupt"))] interrupt_guard: Option<
-        &InterruptInstallGuard,
-    >,
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))] interrupt_store: Option<StoreId>,
     f: F,
 ) -> Result<T, UnwindReason> {
     // Reuse a cached stack — TLS first (atomic-free hot path), then the
@@ -1224,7 +1189,7 @@ fn on_wasm_stack_inner<F: FnOnce() -> T + 'static, T: 'static>(
         TrapHandlerContext::install(
             trap_handler,
             #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-            interrupt_guard,
+            interrupt_store,
             coro_ref.trap_handler(),
             || {
                 match coro_ref.resume(()) {

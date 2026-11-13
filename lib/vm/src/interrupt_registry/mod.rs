@@ -43,19 +43,6 @@ pub enum InterruptError {
 /// Uninstalls interrupt state when dropped
 pub struct InterruptInstallGuard {
     store_id: StoreId,
-    #[cfg(unix)]
-    interrupted: std::sync::Arc<std::sync::atomic::AtomicBool>,
-}
-
-#[cfg(unix)]
-impl InterruptInstallGuard {
-    pub(crate) fn store_id(&self) -> StoreId {
-        self.store_id
-    }
-
-    pub(crate) fn is_interrupted(&self) -> bool {
-        self.interrupted.load(std::sync::atomic::Ordering::Acquire)
-    }
 }
 
 impl Drop for InterruptInstallGuard {

@@ -1,5 +1,12 @@
 //! Host code that runs around a call into WebAssembly.
 
+#[cfg(all(
+    unix,
+    feature = "sys",
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+use crate::Interrupter;
 use crate::{AsStoreMut, AsStoreRef, RuntimeError, StoreMut, StoreObjects, StoreRef};
 
 /// Runs host code around a call into WebAssembly.
@@ -37,6 +44,7 @@ where
 /// borrow across an invocation.
 pub struct WasmCall<'a> {
     call: &'a mut dyn ErasedCall,
+    interruptible: bool,
 }
 
 impl WasmCall<'_> {
@@ -44,7 +52,68 @@ impl WasmCall<'_> {
     ///
     /// Invoking again enters the function again, with the same arguments.
     pub fn invoke(&mut self) -> Result<(), RuntimeError> {
-        self.call.invoke()
+        self.call.invoke(self.interruptible)
+    }
+}
+
+/// Enables host interruption for a synchronous native function call.
+///
+/// Pass this wrapper to [`Function::call_wrapped`](crate::Function::call_wrapped)
+/// or [`TypedFunction::call_wrapped`](crate::TypedFunction::call_wrapped).
+/// Use a clone of the interrupter to request interruption.
+#[cfg(all(
+    unix,
+    feature = "sys",
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+pub struct InterruptCallWrapper<W = fn(&mut WasmCall<'_>) -> Result<(), RuntimeError>> {
+    interrupter: Interrupter,
+    inner: W,
+}
+
+#[cfg(all(
+    unix,
+    feature = "sys",
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+impl InterruptCallWrapper {
+    /// Creates a wrapper for calls into the interrupter's store.
+    #[inline]
+    pub fn new(interrupter: Interrupter) -> Self {
+        Self {
+            interrupter,
+            inner: |call| call.invoke(),
+        }
+    }
+
+    /// Runs another wrapper with interruption enabled for each of its invocations.
+    pub fn with_wrapper<T: CallWrapper>(self, inner: T) -> InterruptCallWrapper<T> {
+        InterruptCallWrapper {
+            interrupter: self.interrupter,
+            inner,
+        }
+    }
+}
+
+#[cfg(all(
+    unix,
+    feature = "sys",
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+impl<W: CallWrapper> CallWrapper for InterruptCallWrapper<W> {
+    fn wrap(&mut self, call: &mut WasmCall<'_>) -> Result<(), RuntimeError> {
+        if call.as_store_ref().objects().id() != self.interrupter.store_id() {
+            return Err(RuntimeError::new(
+                "interrupt wrapper belongs to a different store",
+            ));
+        }
+        self.inner.wrap(&mut WasmCall {
+            call: &mut *call.call,
+            interruptible: true,
+        })
     }
 }
 
@@ -67,7 +136,7 @@ impl AsStoreMut for WasmCall<'_> {
 // `AsStoreMut` is not dyn-compatible, so the caller's store and its invoke
 // closure are erased together behind this trait.
 trait ErasedCall {
-    fn invoke(&mut self) -> Result<(), RuntimeError>;
+    fn invoke(&mut self, interruptible: bool) -> Result<(), RuntimeError>;
     fn store_ref(&self) -> StoreRef<'_>;
     fn store_mut(&mut self) -> StoreMut<'_>;
     fn objects_mut(&mut self) -> &mut StoreObjects;
@@ -82,12 +151,12 @@ struct CallState<'a, S, F> {
 impl<S, F> ErasedCall for CallState<'_, S, F>
 where
     S: AsStoreMut,
-    F: FnMut(&mut S) -> Result<(), RuntimeError>,
+    F: FnMut(&mut S, bool) -> Result<(), RuntimeError>,
 {
-    fn invoke(&mut self) -> Result<(), RuntimeError> {
+    fn invoke(&mut self, interruptible: bool) -> Result<(), RuntimeError> {
         // Cleared first, so an entry that unwinds never counts as completed.
         self.completed = false;
-        let result = (self.invoke)(self.store);
+        let result = (self.invoke)(self.store, interruptible);
         self.completed = result.is_ok();
         result
     }
@@ -109,20 +178,32 @@ where
 ///
 /// Every backend call path goes through here, so a plain call stays a direct
 /// call and wrappers apply the same way on every backend.
+#[cfg(any(feature = "js", feature = "v8"))]
 pub(crate) fn call_wrapped<S: AsStoreMut>(
     store: &mut S,
     wrapper: Option<&mut dyn CallWrapper>,
     mut invoke: impl FnMut(&mut S) -> Result<(), RuntimeError>,
 ) -> Result<(), RuntimeError> {
+    call_wrapped_with_interrupt(store, wrapper, |store, _| invoke(store))
+}
+
+pub(crate) fn call_wrapped_with_interrupt<S: AsStoreMut>(
+    store: &mut S,
+    wrapper: Option<&mut dyn CallWrapper>,
+    mut invoke: impl FnMut(&mut S, bool) -> Result<(), RuntimeError>,
+) -> Result<(), RuntimeError> {
     let Some(wrapper) = wrapper else {
-        return invoke(store);
+        return invoke(store, false);
     };
     let mut state = CallState {
         store,
         invoke,
         completed: false,
     };
-    wrapper.wrap(&mut WasmCall { call: &mut state })?;
+    wrapper.wrap(&mut WasmCall {
+        call: &mut state,
+        interruptible: false,
+    })?;
     if state.completed {
         Ok(())
     } else {

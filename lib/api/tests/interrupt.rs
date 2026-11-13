@@ -7,7 +7,7 @@
 use std::{
     sync::{
         Arc, Barrier, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
     },
     thread,
     time::{Duration, Instant},
@@ -15,8 +15,8 @@ use std::{
 
 use anyhow::Result;
 use wasmer::{
-    AsStoreMut, Exception, Function, FunctionEnv, Instance, InstantiationError, Module,
-    RuntimeError, Store, Tag, imports,
+    AsStoreMut, Exception, Function, FunctionEnv, Instance, InterruptCallWrapper, Module,
+    RuntimeError, Store, Tag, WasmCall, imports,
 };
 use wasmer_vm::{TrapCode, interrupt_registry};
 
@@ -64,6 +64,7 @@ fn test_interrupt_memory_wait() -> Result<()> {
 #[test]
 fn plain_call_does_not_register_store() -> Result<()> {
     let mut store = Store::default();
+    let _interrupter = store.interrupter();
     let store_id = store.id();
     let probe = Function::new_typed(&mut store, move || {
         assert!(matches!(
@@ -75,22 +76,25 @@ fn plain_call_does_not_register_store() -> Result<()> {
     let instance = Instance::new(&mut store, &module, &imports! { "env" => { "f" => probe } })?;
     let run = instance.exports.get_function("run")?;
     run.call(&mut store, &[])?;
+    run.call_wrapped(
+        &mut store,
+        &mut |call: &mut WasmCall<'_>| call.invoke(),
+        &[],
+    )?;
     run.typed::<(), ()>(&store)?.call(&mut store)?;
     Ok(())
 }
 
 #[test]
-fn module_start_can_be_interrupted_after_store_opts_in() -> Result<()> {
+fn plain_module_start_does_not_register_store() -> Result<()> {
     let mut store = Store::default();
     let store_id = store.id();
-    let interrupted = Arc::new(AtomicBool::new(false));
-    let interrupt = Function::new_typed(&mut store, {
-        let interrupted = interrupted.clone();
-        move || match interrupt_registry::interrupt(store_id) {
-            Ok(()) => interrupted.store(true, Ordering::Relaxed),
-            Err(interrupt_registry::InterruptError::StoreNotRunning) => {}
-            Err(error) => panic!("unexpected interrupt failure: {error}"),
-        }
+    let _interrupter = store.interrupter();
+    let interrupt = Function::new_typed(&mut store, move || {
+        assert!(matches!(
+            interrupt_registry::interrupt(store_id),
+            Err(interrupt_registry::InterruptError::StoreNotRunning)
+        ));
     });
     let module = Module::new(
         &store,
@@ -105,14 +109,87 @@ fn module_start_can_be_interrupted_after_store_opts_in() -> Result<()> {
     let imports = imports! { "env" => { "interrupt" => interrupt } };
 
     Instance::new(&mut store, &module, &imports)?;
-    assert!(!interrupted.load(Ordering::Relaxed));
+    Ok(())
+}
 
-    let _interrupter = store.interrupter();
-    let Err(InstantiationError::Start(error)) = Instance::new(&mut store, &module, &imports) else {
-        panic!("expected the module start function to be interrupted");
-    };
-    assert!(interrupted.load(Ordering::Relaxed));
+#[test]
+fn interrupt_wrapper_checks_before_guest_resumes_after_host_call() -> Result<()> {
+    let mut store = Store::default();
+    let interrupter = store.interrupter();
+    let store_id = store.id();
+    let interrupt = Function::new_typed(&mut store, move || {
+        interrupt_registry::interrupt(store_id).unwrap();
+    });
+    let resumed = Arc::new(AtomicBool::new(false));
+    let after = Function::new_typed(&mut store, {
+        let resumed = resumed.clone();
+        move || resumed.store(true, Ordering::Relaxed)
+    });
+    let module = Module::new(
+        &store,
+        wat::parse_str(
+            r#"(module
+                (import "env" "interrupt" (func $interrupt))
+                (import "env" "after" (func $after))
+                (func (export "run") call $interrupt call $after)
+            )"#,
+        )?,
+    )?;
+    let imports = imports! { "env" => { "interrupt" => interrupt, "after" => after } };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let run = instance.exports.get_function("run")?;
+    let mut wrapper = InterruptCallWrapper::new(interrupter);
+    let error = run.call_wrapped(&mut store, &mut wrapper, &[]).unwrap_err();
     assert_eq!(error.to_trap(), Some(TrapCode::HostInterrupt));
+    assert!(!resumed.load(Ordering::Relaxed));
+    Ok(())
+}
+
+#[test]
+fn interrupt_wrapper_composes_with_reentry() -> Result<()> {
+    let mut store = Store::default();
+    let interrupter = store.interrupter();
+    let store_id = store.id();
+    let entries = Arc::new(AtomicU32::new(0));
+    let probe = Function::new_typed(&mut store, {
+        let entries = entries.clone();
+        move || {
+            if entries.fetch_add(1, Ordering::Relaxed) == 1 {
+                interrupt_registry::interrupt(store_id).unwrap();
+            }
+        }
+    });
+    let module = Module::new(&store, wat::parse_str(CALL_IMPORT_WAT)?)?;
+    let instance = Instance::new(&mut store, &module, &imports! { "env" => { "f" => probe } })?;
+    let run = instance
+        .exports
+        .get_typed_function::<(), ()>(&store, "run")?;
+    let mut wrapper =
+        InterruptCallWrapper::new(interrupter).with_wrapper(|call: &mut WasmCall<'_>| {
+            call.invoke()?;
+            call.invoke()
+        });
+    let error = run.call_wrapped(&mut store, &mut wrapper).unwrap_err();
+    assert_eq!(error.to_trap(), Some(TrapCode::HostInterrupt));
+    assert_eq!(entries.load(Ordering::Relaxed), 2);
+    assert!(matches!(
+        interrupt_registry::interrupt(store_id),
+        Err(interrupt_registry::InterruptError::StoreNotRunning)
+    ));
+    run.call(&mut store)?;
+    assert_eq!(entries.load(Ordering::Relaxed), 3);
+    Ok(())
+}
+
+#[test]
+fn interrupt_wrapper_rejects_another_store() -> Result<()> {
+    let mut store = Store::default();
+    let other_store = Store::default();
+    let mut wrapper = InterruptCallWrapper::new(other_store.interrupter());
+    let module = Module::new(&store, wat::parse_str(r#"(module (func (export "run")))"#)?)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let run = instance.exports.get_function("run")?;
+    assert!(run.call_wrapped(&mut store, &mut wrapper, &[]).is_err());
     Ok(())
 }
 
@@ -136,6 +213,7 @@ fn interrupting_outer_store_does_not_interrupt_nested_plain_store() -> Result<()
     let worker = thread::spawn(move || -> Result<()> {
         let mut store = Store::default();
         let interrupter = store.interrupter();
+        let mut wrapper = InterruptCallWrapper::new(interrupter.clone());
         let nested_wasm = wat::parse_str(NESTED_WAIT_WAT)?;
         let nested = Function::new_typed(&mut store, move || {
             let mut inner_store = Store::default();
@@ -169,7 +247,10 @@ fn interrupting_outer_store_does_not_interrupt_nested_plain_store() -> Result<()
             .exports
             .get_typed_function::<(), ()>(&store, "run")?;
         done_tx
-            .send(run.call(&mut store).map_err(|err| err.to_trap()))
+            .send(
+                run.call_wrapped(&mut store, &mut wrapper)
+                    .map_err(|err| err.to_trap()),
+            )
             .unwrap();
         Ok(())
     });
@@ -204,6 +285,7 @@ fn test_interruptible(wat: &'static str) -> Result<()> {
 
             let mut store = Store::default();
             let interrupter = store.interrupter();
+            let mut wrapper = InterruptCallWrapper::new(interrupter.clone());
             interrupter_slot.lock().unwrap().replace(interrupter);
             let module = Module::new(&store, &wasm)?;
             let imports = imports! {};
@@ -213,7 +295,7 @@ fn test_interruptible(wat: &'static str) -> Result<()> {
                 .get_typed_function::<(), ()>(&store, "infinite")?;
 
             barrier.wait();
-            anyhow::Ok(f.call(&mut store))
+            anyhow::Ok(f.call_wrapped(&mut store, &mut wrapper))
         }
     });
 
@@ -248,6 +330,7 @@ fn correct_store_is_interrupted_only() -> Result<()> {
 
             let mut store = Store::default();
             let interrupter = store.interrupter();
+            let mut wrapper = InterruptCallWrapper::new(interrupter.clone());
             interrupter_slot.lock().unwrap().replace(interrupter);
             let module = Module::new(&store, &wasm)?;
             let imports = imports! {};
@@ -257,7 +340,7 @@ fn correct_store_is_interrupted_only() -> Result<()> {
                 .get_typed_function::<(), ()>(&store, "infinite")?;
 
             barrier.wait();
-            let res = f.call(&mut store);
+            let res = f.call_wrapped(&mut store, &mut wrapper);
             finished.store(true, Ordering::SeqCst);
             anyhow::Ok(res)
         }
@@ -360,6 +443,7 @@ where
 
             let mut store = Store::default();
             let interrupter = store.interrupter();
+            let mut wrapper = InterruptCallWrapper::new(interrupter.clone());
             interrupter_slot.lock().unwrap().replace(interrupter);
             let module = Module::new(&store, &wasm)?;
 
@@ -376,7 +460,7 @@ where
                 .get_typed_function::<(), ()>(&store, "infinite")?;
 
             barrier.wait();
-            let res = f.call(&mut store);
+            let res = f.call_wrapped(&mut store, &mut wrapper);
             finished.store(true, Ordering::SeqCst);
 
             anyhow::Ok(res)
