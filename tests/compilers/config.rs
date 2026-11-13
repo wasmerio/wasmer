@@ -72,6 +72,7 @@ pub struct Config {
     pub allow_unaligned_memory_accesses: bool,
     pub experimental_artifact: bool,
     pub dynamic_memory: bool,
+    pub sse42: bool,
 }
 
 impl Config {
@@ -83,6 +84,7 @@ impl Config {
             allow_unaligned_memory_accesses: false,
             experimental_artifact: false,
             dynamic_memory: false,
+            sse42: false,
             middlewares: vec![],
         }
     }
@@ -94,6 +96,11 @@ impl Config {
 
     pub fn with_dynamic_memory(mut self) -> Self {
         self.dynamic_memory = true;
+        self
+    }
+
+    pub fn with_sse42(mut self) -> Self {
+        self.sse42 = true;
         self
     }
 
@@ -131,6 +138,18 @@ impl Config {
                 let compiler_config = self
                     .compiler_config(self.canonicalize_nans, self.allow_unaligned_memory_accesses);
                 let mut engine = wasmer::sys::EngineBuilder::new(compiler_config);
+                if self.sse42 {
+                    use wasmer::sys::{CpuFeature, Target};
+
+                    let target = Target::default();
+                    let cpu_features = CpuFeature::SSE2
+                        | CpuFeature::SSE3
+                        | CpuFeature::SSSE3
+                        | CpuFeature::SSE41
+                        | CpuFeature::SSE42;
+                    engine =
+                        engine.set_target(Some(Target::new(target.triple().clone(), cpu_features)));
+                }
                 if let Some(ref features) = self.features {
                     engine = engine.set_features(Some(features.clone()));
                 }
