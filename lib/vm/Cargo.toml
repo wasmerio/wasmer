@@ -58,8 +58,6 @@ enable-serde = ["serde", "indexmap/serde", "wasmer-types/enable-serde"]
 artifact-size = ["dep:loupe", "wasmer-types/artifact-size"]
 sanitizer = ["corosensei/sanitizer"]
 
-experimental-host-interrupt = []
-
 # Compile the signal-free trap-handler backend instead of the OS signal-based one.
 # Enable when targeting platforms that lack OS signal infrastructure (ZK virtual
 # machines, embedded RTOSes, …) but still provide a Rust std environment.

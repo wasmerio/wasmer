@@ -18,7 +18,7 @@ use wasmer::{
     AsStoreMut, Exception, Function, FunctionEnv, Instance, InterruptCallWrapper, Module,
     RuntimeError, Store, Tag, WasmCall, imports,
 };
-use wasmer_vm::{TrapCode, interrupt_registry};
+use wasmer_vm::TrapCode;
 
 const CALL_IMPORT_WAT: &str = r#"
     (module
@@ -62,15 +62,12 @@ fn test_interrupt_memory_wait() -> Result<()> {
 }
 
 #[test]
-fn plain_call_does_not_register_store() -> Result<()> {
+fn plain_calls_are_not_interrupted() -> Result<()> {
     let mut store = Store::default();
-    let _interrupter = store.interrupter();
-    let store_id = store.id();
-    let probe = Function::new_typed(&mut store, move || {
-        assert!(matches!(
-            interrupt_registry::interrupt(store_id),
-            Err(interrupt_registry::InterruptError::StoreNotRunning)
-        ));
+    let interrupter = store.interrupter();
+    let probe = Function::new_typed(&mut store, {
+        let interrupter = interrupter.clone();
+        move || interrupter.interrupt()
     });
     let module = Module::new(&store, wat::parse_str(CALL_IMPORT_WAT)?)?;
     let instance = Instance::new(&mut store, &module, &imports! { "env" => { "f" => probe } })?;
@@ -82,20 +79,19 @@ fn plain_call_does_not_register_store() -> Result<()> {
         &[],
     )?;
     run.typed::<(), ()>(&store)?.call(&mut store)?;
+
+    let mut wrapper = InterruptCallWrapper::new(interrupter);
+    let error = run.call_wrapped(&mut store, &mut wrapper, &[]).unwrap_err();
+    assert_eq!(error.to_trap(), Some(TrapCode::HostInterrupt));
+    run.call(&mut store, &[])?;
     Ok(())
 }
 
 #[test]
-fn plain_module_start_does_not_register_store() -> Result<()> {
+fn plain_module_start_is_not_interrupted() -> Result<()> {
     let mut store = Store::default();
-    let store_id = store.id();
-    let _interrupter = store.interrupter();
-    let interrupt = Function::new_typed(&mut store, move || {
-        assert!(matches!(
-            interrupt_registry::interrupt(store_id),
-            Err(interrupt_registry::InterruptError::StoreNotRunning)
-        ));
-    });
+    let interrupter = store.interrupter();
+    let interrupt = Function::new_typed(&mut store, move || interrupter.interrupt());
     let module = Module::new(
         &store,
         wat::parse_str(
@@ -116,9 +112,9 @@ fn plain_module_start_does_not_register_store() -> Result<()> {
 fn interrupt_wrapper_checks_before_guest_resumes_after_host_call() -> Result<()> {
     let mut store = Store::default();
     let interrupter = store.interrupter();
-    let store_id = store.id();
-    let interrupt = Function::new_typed(&mut store, move || {
-        interrupt_registry::interrupt(store_id).unwrap();
+    let interrupt = Function::new_typed(&mut store, {
+        let interrupter = interrupter.clone();
+        move || interrupter.interrupt()
     });
     let resumed = Arc::new(AtomicBool::new(false));
     let after = Function::new_typed(&mut store, {
@@ -149,13 +145,13 @@ fn interrupt_wrapper_checks_before_guest_resumes_after_host_call() -> Result<()>
 fn interrupt_wrapper_composes_with_reentry() -> Result<()> {
     let mut store = Store::default();
     let interrupter = store.interrupter();
-    let store_id = store.id();
     let entries = Arc::new(AtomicU32::new(0));
     let probe = Function::new_typed(&mut store, {
+        let interrupter = interrupter.clone();
         let entries = entries.clone();
         move || {
-            if entries.fetch_add(1, Ordering::Relaxed) == 1 {
-                interrupt_registry::interrupt(store_id).unwrap();
+            if entries.fetch_add(1, Ordering::Relaxed) >= 1 {
+                interrupter.interrupt();
             }
         }
     });
@@ -172,10 +168,6 @@ fn interrupt_wrapper_composes_with_reentry() -> Result<()> {
     let error = run.call_wrapped(&mut store, &mut wrapper).unwrap_err();
     assert_eq!(error.to_trap(), Some(TrapCode::HostInterrupt));
     assert_eq!(entries.load(Ordering::Relaxed), 2);
-    assert!(matches!(
-        interrupt_registry::interrupt(store_id),
-        Err(interrupt_registry::InterruptError::StoreNotRunning)
-    ));
     run.call(&mut store)?;
     assert_eq!(entries.load(Ordering::Relaxed), 3);
     Ok(())
@@ -369,25 +361,6 @@ fn correct_store_is_interrupted_only() -> Result<()> {
     let result = worker.join().unwrap().unwrap().unwrap_err();
     assert!(finished.load(Ordering::SeqCst));
     assert_eq!(result.to_trap().unwrap(), TrapCode::HostInterrupt);
-
-    Ok(())
-}
-
-#[test]
-fn interrupted_store_cant_be_entered_again() -> Result<()> {
-    // It's important to build an actual Store here so that initialization
-    // logic is run and the signal handler is registered
-    let store = Store::default();
-    let store_id = store.id();
-
-    let interrupt_guard = wasmer_vm::interrupt_registry::install(store_id)?;
-    wasmer_vm::interrupt_registry::interrupt(store_id)?;
-    assert!(matches!(
-        wasmer_vm::interrupt_registry::install(store_id),
-        Err(wasmer_vm::interrupt_registry::InstallError::AlreadyInterrupted)
-    ));
-
-    drop(interrupt_guard);
 
     Ok(())
 }

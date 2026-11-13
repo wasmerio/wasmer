@@ -80,7 +80,7 @@ macro_rules! impl_native_traits {
                         // Safety: This is the intended use-case for StoreContext::pause, as
                         // documented in the function's doc comments.
                         let _pause_guard = StoreContext::pause(store_id);
-                        wasmer_vm::wasmer_call_trampoline_with_store(
+                        super::invoke_trampoline(
                             storeref.signal_handler(),
                             config,
                             anyfunc.vmctx,

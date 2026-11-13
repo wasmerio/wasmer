@@ -31,8 +31,35 @@ use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext,
     VMDynamicFunctionContext, VMExceptionRef, VMFuncRef, VMFunction, VMFunctionBody,
     VMFunctionContext, VMFunctionKind, VMTrampoline, on_host_stack, raise_lib_trap,
-    raise_user_trap, resume_panic, wasmer_call_trampoline_with_store,
+    raise_user_trap, resume_panic,
 };
+
+#[cfg(all(
+    unix,
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+use crate::interrupt::invoke_trampoline;
+
+#[cfg(not(all(
+    unix,
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+)))]
+#[inline]
+unsafe fn invoke_trampoline(
+    trap_handler: Option<*const wasmer_vm::TrapHandlerFn<'static>>,
+    config: &wasmer_vm::VMConfig,
+    vmctx: VMFunctionContext,
+    trampoline: VMTrampoline,
+    callee: *const VMFunctionBody,
+    values: *mut u8,
+    _interrupt_store: Option<StoreId>,
+) -> Result<(), Trap> {
+    unsafe {
+        wasmer_vm::wasmer_call_trampoline(trap_handler, config, vmctx, trampoline, callee, values)
+    }
+}
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -551,7 +578,7 @@ impl Function {
                     // Safety: This is the intended use-case for StoreContext::pause, as
                     // documented in the function's doc comments.
                     let _pause_guard = StoreContext::pause(store_id);
-                    wasmer_call_trampoline_with_store(
+                    invoke_trampoline(
                         signal_handler,
                         config,
                         vm_function.anyfunc.as_ptr().as_ref().vmctx,
@@ -725,7 +752,7 @@ impl Function {
 // throwing exceptions won't work since libunwind requires
 // considerable stack space to do its magic, but everything else
 // should work.
-enum InvocationResult<T, E> {
+pub(crate) enum InvocationResult<T, E> {
     Success(T),
     Exception(crate::Exception),
     Trap(Box<E>),
@@ -748,34 +775,6 @@ where
             InvocationResult::Trap(Box::new(trap))
         }
     }
-}
-
-// Safety: call on the Wasm stack with no live destructors except `result`.
-#[inline]
-unsafe fn finish_host_invocation<T, E>(
-    result: std::thread::Result<InvocationResult<T, E>>,
-) -> std::thread::Result<InvocationResult<T, E>> {
-    #[cfg(all(
-        unix,
-        feature = "experimental-host-interrupt",
-        not(feature = "baremetal")
-    ))]
-    if matches!(
-        result,
-        Ok(InvocationResult::Success(_) | InvocationResult::Exception(_))
-    ) && wasmer_vm::host_interrupt_pending()
-    {
-        let cleanup = on_host_stack(|| panic::catch_unwind(AssertUnwindSafe(|| drop(result))));
-        // SAFETY: The host result was dropped on the host stack, so no live
-        // destructors from this invocation are skipped on the Wasm stack.
-        unsafe {
-            match cleanup {
-                Ok(()) => raise_lib_trap(Trap::lib(TrapCode::HostInterrupt)),
-                Err(panic) => resume_panic(panic),
-            }
-        }
-    }
-    result
 }
 
 fn write_dynamic_results(
@@ -918,7 +917,14 @@ where
         // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
         // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
         // See: https://github.com/wasmerio/wasmer/pull/5700
-        match unsafe { finish_host_invocation(result) } {
+        #[cfg(all(
+            unix,
+            feature = "experimental-host-interrupt",
+            not(feature = "baremetal")
+        ))]
+        let result =
+            unsafe { crate::interrupt::InterruptCallWrapper::finish_host_invocation(result) };
+        match result {
             Ok(InvocationResult::Success(())) => {}
             Ok(InvocationResult::Exception(exception)) => unsafe {
                 // Note: can't acquire a proper ref-counted context ref here, since we can switch
@@ -1029,7 +1035,9 @@ macro_rules! impl_host_function {
                 // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
-                match unsafe { finish_host_invocation(result) } {
+                #[cfg(all(unix, feature = "experimental-host-interrupt", not(feature = "baremetal")))]
+                let result = unsafe { crate::interrupt::InterruptCallWrapper::finish_host_invocation(result) };
+                match result {
                     Ok(InvocationResult::Success(result)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
                         // away from the WASM stack at any time.
@@ -1124,7 +1132,9 @@ macro_rules! impl_host_function {
                 // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
-                match unsafe { finish_host_invocation(result) } {
+                #[cfg(all(unix, feature = "experimental-host-interrupt", not(feature = "baremetal")))]
+                let result = unsafe { crate::interrupt::InterruptCallWrapper::finish_host_invocation(result) };
+                match result {
                     Ok(InvocationResult::Success(result)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
                         // away from the WASM stack at any time.

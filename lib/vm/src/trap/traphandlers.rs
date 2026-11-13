@@ -8,8 +8,6 @@
 
 use super::trap::UnwindReason;
 use crate::Trap;
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
-use crate::interrupt_registry;
 use backtrace::Backtrace;
 use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
@@ -24,11 +22,11 @@ use std::io;
 use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
+#[cfg(unix)]
+use std::num::NonZeroUsize;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering, compiler_fence};
 use std::sync::{LazyLock, Once};
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
-use wasmer_types::StoreId;
 use wasmer_types::TrapCode;
 
 /// Convenience extension for [`Stack`] that exposes the total mapped size.
@@ -261,11 +259,8 @@ cfg_select! {
         static mut PREV_SIGILL: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
         static mut PREV_SIGFPE: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
 
-        #[cfg(feature = "experimental-host-interrupt")]
-        static mut PREV_SIGUSR1: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
-
         unsafe fn platform_init() { unsafe {
-            let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32, nodefer: bool| {
+            let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32| {
                 let mut handler: libc::sigaction = mem::zeroed();
                 // The flags here are relatively careful, and they are...
                 //
@@ -280,10 +275,7 @@ cfg_select! {
                 // SA_NODEFER allows us to reenter the signal handler if we
                 // crash while handling the signal, and fall through to the
                 // Breakpad handler by testing handlingSegFault.
-                handler.sa_flags = libc::SA_SIGINFO | libc::SA_ONSTACK;
-                if nodefer {
-                    handler.sa_flags |= libc::SA_NODEFER;
-                }
+                handler.sa_flags = libc::SA_SIGINFO | libc::SA_ONSTACK | libc::SA_NODEFER;
                 handler.sa_sigaction = trap_handler as *const () as usize;
                 libc::sigemptyset(&mut handler.sa_mask);
                 if libc::sigaction(signal, &handler, slot.as_mut_ptr()) != 0 {
@@ -295,27 +287,20 @@ cfg_select! {
             };
 
             // Allow handling OOB with signals on all architectures
-            register(&mut PREV_SIGSEGV, libc::SIGSEGV, true);
+            register(&mut PREV_SIGSEGV, libc::SIGSEGV);
 
             // Handle `unreachable` instructions which execute `ud2` right now
-            register(&mut PREV_SIGILL, libc::SIGILL, true);
-
-            // SIGUSR1 is used to interrupt long-running WASM code.
-            // It doesn't use NODEFER since, if a second interruption
-            // request comes in while one is already being processed,
-            // there's nothing meaningful we can do.
-            #[cfg(feature = "experimental-host-interrupt")]
-            register(&mut PREV_SIGUSR1, libc::SIGUSR1, false);
+            register(&mut PREV_SIGILL, libc::SIGILL);
 
             // x86 uses SIGFPE to report division by zero
             if cfg!(target_arch = "x86") || cfg!(target_arch = "x86_64") {
-                register(&mut PREV_SIGFPE, libc::SIGFPE, true);
+                register(&mut PREV_SIGFPE, libc::SIGFPE);
             }
 
             // On ARM, handle Unaligned Accesses.
             // On Darwin, guard page accesses are raised as SIGBUS.
             if cfg!(target_arch = "arm") || cfg!(target_vendor = "apple") {
-                register(&mut PREV_SIGBUS, libc::SIGBUS, true);
+                register(&mut PREV_SIGBUS, libc::SIGBUS);
             }
 
             // This is necessary to support debugging under LLDB on Darwin.
@@ -366,8 +351,6 @@ cfg_select! {
                 libc::SIGBUS => &PREV_SIGBUS,
                 libc::SIGFPE => &PREV_SIGFPE,
                 libc::SIGILL => &PREV_SIGILL,
-                #[cfg(feature = "experimental-host-interrupt")]
-                libc::SIGUSR1 => &PREV_SIGUSR1,
                 _ => panic!("unknown signal: {signum}"),
             };
             // We try to get the fault address associated to this signal
@@ -383,37 +366,9 @@ cfg_select! {
                     let addr = (*siginfo).si_addr() as usize;
                     process_illegal_op(addr)
                 }
-                #[cfg(feature = "experimental-host-interrupt")]
-                libc::SIGUSR1 => {
-                    let target = interrupt_registry::take_signal_target();
-                    if target == 0 || TrapHandlerContext::interrupt_store()
-                        .is_none_or(|store_id| store_id.as_raw().get() != target)
-                    {
-                        return;
-                    }
-                    Some(TrapCode::HostInterrupt)
-                }
                 _ => None,
             };
-            let ucontext = &mut *(context as *mut ucontext_t);
-            let (pc, sp) = get_pc_sp(ucontext);
-            let handled = TrapHandlerContext::handle_trap(
-                pc,
-                sp,
-                maybe_fault_address,
-                trap_code,
-                |regs| update_context(ucontext, regs),
-                |handler| handler(signum, siginfo, context),
-            );
-
-            if handled {
-                return;
-            }
-
-            // If we're not running WASM code at all, there's nothing to
-            // do for an interrupt.
-            #[cfg(feature = "experimental-host-interrupt")]
-            if signum == libc::SIGUSR1 {
+            if handle_signal_trap(signum, siginfo, context, maybe_fault_address, trap_code) {
                 return;
             }
 
@@ -440,6 +395,41 @@ cfg_select! {
                     previous.sa_sigaction
                 )(signum)
             }
+        }}
+
+        /// Attempts to deliver a trap from an external Unix signal handler.
+        ///
+        /// # Safety
+        /// The pointers must come from the current signal delivery. The caller
+        /// must ensure that discarding the current Wasm stack is safe if the
+        /// interrupted stack belongs to an active Wasm invocation.
+        #[doc(hidden)]
+        pub unsafe fn try_raise_signal_trap(
+            signum: libc::c_int,
+            siginfo: *const libc::siginfo_t,
+            context: *mut libc::c_void,
+            code: TrapCode,
+        ) -> bool {
+            unsafe { handle_signal_trap(signum, siginfo, context, None, Some(code)) }
+        }
+
+        unsafe fn handle_signal_trap(
+            signum: libc::c_int,
+            siginfo: *const libc::siginfo_t,
+            context: *mut libc::c_void,
+            maybe_fault_address: Option<usize>,
+            trap_code: Option<TrapCode>,
+        ) -> bool { unsafe {
+            let ucontext = &mut *(context as *mut ucontext_t);
+            let (pc, sp) = get_pc_sp(ucontext);
+            TrapHandlerContext::handle_trap(
+                pc,
+                sp,
+                maybe_fault_address,
+                trap_code,
+                |regs| update_context(ucontext, regs),
+                |handler| handler(signum, siginfo, context),
+            )
         }}
 
         unsafe fn get_pc_sp(context: &ucontext_t) -> (usize, usize) {
@@ -885,32 +875,17 @@ where
         catch_traps_inner(
             trap_handler,
             config,
-            #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+            #[cfg(unix)]
             None,
             closure,
         )
     }
 }
 
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
-pub(super) unsafe fn catch_interruptible_traps<F, R: 'static>(
+pub(super) unsafe fn catch_traps_inner<F, R: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     config: &VMConfig,
-    store_id: StoreId,
-    closure: F,
-) -> Result<R, Trap>
-where
-    F: FnOnce() -> R + 'static,
-{
-    let _interrupt_guard =
-        interrupt_registry::install(store_id).map_err(|_| Trap::lib(TrapCode::HostInterrupt))?;
-    unsafe { catch_traps_inner(trap_handler, config, Some(store_id), closure) }
-}
-
-unsafe fn catch_traps_inner<F, R: 'static>(
-    trap_handler: Option<*const TrapHandlerFn<'static>>,
-    config: &VMConfig,
-    #[cfg(all(unix, feature = "experimental-host-interrupt"))] interrupt_store: Option<StoreId>,
+    #[cfg(unix)] signal_token: Option<NonZeroUsize>,
     closure: F,
 ) -> Result<R, Trap>
 where
@@ -924,8 +899,8 @@ where
     on_wasm_stack_inner(
         stack_size,
         trap_handler,
-        #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-        interrupt_store,
+        #[cfg(unix)]
+        signal_token,
         closure,
     )
     .map_err(UnwindReason::into_trap)
@@ -944,12 +919,14 @@ thread_local! {
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
 }
 
-/// Whether the active Wasm invocation has a deferred host interrupt.
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+/// Returns the signal token of the active Wasm invocation, if any.
+#[cfg(unix)]
 #[doc(hidden)]
 #[inline]
-pub fn host_interrupt_pending() -> bool {
-    TrapHandlerContext::interrupt_store().is_some_and(interrupt_registry::is_interrupted)
+pub fn current_signal_token() -> Option<NonZeroUsize> {
+    let ptr = TRAP_HANDLER.with(|ptr| ptr.load(Ordering::Relaxed));
+    // The context remains live while installed in trap TLS.
+    unsafe { ptr.as_ref()?.signal_token }
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
@@ -966,8 +943,8 @@ struct TrapHandlerContext {
         &mut dyn FnMut(TrapHandlerRegs),
     ) -> bool,
     custom_trap: Option<*const TrapHandlerFn<'static>>,
-    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-    interrupt_store: Option<StoreId>,
+    #[cfg(unix)]
+    signal_token: Option<NonZeroUsize>,
 }
 struct TrapHandlerContextInner<T> {
     /// Information about the currently running coroutine. This is used to
@@ -976,18 +953,11 @@ struct TrapHandlerContextInner<T> {
 }
 
 impl TrapHandlerContext {
-    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-    fn interrupt_store() -> Option<StoreId> {
-        let ptr = TRAP_HANDLER.with(|ptr| ptr.load(Ordering::Relaxed));
-        // The context remains live while installed in trap TLS.
-        unsafe { ptr.as_ref()?.interrupt_store }
-    }
-
     /// Runs the given function with a trap handler context. The previous
     /// trap handler context is preserved and restored afterwards.
     fn install<T, R>(
         custom_trap: Option<*const TrapHandlerFn<'static>>,
-        #[cfg(all(unix, feature = "experimental-host-interrupt"))] interrupt_store: Option<StoreId>,
+        #[cfg(unix)] signal_token: Option<NonZeroUsize>,
         coro_trap_handler: CoroutineTrapHandler<Result<T, UnwindReason>>,
         f: impl FnOnce() -> R,
     ) -> R {
@@ -1015,8 +985,8 @@ impl TrapHandlerContext {
             inner: &inner as *const _ as *const u8,
             handle_trap: func::<T>,
             custom_trap,
-            #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-            interrupt_store,
+            #[cfg(unix)]
+            signal_token,
         };
 
         compiler_fence(Ordering::Release);
@@ -1149,7 +1119,7 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     on_wasm_stack_inner(
         stack_size,
         trap_handler,
-        #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+        #[cfg(unix)]
         None,
         f,
     )
@@ -1158,7 +1128,7 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
 fn on_wasm_stack_inner<F: FnOnce() -> T + 'static, T: 'static>(
     stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
-    #[cfg(all(unix, feature = "experimental-host-interrupt"))] interrupt_store: Option<StoreId>,
+    #[cfg(unix)] signal_token: Option<NonZeroUsize>,
     f: F,
 ) -> Result<T, UnwindReason> {
     // Reuse a cached stack — TLS first (atomic-free hot path), then the
@@ -1188,8 +1158,8 @@ fn on_wasm_stack_inner<F: FnOnce() -> T + 'static, T: 'static>(
         // execution. This is restored to its previous value afterwards.
         TrapHandlerContext::install(
             trap_handler,
-            #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-            interrupt_store,
+            #[cfg(unix)]
+            signal_token,
             coro_ref.trap_handler(),
             || {
                 match coro_ref.resume(()) {

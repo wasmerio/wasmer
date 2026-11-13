@@ -77,55 +77,17 @@ impl StoreObjects {
         })
     }
 
-    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-    /// Builds an [`Interrupter`] for this store
-    pub fn interrupter(&self) -> Interrupter {
+    /// Builds an [`Interrupter`](crate::Interrupter) for this store.
+    #[cfg(all(
+        unix,
+        feature = "sys",
+        feature = "experimental-host-interrupt",
+        not(feature = "baremetal")
+    ))]
+    pub fn interrupter(&self) -> crate::Interrupter {
         match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => Interrupter(InterrupterInner::Sys(
-                crate::backend::sys::store::Interrupter::new(s.id()),
-            )),
+            Self::Sys(s) => crate::Interrupter::new(s.id()),
             _ => panic!("Interrupters can only be built for stores from the sys backend"),
-        }
-    }
-}
-
-/// Allows embedders to interrupt a running WASM instance.
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
-#[derive(Clone)]
-pub struct Interrupter(InterrupterInner);
-
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
-impl Interrupter {
-    #[cfg(all(feature = "sys", not(feature = "baremetal")))]
-    pub(crate) fn store_id(&self) -> StoreId {
-        match &self.0 {
-            InterrupterInner::Sys(i) => i.store_id(),
-        }
-    }
-
-    /// Interrupts running WASM instances from the owning [`Store`](crate::Store).
-    pub fn interrupt(&self) {
-        self.0.interrupt()
-    }
-}
-
-/// Allows embedders to interrupt a running WASM instance.
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
-#[derive(Clone)]
-pub enum InterrupterInner {
-    #[cfg(feature = "sys")]
-    /// Interrupter for the `sys` runtime.
-    Sys(crate::backend::sys::store::Interrupter),
-}
-
-#[cfg(all(unix, feature = "experimental-host-interrupt"))]
-impl InterrupterInner {
-    /// Interrupts running WASM instances from the owning [`Store`](crate::Store).
-    pub fn interrupt(&self) {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(i) => i.interrupt(),
         }
     }
 }

@@ -168,7 +168,7 @@ impl Store {
         unsafe { CoroutineStoreGuard::new(self.inner.as_mut()) }
     }
 
-    /// Builds an [`Interrupter`] for this store.
+    /// Builds an [`Interrupter`](crate::Interrupter) for this store.
     ///
     #[cfg_attr(
         all(feature = "sys", not(feature = "baremetal")),
@@ -184,8 +184,13 @@ impl Store {
     /// A signal delivered while an imported function is running is handled when
     /// that function returns to Wasm. Embedders must handle cancellation of
     /// blocking host functions separately.
-    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
-    pub fn interrupter(&self) -> Interrupter {
+    #[cfg(all(
+        unix,
+        feature = "sys",
+        feature = "experimental-host-interrupt",
+        not(feature = "baremetal")
+    ))]
+    pub fn interrupter(&self) -> crate::Interrupter {
         self.inner.objects.interrupter()
     }
 

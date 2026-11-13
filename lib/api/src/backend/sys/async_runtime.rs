@@ -161,9 +161,13 @@ impl Future for AsyncCallFuture {
         loop {
             let store_id = self.store.store_id();
 
-            #[cfg(feature = "experimental-host-interrupt")]
+            #[cfg(all(
+                unix,
+                feature = "experimental-host-interrupt",
+                not(feature = "baremetal")
+            ))]
             {
-                if super::vm::interrupt_registry::is_interrupted(store_id) {
+                if crate::interrupt::is_interrupted(store_id) {
                     self.remove_from_wakers_list();
                     return Poll::Ready(Err(super::vm::Trap::lib(
                         super::vm::TrapCode::HostInterrupt,
@@ -298,7 +302,7 @@ where
 
 // This function will only *wake* pending futures belonging to the given store.
 // It is expected that the interrupt happens before this function is called, so
-// that the futures can catch and react to `interrupt_registry::is_interrupted`
+// that the futures can catch and react to `interrupt::is_interrupted`
 // correctly.
 pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
     let dashmap::Entry::Occupied(entry) = ASYNC_CALL_FUTURE_WAKERS.entry(store_id) else {

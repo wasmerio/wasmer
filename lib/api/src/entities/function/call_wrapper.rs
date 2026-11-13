@@ -1,12 +1,5 @@
 //! Host code that runs around a call into WebAssembly.
 
-#[cfg(all(
-    unix,
-    feature = "sys",
-    feature = "experimental-host-interrupt",
-    not(feature = "baremetal")
-))]
-use crate::Interrupter;
 use crate::{AsStoreMut, AsStoreRef, RuntimeError, StoreMut, StoreObjects, StoreRef};
 
 /// Runs host code around a call into WebAssembly.
@@ -54,66 +47,18 @@ impl WasmCall<'_> {
     pub fn invoke(&mut self) -> Result<(), RuntimeError> {
         self.call.invoke(self.interruptible)
     }
-}
 
-/// Enables host interruption for a synchronous native function call.
-///
-/// Pass this wrapper to [`Function::call_wrapped`](crate::Function::call_wrapped)
-/// or [`TypedFunction::call_wrapped`](crate::TypedFunction::call_wrapped).
-/// Use a clone of the interrupter to request interruption.
-#[cfg(all(
-    unix,
-    feature = "sys",
-    feature = "experimental-host-interrupt",
-    not(feature = "baremetal")
-))]
-pub struct InterruptCallWrapper<W = fn(&mut WasmCall<'_>) -> Result<(), RuntimeError>> {
-    interrupter: Interrupter,
-    inner: W,
-}
-
-#[cfg(all(
-    unix,
-    feature = "sys",
-    feature = "experimental-host-interrupt",
-    not(feature = "baremetal")
-))]
-impl InterruptCallWrapper {
-    /// Creates a wrapper for calls into the interrupter's store.
-    #[inline]
-    pub fn new(interrupter: Interrupter) -> Self {
-        Self {
-            interrupter,
-            inner: |call| call.invoke(),
-        }
-    }
-
-    /// Runs another wrapper with interruption enabled for each of its invocations.
-    pub fn with_wrapper<T: CallWrapper>(self, inner: T) -> InterruptCallWrapper<T> {
-        InterruptCallWrapper {
-            interrupter: self.interrupter,
-            inner,
-        }
-    }
-}
-
-#[cfg(all(
-    unix,
-    feature = "sys",
-    feature = "experimental-host-interrupt",
-    not(feature = "baremetal")
-))]
-impl<W: CallWrapper> CallWrapper for InterruptCallWrapper<W> {
-    fn wrap(&mut self, call: &mut WasmCall<'_>) -> Result<(), RuntimeError> {
-        if call.as_store_ref().objects().id() != self.interrupter.store_id() {
-            return Err(RuntimeError::new(
-                "interrupt wrapper belongs to a different store",
-            ));
-        }
-        self.inner.wrap(&mut WasmCall {
-            call: &mut *call.call,
+    #[cfg(all(
+        unix,
+        feature = "sys",
+        feature = "experimental-host-interrupt",
+        not(feature = "baremetal")
+    ))]
+    pub(crate) fn interruptible(&mut self) -> WasmCall<'_> {
+        WasmCall {
+            call: &mut *self.call,
             interruptible: true,
-        })
+        }
     }
 }
 

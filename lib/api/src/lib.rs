@@ -466,6 +466,21 @@ cfg_compiler! {
 ))]
 mod entities;
 
+#[cfg(all(
+    unix,
+    feature = "sys",
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+mod interrupt;
+#[cfg(all(
+    unix,
+    feature = "sys",
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+pub use interrupt::{InterruptCallWrapper, Interrupter};
+
 pub use wasmer_types::{
     Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
     FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryStyle,
