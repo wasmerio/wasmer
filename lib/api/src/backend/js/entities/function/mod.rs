@@ -2,7 +2,7 @@ pub(crate) mod env;
 pub(crate) mod typed;
 use std::marker::PhantomData;
 #[cfg(feature = "experimental-async")]
-use std::{future::Future, pin::Pin, rc::Rc, sync::Arc};
+use std::{future::Future, pin::Pin, rc::Rc, sync::Arc, task::Poll};
 
 pub(crate) use typed::*;
 
@@ -27,8 +27,15 @@ use crate::{
 #[cfg(feature = "experimental-async")]
 use crate::{
     AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync, StoreContext,
+    StoreInner,
     entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
-    js::{function::env::AsyncFunctionEnvMut as JsAsyncFunctionEnvMut, jspi},
+    js::{
+        function::env::{
+            AsyncFunctionEnvMut as JsAsyncFunctionEnvMut, AsyncFunctionEnvMutStore,
+            FunctionEnv as JsFunctionEnv,
+        },
+        jspi,
+    },
 };
 
 use std::panic::{self, AssertUnwindSafe};
@@ -117,65 +124,39 @@ impl Function {
         );
 
         let func_ty: FunctionType = ty.into();
-        let function_type = Rc::new(func_ty.clone());
-        let store_id = store.objects_mut().id();
-        let raw_env = env.as_js().clone();
-        let func = Rc::new(func);
-        // What the adapter's `start` import calls. Nothing of the host
-        // function runs in it: the future it makes is polled by the call,
-        // once the guest is suspended and the store is free.
-        let start = Closure::wrap(Box::new(move |args: Array| -> Result<i32, JsValue> {
-            let raw_env = raw_env.clone();
-            let function_type = Rc::clone(&function_type);
-            let func = Rc::clone(&func);
-            jspi::start(store_id, move |store| {
-                Box::pin(async move {
-                    let mut write_lock = store.write_lock().await;
-                    let values = function_type
-                        .params()
-                        .iter()
-                        .enumerate()
-                        .map(|(index, ty)| {
-                            js_value_to_wasmer(&mut write_lock, ty, &args.get(index as u32))
-                        })
-                        .collect::<Vec<_>>();
-                    let js_env = JsAsyncFunctionEnvMut {
-                        store,
-                        func_env: raw_env,
-                    };
-                    let env_mut =
-                        AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(js_env));
-                    let store_context = StoreContext::install_async(write_lock.inner);
-                    let future = func(env_mut, &values);
-                    drop(store_context);
-
-                    let results = future.await?;
-                    // Checked here: values of other types would reach the
-                    // guest as an exception it can catch.
-                    let expected = function_type.results();
-                    if results.len() != expected.len()
-                        || results.iter().zip(expected).any(|(value, ty)| value.ty() != *ty)
-                    {
-                        return Err(RuntimeError::new(
-                            "an async host function returned values that do not match its signature",
-                        ));
-                    }
-                    Ok(results)
-                })
-            })
-        }) as Box<dyn Fn(Array) -> Result<i32, JsValue>>)
-        .into_js_value();
-        let function = match jspi::adapter(&func_ty, &start) {
-            Ok(function) => function,
-            // A signature that cannot be an async host function.
-            Err(error) if error.is_string() => panic!("{}", error.as_string().unwrap()),
-            Err(error) => wasm_bindgen::throw_val(error),
+        let host = Rc::new(AsyncHost {
+            func,
+            env: env.as_js().clone(),
+            ty: func_ty.clone(),
+            store_id: store.objects_mut().id(),
+            raw_store: store.as_store_mut().as_raw(),
+        });
+        let adapter = move |eager: bool| -> JsFunction {
+            let start = Rc::clone(&host).start(eager);
+            match jspi::adapter(&host.ty, &start, eager) {
+                Ok(function) => function,
+                // A signature that cannot be an async host function.
+                Err(error) if error.is_string() => panic!("{}", error.as_string().unwrap()),
+                Err(error) => wasm_bindgen::throw_val(error),
+            }
         };
-        let vm_function = VMFunction::new(function, func_ty);
+        let mut vm_function = VMFunction::new(adapter(false), func_ty);
+        vm_function.eager = Some(Rc::new(move || adapter(true)));
         Self::from_vm_extern(
             &mut store.as_store_mut(),
             VMExternFunction::Js(vm_function),
         )
+    }
+
+    /// The eager form of an async host function; any other function as it is.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn eager(self) -> Self {
+        match &self.handle.eager {
+            Some(eager) => Self {
+                handle: VMFunction::new(eager(), self.handle.ty.clone()),
+            },
+            None => self,
+        }
     }
 
     #[cfg(feature = "experimental-async")]
@@ -215,6 +196,7 @@ impl Function {
                     Err(error) => return Box::pin(async { Err(error) }),
                 };
                 drop(store_wrapper);
+                let js_env = js_env.clone();
                 let func = Arc::clone(&func);
                 let results_sig = Arc::clone(&results_sig);
                 let future = func
@@ -222,12 +204,10 @@ impl Function {
                     .call_async(AsyncFunctionEnv::new(), args);
                 Box::pin(async move {
                     let typed_result = future.await?;
-                    let mut store_mut = env_mut.write().await;
-                    typed_results_to_values::<Rets>(
-                        &mut store_mut.as_store_mut(),
-                        results_sig.as_ref(),
-                        typed_result,
-                    )
+                    let to_values = |store: &mut StoreMut<'_>| {
+                        typed_results_to_values::<Rets>(store, results_sig.as_ref(), typed_result)
+                    };
+                    js_env.with_store_mut(to_values).await
                 })
             },
         )
@@ -271,7 +251,7 @@ impl Function {
                     Err(error) => return Box::pin(async { Err(error) }),
                 };
                 drop(store_wrapper);
-                let env_mut_clone = env_mut.as_mut();
+                let js_env = js_env.clone();
                 let func = Arc::clone(&func);
                 let results_sig = Arc::clone(&results_sig);
                 let future = func
@@ -279,12 +259,10 @@ impl Function {
                     .call_async(AsyncFunctionEnv::with_env(env_mut), args);
                 Box::pin(async move {
                     let typed_result = future.await?;
-                    let mut store_mut = env_mut_clone.write().await;
-                    typed_results_to_values::<Rets>(
-                        &mut store_mut.as_store_mut(),
-                        results_sig.as_ref(),
-                        typed_result,
-                    )
+                    let to_values = |store: &mut StoreMut<'_>| {
+                        typed_results_to_values::<Rets>(store, results_sig.as_ref(), typed_result)
+                    };
+                    js_env.with_store_mut(to_values).await
                 })
             },
         )
@@ -520,9 +498,10 @@ impl Function {
                     function.handle.promising.get_or_init(|| promising)
                 }
             };
+            let caller = std::future::poll_fn(|cx| Poll::Ready(cx.waker().clone())).await;
             // The guest runs with the write lock, in this span and in every
             // later one. Dropping this future while it waits cancels the call.
-            let result = jspi::Call::enter(&store, write_lock, || {
+            let result = jspi::Call::enter(&store, write_lock, caller, || {
                 Reflect::apply(promising, &JsValue::NULL, &arguments)
             })
             .await?;
@@ -583,6 +562,102 @@ impl Function {
     /// Checks whether this `Function` can be used with the given context.
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
+    }
+}
+
+/// An async host function, as the hooks of its adapter need it.
+#[cfg(feature = "experimental-async")]
+struct AsyncHost<T, F> {
+    func: F,
+    env: JsFunctionEnv<T>,
+    ty: FunctionType,
+    store_id: wasmer_types::StoreId,
+    /// For when the guest was entered by a synchronous call, which lends it
+    /// the store without there being a [`StoreAsync`] to lock.
+    raw_store: *mut StoreInner,
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T, F, Fut> AsyncHost<T, F>
+where
+    T: 'static,
+    F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
+    Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+{
+    /// What the adapter's `start` import calls, by way of `jspi`.
+    fn start(self: Rc<Self>, eager: bool) -> JsValue {
+        if eager {
+            Closure::wrap(Box::new(move |args: Array| {
+                let host = Rc::clone(&self);
+                jspi::start_eager(self.store_id, self.raw_store, move |store| {
+                    host.import(args, store)
+                })
+            }) as Box<dyn Fn(Array) -> Result<JsValue, JsValue>>)
+            .into_js_value()
+        } else {
+            // Nothing of the host function runs in `start`: the future is
+            // polled by the call, once the guest is suspended and the store
+            // is free.
+            Closure::wrap(Box::new(move |args: Array| {
+                let host = Rc::clone(&self);
+                jspi::start(self.store_id, move |store| host.import(args, Some(store)))
+            }) as Box<dyn Fn(Array) -> Result<i32, JsValue>>)
+            .into_js_value()
+        }
+    }
+
+    /// The host's half of one call of the import: the host function, and
+    /// what it awaits. `store` is the store of the call the guest belongs
+    /// to; without one the guest was entered synchronously, and the future
+    /// is only polled inside the import call.
+    fn import(self: Rc<Self>, args: Array, store: Option<StoreAsync>) -> jspi::ImportFuture {
+        Box::pin(async move {
+            let future = match store {
+                Some(store) => {
+                    let mut write_lock = store.write_lock().await;
+                    let values = self.arguments(&mut write_lock, &args);
+                    let env = self.env(AsyncFunctionEnvMutStore::Async(store));
+                    let _context = StoreContext::install_async(write_lock.inner);
+                    (self.func)(env, &values)
+                }
+                None => {
+                    // SAFETY: the synchronous call beneath lent this store to
+                    // the guest, as it does for a synchronous host function.
+                    let mut store = unsafe { StoreMut::from_raw(self.raw_store) };
+                    let values = self.arguments(&mut store, &args);
+                    let store = AsyncFunctionEnvMutStore::Sync(self.store_id, self.raw_store);
+                    let env = self.env(store);
+                    let _context = unsafe { StoreContext::install(self.raw_store) };
+                    (self.func)(env, &values)
+                }
+            };
+            let results = future.await?;
+            // Checked here: values of other types would reach the guest as
+            // an exception it can catch.
+            let expected = self.ty.results();
+            if results.len() != expected.len()
+                || results.iter().zip(expected).any(|(value, ty)| value.ty() != *ty)
+            {
+                return Err(RuntimeError::new(
+                    "an async host function returned values that do not match its signature",
+                ));
+            }
+            Ok(results)
+        })
+    }
+
+    fn arguments(&self, store: &mut impl AsStoreMut, args: &Array) -> Vec<Value> {
+        let types = self.ty.params().iter().enumerate();
+        types
+            .map(|(index, ty)| js_value_to_wasmer(store, ty, &args.get(index as u32)))
+            .collect()
+    }
+
+    fn env(&self, store: AsyncFunctionEnvMutStore) -> AsyncFunctionEnvMut<T> {
+        AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(JsAsyncFunctionEnvMut {
+            store,
+            func_env: self.env.clone(),
+        }))
     }
 }
 

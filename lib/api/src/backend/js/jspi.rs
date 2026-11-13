@@ -18,6 +18,9 @@
 //! * The host future of an async import belongs to the activation and is
 //!   polled by the future of the call, with the caller's waker. When it is
 //!   finished the guest is woken, and `resume` hands over the result.
+//! * An *eager* host function ([`start_eager`]) is polled once in `start`
+//!   itself, with the store lent to it. If it is ready the guest gets its
+//!   results there and is never suspended; if not, it goes on as above.
 //! * Dropping the call drops the host future at once and wakes the guest,
 //!   whose adapter then traps: the stack unwinds without running guest code,
 //!   and the engine frees it.
@@ -40,7 +43,8 @@ use wasm_bindgen::{
 use wasmer_types::{FunctionType, StoreId, TrapCode};
 
 use crate::{
-    AsStoreAsync, BackendTrap, RuntimeError, StoreAsync, StoreAsyncWriteLock, Value,
+    AsStoreAsync, AsStoreRef, BackendTrap, RuntimeError, StoreAsync, StoreAsyncWriteLock,
+    StoreInner, Value,
     js::{error::Trap, utils::convert::AsJs as _},
 };
 
@@ -55,6 +59,9 @@ enum State {
     /// The guest is on the stack, or has left it for good and the reaction on
     /// its promise has not run yet. The activation holds the store.
     Running,
+    /// The guest is on the stack, in the `start` of an eager host function
+    /// whose future is being polled. The store is lent to that poll.
+    Lent,
     /// `start` was called: the guest is in `wait`, or about to be. The store
     /// is free.
     Suspended,
@@ -85,8 +92,11 @@ struct Activation {
     error: RefCell<Option<RuntimeError>>,
     /// How the guest's promise settled.
     result: RefCell<Option<Result<JsValue, JsValue>>>,
-    /// Whoever awaits the call, while it has something to wait for.
+    /// Whoever awaits the call: the waker of its last poll.
     caller: RefCell<Option<Waker>>,
+    /// The call is being polled and is entering the guest. It looks at the
+    /// activation again when the guest leaves the stack, and need not be woken.
+    entering: Cell<bool>,
 }
 
 struct Activations {
@@ -114,32 +124,47 @@ thread_local! {
 struct Shim {
     status: WebAssembly::Global,
     not_ready: JsValue,
+    undefined: JsValue,
     wait: JsValue,
     unwait: JsValue,
     hooks: ShimFunction,
     pend: ShimFunction,
+    pend_woken: ShimFunction,
     wake: ShimFunction,
     settle: ShimFunction,
 }
 
 /// `wait` suspends the guest on the promise `pend` made for its token, which
 /// `wake` resolves. It keeps nothing: an engine that calls it and then refuses
-/// to suspend has changed nothing.
+/// to suspend has changed nothing. `pendWoken` is `pend` and `wake` in one.
 ///
 /// `hooks` makes the `start` and `resume` imports of one host function from
-/// their Rust halves, which say when there are no results to return: `start`
-/// with the status to give the adapter, `resume` with `notReady`, after
-/// setting the status itself.
+/// their Rust halves, which do not always have results to return:
+///
+/// * `start` returns the token of the activation that is to wait, negated
+///   when it need not wait for anything;
+/// * the `start` of an eager host function returns its results, or `undefined`
+///   after setting the status itself (`isUndefined` stands for a result that
+///   is `undefined`);
+/// * `resume` returns its results, or `notReady` after setting the status.
 const SHIM_SOURCE: &str = "
-const promises = [], resolvers = [], notReady = Symbol();
+const promises = [], resolvers = [], woken = Promise.resolve();
+const notReady = Symbol(), isUndefined = Symbol();
 const pend = (token) => {
   status.value = token;
   promises[token] = new Promise((resolve) => { resolvers[token] = resolve; });
 };
+const pendWoken = (token) => {
+  status.value = token;
+  promises[token] = woken;
+  resolvers[token] = undefined;
+};
 return {
   notReady,
+  isUndefined,
   wait: new WebAssembly.Suspending((token) => promises[token]),
   pend,
+  pendWoken,
   wake(token) {
     const resolve = resolvers[token];
     resolvers[token] = undefined;
@@ -148,13 +173,19 @@ return {
   settle(promise, token) {
     promise.then((value) => done(token, 0, value), (error) => done(token, 1, error));
   },
-  hooks(start, placeholder) {
+  hooks(start, placeholder, eager) {
     return {
-      start(...args) {
-        const token = start(args);
-        if (token > 1) pend(token); else status.value = token;
-        return placeholder;
-      },
+      start: eager
+        ? (...args) => {
+            const results = start(args);
+            if (results === undefined) return placeholder;
+            return results === isUndefined ? undefined : results;
+          }
+        : (...args) => {
+            const token = start(args);
+            if (token > 0) pend(token); else pendWoken(-token);
+            return placeholder;
+          },
       resume(token) {
         const results = resume(token);
         return results === notReady ? placeholder : results;
@@ -180,11 +211,13 @@ impl Shim {
         Self {
             status,
             not_ready: get("notReady"),
+            undefined: get("isUndefined"),
             wait: get("wait"),
             unwait: Closure::wrap(Box::new(unwait) as Box<dyn Fn(i32) -> Result<(), JsValue>>)
                 .into_js_value(),
             hooks: get("hooks").unchecked_into(),
             pend: get("pend").unchecked_into(),
+            pend_woken: get("pendWoken").unchecked_into(),
             wake: get("wake").unchecked_into(),
             settle: get("settle").unchecked_into(),
         }
@@ -194,6 +227,12 @@ impl Shim {
     /// to wait. The last thing a hook does: the adapter reads `$status` next.
     fn pend(token: i32) {
         SHIM.with(|shim| shim.pend.call_token(&JsValue::UNDEFINED, token));
+    }
+
+    /// As `pend`, for a guest that has nothing to wait for: it is resumed in a
+    /// later microtask.
+    fn pend_woken(token: i32) {
+        SHIM.with(|shim| shim.pend_woken.call_token(&JsValue::UNDEFINED, token));
     }
 
     /// Resumes the guest of `token`, in a later microtask. Does nothing when
@@ -210,6 +249,25 @@ impl Shim {
     /// What the Rust half of `resume` returns after `pend` or `trap`.
     fn not_ready() -> JsValue {
         SHIM.with(|shim| shim.not_ready.clone())
+    }
+
+    /// The results of an import, for the JavaScript half of a hook.
+    fn results(values: &[Value], store: &impl AsStoreRef) -> JsValue {
+        match values {
+            [] => JsValue::UNDEFINED,
+            [value] => value.as_jsvalue(store),
+            values => Array::from_iter(values.iter().map(|value| value.as_jsvalue(store))).into(),
+        }
+    }
+
+    /// As `results`, for the `start` of an eager host function, to which
+    /// `undefined` means that there are no results yet.
+    fn eager_results(values: &[Value], store: &impl AsStoreRef) -> JsValue {
+        let results = Self::results(values, store);
+        if results.is_undefined() && !values.is_empty() {
+            return SHIM.with(|shim| shim.undefined.clone());
+        }
+        results
     }
 }
 
@@ -247,9 +305,24 @@ impl Activation {
     }
 
     fn wake_caller(&self) {
-        if let Some(caller) = self.caller.take() {
+        if self.entering.get() {
+            return;
+        }
+        // Not woken under the borrow: a waker may do anything.
+        let caller = self.caller.borrow().clone();
+        if let Some(caller) = caller {
             caller.wake();
         }
+    }
+
+    /// Switches the guest out with nothing to wait for but its own
+    /// resumption, where `resume` deals with `outcome`: there, and not here,
+    /// because only a guest that is resumed is known to be one that can be
+    /// unwound. Returns the token for `Shim::pend_woken`.
+    fn park(self: &Rc<Self>, outcome: Option<Result<Vec<Value>, RuntimeError>>) -> i32 {
+        *self.outcome.borrow_mut() = outcome;
+        self.switch_out(State::Suspended);
+        self.token
     }
 
     /// Drives what a suspended guest waits for. Called by the future of the
@@ -330,9 +403,9 @@ fn cannot_suspend() -> JsValue {
 }
 
 /// The Rust half of the adapter's `start` import: a guest called an async host
-/// function of the store `id`. Switches the guest out, and returns what the
-/// adapter is to do: wait, as the activation of the token returned, or trap.
-/// Nothing of the host function runs here.
+/// function of the store `id`. Switches the guest out, and returns the token
+/// of the activation it is to wait as, negated when it has nothing to wait
+/// for. Nothing of the host function runs here.
 pub(crate) fn start(
     id: StoreId,
     import: impl FnOnce(StoreAsync) -> ImportFuture,
@@ -345,14 +418,83 @@ pub(crate) fn start(
     let store = activation.store.borrow().as_ref().map(StoreAsync::store);
     let Some(store) = store.filter(|_| !activation.cancelled.get()) else {
         // The call was dropped while its guest ran.
-        activation.switch_out(State::Unwinding);
-        drop(activation.store.take());
-        return Ok(adapter::TRAP);
+        return Ok(-activation.park(None));
     };
     *activation.import.borrow_mut() = Some(import(store));
     activation.switch_out(State::Suspended);
     activation.wake_caller();
     Ok(activation.token)
+}
+
+/// The Rust half of the `start` import of an eager host function: polls the
+/// host future once, here, on the guest's stack. Returns the results if it is
+/// ready, and `undefined` after switching the guest out if it is not.
+///
+/// The store is lent to that poll: the activation gives up the write lock for
+/// it, so the host function takes whatever lock it needs at once, and takes
+/// the lock back when the future is ready. A future that is not ready keeps
+/// the locks it holds, and the guest waits for the store in `resume`.
+///
+/// With no call the guest could be suspended as (`import` is then given no
+/// store, and uses the one at `raw_store`, which the synchronous call beneath
+/// has lent to the guest), the future is polled all the same, and dropped if
+/// it is not ready: the import fails as that of any guest that cannot wait.
+pub(crate) fn start_eager(
+    id: StoreId,
+    raw_store: *mut StoreInner,
+    import: impl FnOnce(Option<StoreAsync>) -> ImportFuture,
+) -> Result<JsValue, JsValue> {
+    let Some(activation) = running(id) else {
+        let mut cx = Context::from_waker(Waker::noop());
+        return match import(None).as_mut().poll(&mut cx) {
+            Poll::Ready(Ok(values)) => {
+                // SAFETY: the guest was entered by a synchronous call, which
+                // lent it this store for as long as it runs.
+                let store = unsafe { &*raw_store };
+                Ok(Shim::eager_results(&values, store))
+            }
+            // Thrown, as a synchronous host function throws its error.
+            Poll::Ready(Err(error)) => Err(Trap::user(Box::new(error)).into()),
+            Poll::Pending => Err(cannot_suspend()),
+        };
+    };
+    debug_assert_eq!(activation.state.get(), State::Running);
+    let store = activation.store.borrow().as_ref().map(StoreAsync::store);
+    let Some(store) = store.filter(|_| !activation.cancelled.get()) else {
+        Shim::pend_woken(activation.park(None));
+        return Ok(JsValue::UNDEFINED);
+    };
+    // The caller's waker, so that the future wakes whoever will poll it from
+    // here on. A call always has one by now: it is polled to be entered.
+    let caller = activation.caller.borrow().clone();
+    let caller = caller.unwrap_or_else(|| Waker::noop().clone());
+    activation.switch_out(State::Lent);
+    let mut import = import(Some(store));
+    let outcome = match import.as_mut().poll(&mut Context::from_waker(&caller)) {
+        Poll::Pending if !activation.cancelled.get() => {
+            // From here on as any host future: the call polls it.
+            *activation.import.borrow_mut() = Some(import);
+            activation.state.set(State::Suspended);
+            Shim::pend(activation.token);
+            return Ok(JsValue::UNDEFINED);
+        }
+        // The call was dropped during the poll.
+        Poll::Pending => None,
+        Poll::Ready(_) if activation.cancelled.get() => None,
+        Poll::Ready(Ok(values)) => match activation.try_lock() {
+            Some(lock) => {
+                let results = Shim::eager_results(&values, &lock);
+                activation.switch_in(lock);
+                return Ok(results);
+            }
+            // The store was not given back: the guest waits for it.
+            None => Some(Ok(values)),
+        },
+        Poll::Ready(Err(error)) => Some(Err(error)),
+    };
+    drop(import);
+    Shim::pend_woken(activation.park(outcome));
+    Ok(JsValue::UNDEFINED)
 }
 
 /// The Rust half of the adapter's `resume` import: the guest is back on the
@@ -388,33 +530,36 @@ fn resume(token: i32) -> JsValue {
         Shim::pend(token);
         return Shim::not_ready();
     };
-    let results = match &results[..] {
-        [] => JsValue::UNDEFINED,
-        [value] => value.as_jsvalue(&lock),
-        values => Array::from_iter(values.iter().map(|value| value.as_jsvalue(&lock))).into(),
-    };
+    let results = Shim::results(&results, &lock);
     activation.switch_in(lock);
     results
 }
 
 /// The adapter's `unwait` import: the engine refused to suspend the guest,
-/// which is still running. Takes back what `start` did.
+/// which is still running. Takes back what `start` did, and fails the import.
 fn unwait(token: i32) -> Result<(), JsValue> {
     let Some(activation) = activation(token) else {
         return Ok(());
     };
     debug_assert_eq!(activation.state.get(), State::Suspended);
-    debug_assert!(activation.outcome.borrow().is_none() && activation.relock.borrow().is_none());
-    // Never polled: nothing of the host function has run.
+    // The host future has not run, or has been polled once if it is that of
+    // an eager host function. It goes first: it may hold the store.
     drop(activation.import.take());
-    match activation.try_lock() {
+    drop(activation.relock.take());
+    let outcome = activation.outcome.take();
+    match activation.lock.take().or_else(|| activation.try_lock()) {
         Some(lock) => activation.switch_in(lock),
-        // Nothing runs between `start` and here that could take the store.
-        // Should something have, the guest goes on as one that was not
-        // entered by `call_async`.
+        // Nothing runs between `start` and here that could take the store,
+        // but a host future may have kept it. The guest then goes on as one
+        // that was not entered by `call_async`.
         None => activation.state.set(State::Unwinding),
     }
-    Err(cannot_suspend())
+    Err(match outcome {
+        // The error of an eager host function, which nothing waited for: it
+        // is thrown, as a synchronous host function throws its error.
+        Some(Err(error)) => Trap::user(Box::new(error)).into(),
+        _ => cannot_suspend(),
+    })
 }
 
 /// The reaction on the promise of every guest: `token` says whose it is.
@@ -430,9 +575,14 @@ pub(crate) struct Call(Rc<Activation>);
 impl Call {
     /// Enters a guest of `store` through `enter`, which calls a promising
     /// function. The guest runs with `lock`, the store's write lock.
+    ///
+    /// `caller` is the waker the future that makes this call is being polled
+    /// with: the guest may reach an eager host function before the call is
+    /// polled itself.
     pub(crate) fn enter(
         store: &StoreAsync,
         lock: StoreAsyncWriteLock,
+        caller: Waker,
         enter: impl FnOnce() -> Result<JsValue, JsValue>,
     ) -> Self {
         let activation = ACTIVATIONS.with(|activations| {
@@ -453,7 +603,8 @@ impl Call {
                 relock: RefCell::new(None),
                 error: RefCell::new(None),
                 result: RefCell::new(None),
-                caller: RefCell::new(None),
+                caller: RefCell::new(Some(caller)),
+                entering: Cell::new(true),
             });
             activations.slots[(token - adapter::FIRST_TOKEN) as usize] = Some(activation.clone());
             activation
@@ -469,6 +620,7 @@ impl Call {
             }),
             Err(error) => activation.retire(Err(error)),
         }
+        activation.entering.set(false);
         Self(activation)
     }
 }
@@ -478,16 +630,19 @@ impl Future for Call {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let activation = &self.0;
+        {
+            let mut caller = activation.caller.borrow_mut();
+            if !caller.as_ref().is_some_and(|caller| caller.will_wake(cx.waker())) {
+                *caller = Some(cx.waker().clone());
+            }
+        }
         activation.drive(cx);
         match activation.result.take() {
             Some(result) => Poll::Ready(result.map_err(|error| {
                 // The trap of a failed host function stands for its error.
                 activation.error.take().unwrap_or_else(|| error.into())
             })),
-            None => {
-                *activation.caller.borrow_mut() = Some(cx.waker().clone());
-                Poll::Pending
-            }
+            None => Poll::Pending,
         }
     }
 }
@@ -517,13 +672,19 @@ impl Drop for Call {
 }
 
 /// Wraps `start`, the function that begins an async host function of type `ty`
-/// by calling [`start`], in the adapter a guest imports.
-pub(crate) fn adapter(ty: &FunctionType, start: &JsValue) -> Result<Function, JsValue> {
+/// by calling [`start`], or [`start_eager`] if it is `eager`, in the adapter a
+/// guest imports.
+pub(crate) fn adapter(
+    ty: &FunctionType,
+    start: &JsValue,
+    eager: bool,
+) -> Result<Function, JsValue> {
     let module = adapter::module(ty)?;
     SHIM.with(|shim| {
+        let placeholder = adapter::placeholder(ty);
         let hooks = shim
             .hooks
-            .call_hooks(&JsValue::UNDEFINED, start, &adapter::placeholder(ty));
+            .call_hooks(&JsValue::UNDEFINED, start, &placeholder, eager);
         let hook = |name: &str| Reflect::get(&hooks, &name.into());
         let hooks = [&hook("start")?, &shim.wait, &hook("resume")?, &shim.unwait];
         adapter::instantiate(&module, hooks, &shim.status)
@@ -548,6 +709,7 @@ extern "C" {
         receiver: &JsValue,
         start: &JsValue,
         placeholder: &JsValue,
+        eager: bool,
     ) -> JsValue;
 }
 
@@ -587,7 +749,8 @@ mod tests {
     }
 
     /// However a call ends, nothing of it stays in this module's state, and
-    /// its token is used again.
+    /// its token is used again. A call that never waits holds its store until
+    /// the engine has settled its promise.
     #[wasm_bindgen_test]
     async fn a_call_that_ended_leaves_nothing_behind() {
         let mut store = Store::default();
@@ -603,11 +766,15 @@ mod tests {
                 Ok(vec![])
             }
         });
+        let eager = host.clone().eager();
         let store = store.into_async();
-        let call = |fail: i32| Box::pin(host.call_async(&store, vec![Value::I32(fail)]));
         assert_eq!(live(), (0, 0));
 
-        for round in 0..3 {
+        for round in 0..4 {
+            // As it is, and eager, by turns.
+            let host = [&host, &eager][round % 2];
+            let call = |fail: i32| Box::pin(host.call_async(&store, vec![Value::I32(fail)]));
+
             // Returns.
             let mut returning = call(0);
             let mut cx = Context::from_waker(Waker::noop());
@@ -638,6 +805,14 @@ mod tests {
         }
         let tokens = ACTIVATIONS.with(|activations| activations.borrow().slots.len());
         assert_eq!(tokens, 1, "tokens are not used again");
+
+        let ready = Function::new_typed_async(&mut store.write_lock().await, async || 7);
+        let mut call = Box::pin(ready.eager().call_async(&store, vec![]));
+        let mut cx = Context::from_waker(Waker::noop());
+        assert!(call.as_mut().poll(&mut cx).is_pending());
+        assert_eq!(live(), (1, 1), "returned without waiting");
+        assert_eq!(call.await.unwrap().to_vec(), [Value::I32(7)]);
+        assert_eq!(live(), (0, 0));
     }
 
     /// `WebAssembly.promising` is called for the first `call_async` of a

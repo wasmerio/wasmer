@@ -469,6 +469,18 @@ impl BackendFunction {
         })
     }
 
+    /// The eager form of an async host function. Only the `js` backend
+    /// tells the two apart.
+    #[cfg(feature = "experimental-async")]
+    pub fn eager(self) -> Self {
+        match self {
+            #[cfg(feature = "js")]
+            Self::Js(f) => Self::Js(f.eager()),
+            #[allow(unreachable_patterns)]
+            other => other,
+        }
+    }
+
     #[cfg(feature = "experimental-async")]
     #[allow(clippy::type_complexity)]
     pub fn call_async(
