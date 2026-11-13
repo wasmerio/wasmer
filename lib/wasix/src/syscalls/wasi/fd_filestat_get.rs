@@ -55,6 +55,22 @@ pub(crate) fn fd_filestat_get_internal(
         return Err(Errno::Access);
     }
 
+    // path_rename stamps the source inode's cached size onto the target, so a
+    // path whose file was replaced by a smaller one keeps the larger size and a
+    // read_exact sized from it runs off the end. The open handle stats the host
+    // file, so take the size from there.
+    let handle = {
+        let guard = fd_entry.inode.read();
+        match guard.deref() {
+            Kind::File { handle, .. } => handle.clone(),
+            _ => None,
+        }
+    };
+    if let Some(handle) = handle {
+        let size = handle.read().unwrap().size();
+        fd_entry.inode.stat.write().unwrap().st_size = size;
+    }
+
     let guard = fd_entry.inode.stat.read().unwrap();
     Ok(*guard.deref())
 }
