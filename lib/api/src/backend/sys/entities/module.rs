@@ -8,9 +8,6 @@ use wasmer_types::{
     CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
     ImportType, ImportsIterator, ModuleInfo, SerializeError,
 };
-#[cfg(feature = "experimental-host-interrupt")]
-use wasmer_vm::interrupt_registry;
-use wasmer_vm::{Trap, TrapCode};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendModule, IntoBytes, StoreContext,
@@ -198,17 +195,6 @@ impl Module {
                 objects.as_sys_mut(),
             )?;
 
-            let store_id = objects.id();
-            #[cfg(feature = "experimental-host-interrupt")]
-            let interrupt_guard = match interrupt_registry::install(store_id) {
-                Ok(x) => x,
-                Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                    return Err(InstantiationError::Start(
-                        Trap::lib(TrapCode::HostInterrupt).into(),
-                    ));
-                }
-            };
-
             let store_install_guard = StoreContext::install(store_ptr);
 
             // After the instance handle is created, we need to initialize
@@ -227,8 +213,6 @@ impl Module {
             }
 
             drop(store_install_guard);
-            #[cfg(feature = "experimental-host-interrupt")]
-            drop(interrupt_guard);
 
             Ok(VMInstance::Sys(instance_handle))
         }
