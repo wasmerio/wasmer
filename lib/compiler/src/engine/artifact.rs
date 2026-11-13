@@ -1554,6 +1554,7 @@ impl Artifact {
     pub fn generate_metadata<'data>(
         data: &'data [u8],
         compiler: &dyn Compiler,
+        target: &Target,
         tunables: &dyn Tunables,
         features: &Features,
     ) -> Result<
@@ -1588,7 +1589,7 @@ impl Artifact {
             .collect();
 
         module.m0_pass_param_enabled = compiler.m0_pass_param_enabled(&memory_styles);
-        module.uses_tail_call_conv = compiler.uses_tail_call_conv();
+        module.uses_tail_call_conv = compiler.uses_tail_call_conv(target);
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),
             features: features.clone(),
@@ -1624,7 +1625,7 @@ impl Artifact {
     > {
         #[allow(dead_code)]
         let (compile_info, function_body_inputs, data_initializers, module_translation) =
-            Self::generate_metadata(data, compiler, tunables, features)?;
+            Self::generate_metadata(data, compiler, target, tunables, features)?;
 
         let data_initializers = data_initializers
             .iter()

@@ -723,8 +723,11 @@ impl Compiler for CraneliftCompiler {
         "cranelift"
     }
 
-    fn uses_tail_call_conv(&self) -> bool {
-        true
+    fn uses_tail_call_conv(&self, target: &Target) -> bool {
+        !matches!(
+            target.triple().architecture,
+            target_lexicon::Architecture::Aarch64(_)
+        )
     }
 
     fn get_perfmap_enabled(&self) -> bool {

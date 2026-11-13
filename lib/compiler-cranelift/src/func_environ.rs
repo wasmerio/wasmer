@@ -18,7 +18,7 @@ use cranelift_codegen::{
         immediates::{Offset32, Uimm64},
         types::*,
     },
-    isa::{CallConv, TargetFrontendConfig},
+    isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
 use smallvec::SmallVec;
@@ -1782,7 +1782,7 @@ impl FuncEnvironment<'_> {
             .brif(uses_tail_call_conv, tail_block, &[], native_block, &[]);
 
         for (block, call_conv) in [
-            (tail_block, CallConv::Tail),
+            (tail_block, signature.call_conv),
             (native_block, self.target_config.default_call_conv),
         ] {
             builder.switch_to_block(block);

@@ -375,7 +375,10 @@ impl CompilerConfig for Cranelift {
         feats.exceptions(true);
         feats.relaxed_simd(true);
         feats.wide_arithmetic(true);
-        feats.tail_call(true);
+        feats.tail_call(!matches!(
+            target.triple().architecture,
+            Architecture::Aarch64(_)
+        ));
         feats
     }
 }
