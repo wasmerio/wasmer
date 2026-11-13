@@ -31,7 +31,7 @@ fn decode_types(types: &Array) -> Option<Vec<Type>> {
 }
 
 /// The VM Function type
-#[derive(Clone, Eq)]
+#[derive(Clone)]
 pub struct VMFunction {
     pub(crate) function: JsHandle<JsFunction>,
     pub(crate) ty: FunctionType,
@@ -39,7 +39,12 @@ pub struct VMFunction {
     /// time it is called: made by the first `call_async` and kept.
     #[cfg(feature = "experimental-async")]
     pub(crate) promising: std::rc::Rc<std::cell::OnceCell<JsFunction>>,
+    /// For an async host function: makes the eager form of it.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) eager: Option<std::rc::Rc<dyn Fn() -> JsFunction>>,
 }
+
+impl Eq for VMFunction {}
 
 unsafe impl Send for VMFunction {}
 unsafe impl Sync for VMFunction {}
@@ -52,6 +57,8 @@ impl VMFunction {
             ty,
             #[cfg(feature = "experimental-async")]
             promising: Default::default(),
+            #[cfg(feature = "experimental-async")]
+            eager: None,
         }
     }
 

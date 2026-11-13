@@ -231,6 +231,52 @@ impl Function {
         Self(BackendFunction::new_typed_with_env_async(store, env, func))
     }
 
+    /// Makes an async host function *eager*: its future is polled once inside
+    /// the import call itself, on the guest's stack.
+    ///
+    /// A guest that calls an async host function is normally suspended while
+    /// the future of [`Function::call_async`] polls the host future. On the
+    /// `js` backend that costs a trip through the event loop even when the
+    /// host function has nothing to wait for. An eager host function is polled
+    /// once before the guest is suspended:
+    ///
+    /// * If the future is ready, the guest goes on with its results at once,
+    ///   and is never suspended. That also works where a guest cannot be
+    ///   suspended at all: in a function entered with [`Function::call`], or
+    ///   in a start function.
+    /// * If it is not, the guest is suspended and the call polls the future
+    ///   from then on, as for any async host function. Where the guest cannot
+    ///   be suspended, the future is dropped instead and the import fails
+    ///   with [`TrapCode::YieldOutsideAsyncContext`](wasmer_types::TrapCode).
+    ///
+    /// So everything an eager host function does up to its first pending
+    /// `await` runs inside the import call, and it may be dropped right
+    /// there: that part has to be safe to cancel. During that poll the store
+    /// is lent to the host function: [`AsyncFunctionEnvMut::read`] and
+    /// [`AsyncFunctionEnvMut::write`] return at once, as does a lock taken
+    /// through [`AsyncFunctionEnvMut::as_store_async`], unless another guard
+    /// of that store is alive. A guard the future still holds when it has to
+    /// wait stays with it. Beneath a synchronous call there is no async store
+    /// to lock, and those three never finish, as on every backend.
+    ///
+    /// A guest that only ever calls eager host functions that are ready
+    /// never gives the event loop a turn: nothing forces it to.
+    ///
+    /// This returns the eager function and leaves existing clones of the
+    /// original as they are. It has no effect on a function that is not an
+    /// async host function, and none on backends other than `js`: on `sys`, a
+    /// host future that is ready never makes the call wait in the first
+    /// place, and outside an async call it is polled once and dropped at its
+    /// first `Pending` all the same.
+    ///
+    /// ```ignore
+    /// let now = Function::new_typed_async(&mut store, async || clock.now()).eager();
+    /// ```
+    #[cfg(feature = "experimental-async")]
+    pub fn eager(self) -> Self {
+        Self(self.0.eager())
+    }
+
     /// Returns the [`FunctionType`] of the `Function`.
     ///
     /// # Example
