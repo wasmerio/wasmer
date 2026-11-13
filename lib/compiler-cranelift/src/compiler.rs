@@ -723,6 +723,10 @@ impl Compiler for CraneliftCompiler {
         "cranelift"
     }
 
+    fn uses_tail_call_conv(&self) -> bool {
+        true
+    }
+
     fn get_perfmap_enabled(&self) -> bool {
         self.config.enable_perfmap
     }

@@ -4,7 +4,7 @@ use cranelift_codegen::{
     ir::{
         self, AbiParam, ArgumentPurpose, InstBuilder, MemFlagsData, StackSlotData, StackSlotKind,
     },
-    isa::TargetFrontendConfig,
+    isa::{CallConv, TargetFrontendConfig},
 };
 use cranelift_frontend::FunctionBuilder;
 use smallvec::{SmallVec, smallvec};
@@ -54,7 +54,7 @@ pub(crate) fn signature_to_ir(
     arch: Architecture,
 ) -> ir::Signature {
     let return_abi = classify_returns(arch, signature.results());
-    let mut sig = ir::Signature::new(config.default_call_conv);
+    let mut sig = ir::Signature::new(CallConv::Tail);
 
     if matches!(return_abi, ReturnAbi::Sret(_)) {
         sig.params.push(AbiParam::special(

@@ -715,7 +715,8 @@ pub fn translate_operator(
          * return values to it. `call_indirect` needs environment support because there is an
          * argument referring to an index in the external functions table of the module.
          ************************************************************************************/
-        Operator::Call { function_index } => {
+        Operator::Call { function_index } | Operator::ReturnCall { function_index } => {
+            let is_return_call = matches!(op, Operator::ReturnCall { .. });
             let (fref, num_args) = state.get_direct_func(builder.func, *function_index, environ)?;
 
             // Bitcast any vector arguments to their default type, I8X16, before calling.
@@ -735,15 +736,25 @@ pub fn translate_operator(
                 fref,
                 args,
                 state.handlers.landing_pad(),
+                is_return_call,
             )?;
             state.popn(num_args);
-            state.pushn(results.as_slice());
+            if is_return_call {
+                state.reachable = false;
+            } else {
+                state.pushn(results.as_slice());
+            }
         }
         Operator::CallIndirect {
             type_index,
             table_index,
             ..
+        }
+        | Operator::ReturnCallIndirect {
+            type_index,
+            table_index,
         } => {
+            let is_return_call = matches!(op, Operator::ReturnCallIndirect { .. });
             // `type_index` is the index of the function's signature and
             // `table_index` is the index of the table to search the function
             // in.
@@ -760,13 +771,17 @@ pub fn translate_operator(
                 builder,
                 TableIndex::from_u32(*table_index),
                 SignatureIndex::from_u32(*type_index),
-                sigref,
                 callee,
                 args,
                 state.handlers.landing_pad(),
+                is_return_call,
             )?;
             state.popn(num_args);
-            state.pushn(results.as_slice());
+            if is_return_call {
+                state.reachable = false;
+            } else {
+                state.pushn(results.as_slice());
+            }
         }
         /******************************* Memory management ***********************************
          * Memory management is handled by environment. It is usually translated into calls to
@@ -2514,9 +2529,6 @@ pub fn translate_operator(
             let a_high = builder.ins().uwiden_high(a);
             let b_high = builder.ins().uwiden_high(b);
             state.push1(builder.ins().imul(a_high, b_high));
-        }
-        Operator::ReturnCall { .. } | Operator::ReturnCallIndirect { .. } => {
-            return Err(wasm_unsupported!("proposed tail-call operator {:?}", op));
         }
         Operator::RefEq
         | Operator::StructNew { .. }

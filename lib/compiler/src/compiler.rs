@@ -271,6 +271,11 @@ pub trait Compiler: Send + std::fmt::Debug {
         false
     }
 
+    /// Whether local function entry points use Cranelift's tail calling convention.
+    fn uses_tail_call_conv(&self) -> bool {
+        false
+    }
+
     /// Get whether translation-time readonly funcref table analysis should run.
     fn enable_readonly_funcref_table(&self) -> bool {
         false
