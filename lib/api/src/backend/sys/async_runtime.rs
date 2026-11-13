@@ -1,16 +1,20 @@
+#[cfg(feature = "experimental-host-interrupt")]
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, atomic::AtomicU64},
+};
 use std::{
     cell::{Cell, RefCell},
-    collections::HashMap,
     future::Future,
     marker::PhantomData,
     pin::Pin,
     ptr,
     rc::Rc,
-    sync::{LazyLock, atomic::AtomicU64},
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
 use corosensei::{Coroutine, CoroutineResult, Yielder, stack::DefaultStack};
+#[cfg(feature = "experimental-host-interrupt")]
 use dashmap::DashMap;
 
 use super::entities::function::Function as SysFunction;
@@ -52,15 +56,23 @@ enum AsyncResume {
     HostFutureReady(Result<Vec<Value>, RuntimeError>),
 }
 
+#[cfg(feature = "experimental-host-interrupt")]
 type AsyncCallFutureId = u64;
 
+#[cfg(feature = "experimental-host-interrupt")]
 static NEXT_ASYNC_CALL_FUTURE_ID: AtomicU64 = AtomicU64::new(0);
 
+/// The wakers of the calls that are in progress, by store, for
+/// [`notify_pending_futures_of_interrupt`]: a host interrupt is the only
+/// thing that wakes a call from outside. Everything else a call waits for,
+/// the store's lock or a host future, has the waker itself.
+#[cfg(feature = "experimental-host-interrupt")]
 static ASYNC_CALL_FUTURE_WAKERS: LazyLock<DashMap<StoreId, HashMap<AsyncCallFutureId, Waker>>> =
     LazyLock::new(DashMap::new);
 
 #[allow(clippy::type_complexity)]
 pub(crate) struct AsyncCallFuture {
+    #[cfg(feature = "experimental-host-interrupt")]
     id: AsyncCallFutureId,
 
     coroutine: Option<Coroutine<AsyncResume, AsyncYield, CallResult>>,
@@ -222,6 +234,7 @@ impl AsyncCallFuture {
         );
 
         Self {
+            #[cfg(feature = "experimental-host-interrupt")]
             id: NEXT_ASYNC_CALL_FUTURE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
             coroutine: Some(coroutine),
             pending_store_install: None,
@@ -295,8 +308,12 @@ impl AsyncCallFuture {
         result
     }
 
+    #[cfg(not(feature = "experimental-host-interrupt"))]
+    fn remove_from_wakers_list(&self) {}
+
+    #[cfg(feature = "experimental-host-interrupt")]
     fn remove_from_wakers_list(&self) {
-        let mut wakers_entry = match ASYNC_CALL_FUTURE_WAKERS.entry(self.store.store_id()) {
+        let mut wakers_entry = match ASYNC_CALL_FUTURE_WAKERS.entry(self.store.id) {
             dashmap::Entry::Occupied(o) => o,
             dashmap::Entry::Vacant(v) => return,
         };
@@ -317,7 +334,8 @@ impl Future for AsyncCallFuture {
         // this poll, so that the future has this poll's waker already.
         let mut polled = false;
         loop {
-            let store_id = self.store.store_id();
+            #[cfg(feature = "experimental-host-interrupt")]
+            let store_id = self.store.id;
 
             #[cfg(feature = "experimental-host-interrupt")]
             {
@@ -351,33 +369,43 @@ impl Future for AsyncCallFuture {
                 return Poll::Ready(self.result.take().expect("polled after completion"));
             }
 
+            #[cfg(feature = "experimental-host-interrupt")]
             {
                 let mut wakers_entry = ASYNC_CALL_FUTURE_WAKERS.entry(store_id).or_default();
                 wakers_entry.insert(self.id, cx.waker().clone());
             }
 
-            // Start a store installation if not in progress already
-            if self.pending_store_install.is_none() {
-                self.pending_store_install = Some(Box::pin(install_store_context(StoreAsync {
-                    id: self.store.id,
-                    inner: self.store.inner.clone(),
-                })));
-            }
-
             // Acquiring a store lock should be the last step before resuming
             // the coroutine, to minimize the time we hold the lock.
-            let store_context_guard = match self
-                .pending_store_install
-                .as_mut()
-                .unwrap()
-                .as_mut()
-                .poll(cx)
-            {
-                Poll::Ready(guard) => {
-                    self.pending_store_install = None;
-                    guard
+            //
+            // A store that is free is locked on the spot. It cannot be the
+            // store this thread is running, which is locked, so there is
+            // nothing for `install_store_context` to check. A call that is
+            // already waiting for the store leaves it to the future that
+            // holds its place among the waiters.
+            let free_store = match self.pending_store_install {
+                None => self.store.inner.try_write(),
+                Some(_) => None,
+            };
+            let store_context_guard = match free_store {
+                Some(store_guard) => StoreContext::install_async(store_guard),
+                None => {
+                    let this = &mut *self;
+                    let store = &this.store;
+                    let install = this.pending_store_install.get_or_insert_with(|| {
+                        Box::pin(install_store_context(StoreAsync {
+                            id: store.id,
+                            inner: store.inner.clone(),
+                        }))
+                    });
+                    match install.as_mut().poll(cx) {
+                        Poll::Ready(guard) => {
+                            this.pending_store_install = None;
+                            guard
+                        }
+                        Poll::Pending => return Poll::Pending,
+                    }
                 }
-                Poll::Pending => return Poll::Pending,
             };
 
             let resume_arg = self.next_resume.take().expect("no resume arg available");
@@ -499,6 +527,7 @@ pub(crate) fn block_on_host_future(future: HostFuture) -> Result<Vec<Value>, Asy
 // It is expected that the interrupt happens before this function is called, so
 // that the futures can catch and react to `interrupt_registry::is_interrupted`
 // correctly.
+#[cfg(feature = "experimental-host-interrupt")]
 pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
     let dashmap::Entry::Occupied(entry) = ASYNC_CALL_FUTURE_WAKERS.entry(store_id) else {
         return;
