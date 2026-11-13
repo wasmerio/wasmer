@@ -1,5 +1,5 @@
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
     collections::HashMap,
     future::Future,
     marker::PhantomData,
@@ -10,7 +10,7 @@ use std::{
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
-use corosensei::{Coroutine, CoroutineResult, Yielder};
+use corosensei::{Coroutine, CoroutineResult, Yielder, stack::DefaultStack};
 use dashmap::DashMap;
 
 use super::entities::function::Function as SysFunction;
@@ -60,6 +60,49 @@ pub(crate) struct AsyncCallFuture {
     store: StoreAsync,
 
     activation: Activation,
+}
+
+/// How many coroutine stacks a thread keeps for its next `call_async`s.
+const STACK_POOL_CAPACITY: usize = 16;
+
+thread_local! {
+    /// Stacks of `call_async` coroutines that ran to completion on this
+    /// thread, for its next calls. A stack is a 1 MiB mapping with a guard
+    /// page; mapping and unmapping one costs several times what the rest of a
+    /// call does.
+    ///
+    /// This is not `wasmer_vm`'s cache of Wasm stacks: that one keeps a
+    /// single stack per thread, which the Wasm frames of a call already take,
+    /// sends the rest through a queue shared by all threads, and discards
+    /// stacks smaller than the configured Wasm stack size.
+    static STACK_POOL: RefCell<Vec<DefaultStack>> = const { RefCell::new(Vec::new()) };
+}
+
+/// A stack for a new coroutine: a pooled one if there is any.
+fn take_stack() -> DefaultStack {
+    // `try_with`: a call can be made while the thread's locals are destroyed.
+    STACK_POOL
+        .try_with(|pool| pool.borrow_mut().pop())
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+}
+
+/// Keeps the stack of a coroutine that returned for the thread's next call,
+/// or unmaps it if the thread has enough of them.
+///
+/// Only a coroutine whose function returned gives its stack back. One that
+/// was unwound, by a host panic or because its call was dropped while
+/// suspended, is dropped with its stack, which is unmapped as before. Those
+/// exits are rare and cost far more than a mapping, so reuse is kept to the
+/// one exit after which every frame on the stack has returned.
+fn give_stack_back(stack: DefaultStack) {
+    let _ = STACK_POOL.try_with(|pool| {
+        let mut pool = pool.borrow_mut();
+        if pool.len() < STACK_POOL_CAPACITY {
+            pool.push(stack);
+        }
+    });
 }
 
 thread_local! {
@@ -149,15 +192,17 @@ impl AsStoreMut for AsyncCallStoreMut {
 impl AsyncCallFuture {
     pub(crate) fn new(function: SysFunction, store: StoreAsync, params: Vec<Value>) -> Self {
         let store_id = store.id;
-        let coroutine =
-            Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
+        let coroutine = Coroutine::with_stack(
+            take_stack(),
+            move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
                 assert!(matches!(resume, AsyncResume::Start));
 
                 let ctx_state = CoroutineContext::new(yielder);
                 CURRENT_COROUTINE.with(|cell| cell.set(&ctx_state));
                 let mut store_mut = AsyncCallStoreMut { store_id };
                 function.call(&mut store_mut, &params)
-            });
+            },
+        );
 
         Self {
             id: NEXT_ASYNC_CALL_FUTURE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
@@ -309,7 +354,7 @@ impl Future for AsyncCallFuture {
                     self.pending_future = Some(fut);
                 }
                 Some(CoroutineResult::Return(result)) => {
-                    self.coroutine = None;
+                    give_stack_back(self.coroutine.take().unwrap().into_stack());
                     self.result = Some(result);
                 }
                 None => unreachable!("resumed with an argument"),
@@ -458,5 +503,174 @@ fn run_immediate(
     match future.as_mut().poll(&mut cx) {
         Poll::Ready(result) => result.map_err(AsyncRuntimeError::RuntimeError),
         Poll::Pending => Err(AsyncRuntimeError::YieldOutsideAsyncContext),
+    }
+}
+
+#[cfg(test)]
+mod stack_pool {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    use corosensei::stack::Stack;
+
+    use super::*;
+    use crate::{Function, FunctionType};
+
+    type Call = Pin<Box<dyn Future<Output = CallResult>>>;
+
+    /// Pending until its flag is set.
+    struct Gate(Rc<Cell<bool>>);
+    impl Future for Gate {
+        type Output = ();
+        fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
+            if self.0.get() {
+                Poll::Ready(())
+            } else {
+                Poll::Pending
+            }
+        }
+    }
+
+    struct Host {
+        store: StoreAsync,
+        /// Waits for the gate, then returns.
+        wait: Function,
+        /// Panics.
+        panic: Function,
+        gate: Rc<Cell<bool>>,
+        /// Where on the stack the last `wait` ran.
+        ran_at: Rc<Cell<usize>>,
+    }
+
+    impl Host {
+        fn new() -> Self {
+            // Tests can share a thread (`--test-threads=1`).
+            STACK_POOL.with(|pool| pool.borrow_mut().clear());
+            let mut store = Store::default();
+            let gate = Rc::new(Cell::new(false));
+            let ran_at = Rc::new(Cell::new(0));
+            let ty = FunctionType::new(vec![], vec![]);
+            let wait = Function::new_async(&mut store, ty.clone(), {
+                let (gate, ran_at) = (gate.clone(), ran_at.clone());
+                move |_| {
+                    let local = 0u8;
+                    ran_at.set(ptr::from_ref(&local) as usize);
+                    let gate = gate.clone();
+                    async move {
+                        Gate(gate).await;
+                        Ok(vec![])
+                    }
+                }
+            });
+            let panic = Function::new(&mut store, ty, |_| panic!("host function panicked"));
+            Self {
+                store: store.into_async(),
+                wait,
+                panic,
+                gate,
+                ran_at,
+            }
+        }
+
+        fn call(&self, function: &Function) -> Call {
+            Box::pin(function.call_async(&self.store, vec![]))
+        }
+    }
+
+    fn poll(call: &mut Call) -> Poll<CallResult> {
+        call.as_mut()
+            .poll(&mut Context::from_waker(&futures::task::noop_waker()))
+    }
+
+    /// The address range of each pooled stack.
+    fn pooled() -> Vec<std::ops::Range<usize>> {
+        STACK_POOL.with(|pool| {
+            pool.borrow()
+                .iter()
+                .map(|stack| stack.limit().get()..stack.base().get())
+                .collect()
+        })
+    }
+
+    #[test]
+    fn a_finished_call_leaves_its_stack_to_the_next_one() {
+        let host = Host::new();
+        host.gate.set(true);
+        assert!(matches!(poll(&mut host.call(&host.wait)), Poll::Ready(Ok(_))));
+        let first = pooled();
+        assert_eq!(first.len(), 1, "the stack of the finished call is kept");
+        assert!(first[0].contains(&host.ran_at.get()));
+
+        host.gate.set(false);
+        host.ran_at.set(0);
+        let mut call = host.call(&host.wait);
+        assert!(pooled().is_empty(), "the next call took it");
+        assert!(poll(&mut call).is_pending());
+        assert!(first[0].contains(&host.ran_at.get()), "and runs on it");
+        // A call that overlaps it gets a stack of its own.
+        let mut overlapping = host.call(&host.wait);
+        assert!(poll(&mut overlapping).is_pending());
+        assert!(!first[0].contains(&host.ran_at.get()));
+
+        host.gate.set(true);
+        assert!(matches!(poll(&mut call), Poll::Ready(Ok(_))));
+        assert!(matches!(poll(&mut overlapping), Poll::Ready(Ok(_))));
+        assert_eq!(pooled().len(), 2);
+        assert!(pooled().contains(&first[0]));
+    }
+
+    #[test]
+    fn the_pool_is_bounded() {
+        let host = Host::new();
+        let mut calls: Vec<Call> = (0..STACK_POOL_CAPACITY + 4)
+            .map(|_| host.call(&host.wait))
+            .collect();
+        for call in &mut calls {
+            assert!(poll(call).is_pending());
+        }
+        assert!(pooled().is_empty());
+        host.gate.set(true);
+        for call in &mut calls {
+            assert!(matches!(poll(call), Poll::Ready(Ok(_))));
+        }
+        assert_eq!(pooled().len(), STACK_POOL_CAPACITY);
+    }
+
+    #[test]
+    fn an_unwound_coroutine_does_not_give_its_stack_back() {
+        let host = Host::new();
+
+        // Dropped while suspended.
+        let mut call = host.call(&host.wait);
+        assert!(poll(&mut call).is_pending());
+        drop(call);
+        assert!(pooled().is_empty(), "dropped while suspended");
+
+        // Unwound by a host panic.
+        let mut call = host.call(&host.panic);
+        assert!(catch_unwind(AssertUnwindSafe(|| poll(&mut call))).is_err());
+        drop(call);
+        assert!(pooled().is_empty(), "unwound by a host panic");
+
+        // Never polled.
+        drop(host.call(&host.wait));
+        assert!(pooled().is_empty(), "never started");
+
+        // The same with a stack that had been pooled: it is not put back.
+        host.gate.set(true);
+        assert!(matches!(poll(&mut host.call(&host.wait)), Poll::Ready(Ok(_))));
+        assert_eq!(pooled().len(), 1);
+        host.gate.set(false);
+        let mut call = host.call(&host.wait);
+        assert!(poll(&mut call).is_pending());
+        drop(call);
+        let mut call = host.call(&host.panic);
+        assert!(catch_unwind(AssertUnwindSafe(|| poll(&mut call))).is_err());
+        drop(call);
+        assert!(pooled().is_empty());
+
+        // And calls keep working.
+        host.gate.set(true);
+        assert!(matches!(poll(&mut host.call(&host.wait)), Poll::Ready(Ok(_))));
+        assert_eq!(pooled().len(), 1);
     }
 }
