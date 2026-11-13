@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell,
+    cell::Cell,
     collections::HashMap,
     future::Future,
     marker::PhantomData,
@@ -19,8 +19,10 @@ use crate::{
     RuntimeError, Store, StoreAsync, StoreContext, StoreInner, StoreMut, StoreRef, Value,
 };
 use wasmer_types::StoreId;
+use wasmer_vm::ActivationState;
 
 type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + 'static>>;
+type CallResult = Result<Box<[Value]>, RuntimeError>;
 
 pub(crate) fn call_function_async(
     function: SysFunction,
@@ -48,14 +50,46 @@ static ASYNC_CALL_FUTURE_WAKERS: LazyLock<DashMap<StoreId, HashMap<AsyncCallFutu
 pub(crate) struct AsyncCallFuture {
     id: AsyncCallFutureId,
 
-    coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    coroutine: Option<Coroutine<AsyncResume, AsyncYield, CallResult>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
-    result: Option<Result<Box<[Value]>, RuntimeError>>,
+    result: Option<CallResult>,
 
     // Store handle we can use to lock the store down
     store: StoreAsync,
+
+    activation: Activation,
+}
+
+thread_local! {
+    /// The `call_async` coroutine this thread is running on, if any.
+    static CURRENT_COROUTINE: Cell<*const CoroutineContext> = const { Cell::new(ptr::null()) };
+}
+
+/// The thread-local state that belongs to one `call_async`: kept here while
+/// its coroutine is suspended, and exchanged with the thread's by
+/// [`AsyncCallFuture::switch_to_coroutine`], the only place where the thread
+/// enters or leaves the coroutine.
+///
+/// Suspended calls can be resumed in any order, so none of this may be left
+/// on the thread while the coroutine is not running: another call would run
+/// with it, or put its own on top and have it popped out of order.
+struct Activation {
+    /// The trap handler the signal handler consults and the interrupt
+    /// registry's active stores.
+    vm: ActivationState,
+    /// [`CURRENT_COROUTINE`].
+    coroutine: *const CoroutineContext,
+}
+
+impl Activation {
+    /// # Safety
+    /// See [`ActivationState::swap`].
+    unsafe fn swap(&mut self) {
+        unsafe { self.vm.swap() };
+        CURRENT_COROUTINE.with(|cell| self.coroutine = cell.replace(self.coroutine));
+    }
 }
 
 // We can't use any of the existing AsStoreMut types here, since we keep
@@ -120,13 +154,9 @@ impl AsyncCallFuture {
                 assert!(matches!(resume, AsyncResume::Start));
 
                 let ctx_state = CoroutineContext::new(yielder);
-                ctx_state.enter();
-                let result = {
-                    let mut store_mut = AsyncCallStoreMut { store_id };
-                    function.call(&mut store_mut, &params)
-                };
-                ctx_state.leave();
-                result
+                CURRENT_COROUTINE.with(|cell| cell.set(&ctx_state));
+                let mut store_mut = AsyncCallStoreMut { store_id };
+                function.call(&mut store_mut, &params)
             });
 
         Self {
@@ -137,7 +167,61 @@ impl AsyncCallFuture {
             next_resume: Some(AsyncResume::Start),
             result: None,
             store,
+            activation: Activation {
+                vm: ActivationState::new(),
+                coroutine: ptr::null(),
+            },
         }
+    }
+
+    /// Runs the coroutine until it suspends or finishes; or, given no
+    /// `resume_arg`, unwinds a suspended coroutine (see `Drop`).
+    ///
+    /// The coroutine's [`Activation`] is on the thread for exactly as long as
+    /// the thread is on the coroutine's stack, and is taken back however the
+    /// thread leaves it: by suspending, by returning, or by a host panic
+    /// propagating out of `resume`.
+    fn switch_to_coroutine(
+        &mut self,
+        resume_arg: Option<AsyncResume>,
+    ) -> Option<CoroutineResult<AsyncYield, CallResult>> {
+        struct SwitchBack<'a> {
+            activation: &'a mut Activation,
+            suspended: bool,
+        }
+        impl Drop for SwitchBack<'_> {
+            fn drop(&mut self) {
+                // Safety: the second half of the pair below; the thread is
+                // back on the stack it switched from.
+                unsafe { self.activation.swap() };
+                if !self.suspended {
+                    // The coroutine returned or was unwound: nothing may be
+                    // left pointing into a stack that is gone.
+                    self.activation.coroutine = ptr::null();
+                    debug_assert!(self.activation.vm.is_empty());
+                }
+            }
+        }
+
+        // Safety: host code is about to switch to the coroutine that owns the
+        // activation, on the thread that runs it; `SwitchBack` swaps again as
+        // soon as control is back, also when it comes back by unwinding. The
+        // state is not used again once the coroutine is gone.
+        unsafe { self.activation.swap() };
+        let mut switch_back = SwitchBack {
+            activation: &mut self.activation,
+            suspended: false,
+        };
+        let result = match resume_arg {
+            Some(resume_arg) => Some(self.coroutine.as_mut().unwrap().resume(resume_arg)),
+            None => {
+                self.coroutine = None;
+                None
+            }
+        };
+        switch_back.suspended = matches!(result, Some(CoroutineResult::Yield(_)));
+        drop(switch_back);
+        result
     }
 
     fn remove_from_wakers_list(&self) {
@@ -163,7 +247,9 @@ impl Future for AsyncCallFuture {
 
             #[cfg(feature = "experimental-host-interrupt")]
             {
-                if super::vm::interrupt_registry::is_interrupted(store_id) {
+                if super::vm::interrupt_registry::is_interrupted(store_id)
+                    || self.activation.vm.is_interrupted(store_id)
+                {
                     self.remove_from_wakers_list();
                     return Poll::Ready(Err(super::vm::Trap::lib(
                         super::vm::TrapCode::HostInterrupt,
@@ -218,17 +304,25 @@ impl Future for AsyncCallFuture {
             };
 
             let resume_arg = self.next_resume.take().expect("no resume arg available");
-            let coroutine = self.coroutine.as_mut().unwrap();
-            match coroutine.resume(resume_arg) {
-                CoroutineResult::Yield(AsyncYield(fut)) => {
+            match self.switch_to_coroutine(Some(resume_arg)) {
+                Some(CoroutineResult::Yield(AsyncYield(fut))) => {
                     self.pending_future = Some(fut);
                 }
-                CoroutineResult::Return(result) => {
+                Some(CoroutineResult::Return(result)) => {
                     self.coroutine = None;
                     self.result = Some(result);
                 }
+                None => unreachable!("resumed with an argument"),
             }
 
+            // The coroutine has no store context entry of its own: a store it
+            // enters synchronously stays on top until that call returns, and
+            // cannot suspend in between (see `block_on_host_future`). So the
+            // entry installed above is on top again.
+            debug_assert!(
+                StoreContext::top_is_async(),
+                "a call_async coroutine left a store context entry behind"
+            );
             // Uninstall the store context to unlock the store after the coroutine
             // yields or returns.
             drop(store_context_guard);
@@ -239,6 +333,19 @@ impl Future for AsyncCallFuture {
 impl Drop for AsyncCallFuture {
     fn drop(&mut self) {
         self.remove_from_wakers_list();
+        // A call dropped while suspended is cancelled by unwinding its
+        // coroutine: host frames run their destructors, guest frames are
+        // discarded without running. The unwind happens on the coroutine, so
+        // it needs the coroutine's state like any other resumption. The store
+        // is not locked for it and nothing on the way may use it. The pending
+        // host future is dropped afterwards, with the other fields.
+        if self
+            .coroutine
+            .as_ref()
+            .is_some_and(|c| c.started() && !c.done())
+        {
+            self.switch_to_coroutine(None);
+        }
     }
 }
 
@@ -290,6 +397,9 @@ where
             // inline.
             run_immediate(future)
         }
+        // A store entered synchronously from inside a coroutine (another
+        // store, called by a host function) is a sync context too.
+        Some(_) if !StoreContext::top_is_async() => run_immediate(future),
         Some(context) => unsafe { context.as_ref().expect("valid context pointer") }
             .block_on_future(Box::pin(future))
             .map_err(AsyncRuntimeError::RuntimeError),
@@ -310,10 +420,8 @@ pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
     }
 }
 
-thread_local! {
-    static CURRENT_CONTEXT: RefCell<Vec<*const CoroutineContext>> = const { RefCell::new(Vec::new()) };
-}
-
+/// What host code needs to suspend the coroutine it is running on. It lives
+/// on the coroutine's own stack.
 struct CoroutineContext {
     yielder: *const Yielder<AsyncResume, AsyncYield>,
 }
@@ -325,53 +433,19 @@ impl CoroutineContext {
         }
     }
 
-    fn enter(&self) {
-        CURRENT_CONTEXT.with(|cell| {
-            let mut borrow = cell.borrow_mut();
-
-            // Push this coroutine on top of the active stack.
-            borrow.push(self as *const _);
-        })
-    }
-
-    // Note: we don't use a drop-style guard here on purpose; if a panic
-    // happens while a coroutine is running, CURRENT_CONTEXT will be in
-    // an inconsistent state. corosensei will unwind all coroutine stacks
-    // anyway, and if we had a guard that would get dropped and try to
-    // leave its context, it'd panic again at the assert_eq! below.
-    fn leave(&self) {
-        CURRENT_CONTEXT.with(|cell| {
-            let mut borrow = cell.borrow_mut();
-
-            // Pop this coroutine from the active stack.
-            assert_eq!(
-                borrow.pop(),
-                Some(self as *const _),
-                "Active coroutine stack corrupted"
-            );
-        });
-    }
-
     fn get_current() -> Option<*const Self> {
-        CURRENT_CONTEXT.with(|cell| cell.borrow().last().copied())
+        let current = CURRENT_COROUTINE.with(|cell| cell.get());
+        (!current.is_null()).then_some(current)
     }
 
     fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
-        // Leave the coroutine context since we're yielding back to the
-        // parent stack, and will be inactive until the future is ready.
-        self.leave();
-
+        // The poller takes this coroutine's state off the thread and puts it
+        // back before resuming us; see `AsyncCallFuture::switch_to_coroutine`.
         let yielder = unsafe { self.yielder.as_ref().expect("yielder pointer valid") };
-        let result = match yielder.suspend(AsyncYield(future)) {
+        match yielder.suspend(AsyncYield(future)) {
             AsyncResume::HostFutureReady(result) => result,
             AsyncResume::Start => unreachable!("coroutine resumed without start"),
-        };
-
-        // Once the future is ready, we restore the current coroutine
-        // context.
-        self.enter();
-
-        result
+        }
     }
 }
 
