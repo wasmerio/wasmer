@@ -49,7 +49,7 @@ use std::{
 };
 
 #[cfg(feature = "experimental-async")]
-use crate::LocalRwLockWriteGuard;
+use crate::{LocalRwLock, LocalRwLockWriteGuard};
 
 use super::{AsStoreMut, AsStoreRef, StoreInner, StoreMut, StoreRef};
 
@@ -213,6 +213,44 @@ impl StoreContext {
                 )
             })
         })
+    }
+
+    /// Takes the active entry off the stack and unlocks its store, if the
+    /// entry is `id`'s, is held by an async context and no frame holds a
+    /// borrow of the store. This is what uninstalling the entry does when a
+    /// `call_async` coroutine suspends, done by the coroutine itself, which
+    /// takes the store back with [`Self::return_async`].
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn lend_async(id: StoreId) -> Option<LocalRwLock<Box<StoreInner>>> {
+        let top = STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack.last()?;
+            let is_async = matches!(
+                unsafe { top.entry.get().as_ref().unwrap() },
+                StoreContextEntry::Async(_)
+            );
+            if top.id != id || top.borrow_count != 0 || !is_async {
+                return None;
+            }
+            stack.pop()
+        })?;
+        // The guard is dropped, and with it the lock released, outside the
+        // borrow of the stack: releasing wakes whoever waits for the store.
+        match top.entry.into_inner() {
+            StoreContextEntry::Async(guard) => Some(LocalRwLockWriteGuard::lock_handle(&guard)),
+            StoreContextEntry::Sync(_) => unreachable!(),
+        }
+    }
+
+    /// Locks a store given up with [`Self::lend_async`] again and makes it
+    /// the active entry. Fails, changing nothing, if the store is locked.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn return_async(lock: &LocalRwLock<Box<StoreInner>>) -> bool {
+        let Some(guard) = lock.try_write() else {
+            return false;
+        };
+        Self::push(guard.objects.id(), StoreContextEntry::Async(guard));
+        true
     }
 
     /// Whether the active entry is `id`'s, held by an async context.
@@ -565,6 +603,19 @@ impl Drop for StoreInstallGuard {
     }
 }
 
+#[cfg(feature = "experimental-async")]
+impl ForcedStoreInstallGuard {
+    /// Ends the guard without uninstalling anything: the entry was given up
+    /// with [`StoreContext::lend_async`] and not taken back.
+    pub(crate) fn entry_was_lent(self) {
+        debug_assert!(
+            !StoreContext::is_active(self.store_id),
+            "the store context entry of a lent store is still installed"
+        );
+        std::mem::forget(self);
+    }
+}
+
 impl Drop for ForcedStoreInstallGuard {
     fn drop(&mut self) {
         STORE_CONTEXT_STACK.with(|cell| {
@@ -716,5 +767,64 @@ mod borrow_provenance {
 
         drop(wrapper);
         drop(install);
+    }
+}
+
+#[cfg(all(test, feature = "experimental-async"))]
+mod lend_async {
+    use super::*;
+    use crate::Store;
+
+    /// A `call_async` coroutine that polls a host future itself lends its
+    /// store out for the poll and takes it back afterwards, while a host
+    /// frame of the call may be holding a paused borrow, as it does across a
+    /// suspension.
+    #[test]
+    fn a_lent_async_store_comes_back_to_the_borrow_that_was_paused() {
+        let store = Store::default().into_async();
+        let id = store.id;
+        let install = StoreContext::install_async(store.inner.try_write().unwrap());
+
+        // --- an import trampoline, handing a host function its store
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let _ = wrapper.as_mut().objects_mut().id();
+        assert!(
+            StoreContext::lend_async(id).is_none(),
+            "a store that is borrowed cannot be lent"
+        );
+
+        {
+            // --- the host function calls back into the guest
+            let pause = unsafe { StoreContext::pause(id) };
+
+            // --- which reaches an async import: the coroutine lends the
+            // store out for the first poll of the host future
+            assert!(
+                StoreContext::lend_async(Store::default().id()).is_none(),
+                "only the store that is running can be lent"
+            );
+            let lock = StoreContext::lend_async(id).expect("an unborrowed async store");
+            assert!(StoreContext::is_empty());
+            {
+                // --- the future locks the store
+                let mut guard = lock.try_write().expect("the store is unlocked");
+                let _ = guard.objects.id();
+                let _ = &mut guard.objects;
+                assert!(!StoreContext::return_async(&lock), "the store is locked");
+                assert!(StoreContext::is_empty());
+            }
+            assert!(StoreContext::return_async(&lock));
+            assert!(StoreContext::top_is_async());
+
+            drop(pause);
+        }
+
+        // --- the host function goes on using the borrow it held throughout
+        let _ = wrapper.as_mut().objects_mut().id();
+
+        drop(wrapper);
+        drop(install);
+        assert!(StoreContext::is_empty());
+        assert!(store.into_store().is_ok());
     }
 }
