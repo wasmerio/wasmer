@@ -43,9 +43,8 @@ use wasm_bindgen::{
 use wasmer_types::{FunctionType, StoreId, TrapCode};
 
 use crate::{
-    AsStoreAsync, AsStoreRef, BackendTrap, RuntimeError, StoreAsync, StoreAsyncWriteLock,
-    StoreInner, Value,
-    js::{error::Trap, utils::convert::AsJs as _},
+    AsStoreAsync, AsStoreRef, BackendTrap, RuntimeError, StoreAsync, StoreAsyncWriteLock, Value,
+    js::{error::Trap, function::numeric, utils::convert::AsJs as _},
 };
 
 /// The host's half of an async import: the host function and what it awaits.
@@ -127,6 +126,9 @@ struct Shim {
     undefined: JsValue,
     wait: JsValue,
     unwait: JsValue,
+    /// `resume` for a host function on the numeric lane, which the adapter
+    /// imports as it is.
+    resume_number: JsValue,
     hooks: ShimFunction,
     pend: ShimFunction,
     pend_woken: ShimFunction,
@@ -215,6 +217,8 @@ impl Shim {
             wait: get("wait"),
             unwait: Closure::wrap(Box::new(unwait) as Box<dyn Fn(i32) -> Result<(), JsValue>>)
                 .into_js_value(),
+            resume_number: Closure::wrap(Box::new(resume_number) as Box<dyn Fn(i32) -> f64>)
+                .into_js_value(),
             hooks: get("hooks").unchecked_into(),
             pend: get("pend").unchecked_into(),
             pend_woken: get("pendWoken").unchecked_into(),
@@ -260,14 +264,29 @@ impl Shim {
         }
     }
 
-    /// As `results`, for the `start` of an eager host function, to which
-    /// `undefined` means that there are no results yet.
-    fn eager_results(values: &[Value], store: &impl AsStoreRef) -> JsValue {
-        let results = Self::results(values, store);
-        if results.is_undefined() && !values.is_empty() {
-            return SHIM.with(|shim| shim.undefined.clone());
-        }
-        results
+}
+
+/// What the JavaScript half of the `start` of an eager host function is
+/// given: the results [`start_eager`] returned, or `undefined` for none yet.
+pub(crate) fn eager_results(ready: Option<Vec<Value>>, store: &impl AsStoreRef) -> JsValue {
+    let Some(values) = ready else {
+        return JsValue::UNDEFINED;
+    };
+    let results = Shim::results(&values, store);
+    if results.is_undefined() && !values.is_empty() {
+        // A result that is `undefined` itself.
+        return SHIM.with(|shim| shim.undefined.clone());
+    }
+    results
+}
+
+/// What the JavaScript half of `start` does with the token [`start`]
+/// returned, for a `start` the adapter imports without one.
+pub(crate) fn pend(token: i32) {
+    if token > 0 {
+        Shim::pend(token);
+    } else {
+        Shim::pend_woken(-token);
     }
 }
 
@@ -428,7 +447,7 @@ pub(crate) fn start(
 
 /// The Rust half of the `start` import of an eager host function: polls the
 /// host future once, here, on the guest's stack. Returns the results if it is
-/// ready, and `undefined` after switching the guest out if it is not.
+/// ready, and nothing after switching the guest out if it is not.
 ///
 /// The store is lent to that poll: the activation gives up the write lock for
 /// it, so the host function takes whatever lock it needs at once, and takes
@@ -436,23 +455,17 @@ pub(crate) fn start(
 /// the locks it holds, and the guest waits for the store in `resume`.
 ///
 /// With no call the guest could be suspended as (`import` is then given no
-/// store, and uses the one at `raw_store`, which the synchronous call beneath
-/// has lent to the guest), the future is polled all the same, and dropped if
-/// it is not ready: the import fails as that of any guest that cannot wait.
+/// store, and uses the one the synchronous call beneath has lent to the
+/// guest), the future is polled all the same, and dropped if it is not ready:
+/// the import fails as that of any guest that cannot wait.
 pub(crate) fn start_eager(
     id: StoreId,
-    raw_store: *mut StoreInner,
     import: impl FnOnce(Option<StoreAsync>) -> ImportFuture,
-) -> Result<JsValue, JsValue> {
+) -> Result<Option<Vec<Value>>, JsValue> {
     let Some(activation) = running(id) else {
         let mut cx = Context::from_waker(Waker::noop());
         return match import(None).as_mut().poll(&mut cx) {
-            Poll::Ready(Ok(values)) => {
-                // SAFETY: the guest was entered by a synchronous call, which
-                // lent it this store for as long as it runs.
-                let store = unsafe { &*raw_store };
-                Ok(Shim::eager_results(&values, store))
-            }
+            Poll::Ready(Ok(values)) => Ok(Some(values)),
             // Thrown, as a synchronous host function throws its error.
             Poll::Ready(Err(error)) => Err(Trap::user(Box::new(error)).into()),
             Poll::Pending => Err(cannot_suspend()),
@@ -462,7 +475,7 @@ pub(crate) fn start_eager(
     let store = activation.store.borrow().as_ref().map(StoreAsync::store);
     let Some(store) = store.filter(|_| !activation.cancelled.get()) else {
         Shim::pend_woken(activation.park(None));
-        return Ok(JsValue::UNDEFINED);
+        return Ok(None);
     };
     // The caller's waker, so that the future wakes whoever will poll it from
     // here on. A call always has one by now: it is polled to be entered.
@@ -476,16 +489,15 @@ pub(crate) fn start_eager(
             *activation.import.borrow_mut() = Some(import);
             activation.state.set(State::Suspended);
             Shim::pend(activation.token);
-            return Ok(JsValue::UNDEFINED);
+            return Ok(None);
         }
         // The call was dropped during the poll.
         Poll::Pending => None,
         Poll::Ready(_) if activation.cancelled.get() => None,
         Poll::Ready(Ok(values)) => match activation.try_lock() {
             Some(lock) => {
-                let results = Shim::eager_results(&values, &lock);
                 activation.switch_in(lock);
-                return Ok(results);
+                return Ok(Some(values));
             }
             // The store was not given back: the guest waits for it.
             None => Some(Ok(values)),
@@ -494,13 +506,14 @@ pub(crate) fn start_eager(
     };
     drop(import);
     Shim::pend_woken(activation.park(outcome));
-    Ok(JsValue::UNDEFINED)
+    Ok(None)
 }
 
-/// The Rust half of the adapter's `resume` import: the guest is back on the
-/// stack. Returns the results of its import, unless it tells the adapter to
-/// trap or to wait again.
-fn resume(token: i32) -> JsValue {
+/// The adapter's `resume` import, less the results' way back: the guest is
+/// back on the stack. Returns the results of its import with the activation
+/// that holds the store again, or nothing after telling the adapter to trap
+/// or to wait again.
+fn resumed(token: i32) -> Option<(Rc<Activation>, Vec<Value>)> {
     let activation = activation(token).expect("a suspended guest outlived its call");
     debug_assert_eq!(activation.state.get(), State::Suspended);
     let outcome = activation.outcome.take();
@@ -515,7 +528,7 @@ fn resume(token: i32) -> JsValue {
             }
             activation.set_state(State::Suspended, State::Unwinding);
             Shim::trap();
-            return Shim::not_ready();
+            return None;
         }
     };
     let lock = activation.lock.take().or_else(|| activation.try_lock());
@@ -528,11 +541,29 @@ fn resume(token: i32) -> JsValue {
         *activation.relock.borrow_mut() = Some(Box::pin(async move { store.write_lock().await }));
         activation.wake_caller();
         Shim::pend(token);
+        return None;
+    };
+    activation.switch_in(lock);
+    Some((activation, results))
+}
+
+/// The Rust half of the adapter's `resume` import. Returns the results of the
+/// import, or `notReady`.
+fn resume(token: i32) -> JsValue {
+    let Some((activation, results)) = resumed(token) else {
         return Shim::not_ready();
     };
-    let results = Shim::results(&results, &lock);
-    activation.switch_in(lock);
-    results
+    let lock = activation.lock.borrow();
+    Shim::results(&results, lock.as_ref().expect("a resumed guest has its store"))
+}
+
+/// The adapter's `resume` import for a host function on the numeric lane.
+/// Returns the result of the import, if it has one and it is there.
+fn resume_number(token: i32) -> f64 {
+    match resumed(token) {
+        Some((_, results)) if !results.is_empty() => numeric::result(&results),
+        _ => 0.0,
+    }
 }
 
 /// The adapter's `unwait` import: the engine refused to suspend the guest,
@@ -674,13 +705,21 @@ impl Drop for Call {
 /// Wraps `start`, the function that begins an async host function of type `ty`
 /// by calling [`start`], or [`start_eager`] if it is `eager`, in the adapter a
 /// guest imports.
+///
+/// A `start` on the numeric lane (`numeric`) takes and returns numbers and
+/// sets the status itself, with [`pend`]: the adapter imports it as it is.
 pub(crate) fn adapter(
     ty: &FunctionType,
     start: &JsValue,
     eager: bool,
+    numeric: bool,
 ) -> Result<Function, JsValue> {
     let module = adapter::module(ty)?;
     SHIM.with(|shim| {
+        if numeric {
+            let hooks = [start, &shim.wait, &shim.resume_number, &shim.unwait];
+            return adapter::instantiate(&module, hooks, &shim.status);
+        }
         let placeholder = adapter::placeholder(ty);
         let hooks = shim
             .hooks

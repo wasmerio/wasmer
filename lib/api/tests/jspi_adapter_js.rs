@@ -1163,7 +1163,7 @@ async fn the_store_is_lent_to_an_eager_host_function() {
         };
         if let Some(mut guard) = env.write().now_or_never() {
             found.exclusive = store.write_lock().now_or_never().is_none();
-            let (_, mut lent) = guard.data_and_store_mut();
+            let (_, lent) = guard.data_and_store_mut();
             let mut lent = lent.as_store_mut();
             found.parked = lent.parked(|| Store::with_current(|_| ()).is_some());
         }
@@ -1621,6 +1621,80 @@ async fn every_signature_goes_through_and_unwinds() {
             );
         }
         assert_eq!(caught.get(), 0, "{case}: the guest caught something");
+    }
+}
+
+/// Numbers through async host functions arrive as they were sent, in both
+/// directions: every kind, from no parameter to more than are passed as plain
+/// numbers, with a result and without, eager or not, at once or after a wait.
+#[wasm_bindgen_test]
+async fn numbers_go_through_async_host_functions_as_they_are() {
+    use Type::*;
+    fn bits(value: &Value) -> (Type, u64) {
+        match value {
+            Value::I32(value) => (I32, *value as u32 as u64),
+            Value::F32(value) => (F32, value.to_bits() as u64),
+            Value::F64(value) => (F64, value.to_bits()),
+            other => panic!("{other:?} is not a number"),
+        }
+    }
+    let samples = |ty: &Type, index: usize| match ty {
+        I32 => Value::I32([i32::MIN, -1, i32::MAX][index % 3]),
+        F32 => Value::F32([-0.0, f32::MIN_POSITIVE / 4.0, f32::NEG_INFINITY][index % 3]),
+        _ => Value::F64([5e-324, -0.0, 9_007_199_254_740_993.0][index % 3]),
+    };
+    let kinds = [I32, F32, F64];
+    for (eager, arity) in [false, true]
+        .into_iter()
+        .flat_map(|eager| [0, 1, 3, 8, 9].map(|arity| (eager, arity)))
+    {
+        for result in [None, Some(I32), Some(F32), Some(F64)] {
+            let params: Vec<Type> = kinds.iter().copied().cycle().take(arity).collect();
+            let results: Vec<Type> = result.into_iter().collect();
+            let ty = FunctionType::new(params.clone(), results.clone());
+            let case = format!("{ty}, eager: {eager}");
+            let mut store = Store::default();
+            let module = Module::new(&store, signature_guest(&params, &results)).unwrap();
+            let caught = Rc::new(Cell::new(0));
+            type Calls = Vec<Vec<(Type, u64)>>;
+            let received: Rc<RefCell<Calls>> = Rc::default();
+            let returns: Vec<Value> = results.iter().map(|ty| samples(ty, arity)).collect();
+            let f = Function::new_async(&mut store, ty, {
+                let (received, returns) = (received.clone(), returns.clone());
+                move |arguments| {
+                    let wait = received.borrow().len() % 2 == 1;
+                    received
+                        .borrow_mut()
+                        .push(arguments.iter().map(bits).collect());
+                    let returns = returns.clone();
+                    async move {
+                        if wait {
+                            macrotask().await;
+                        }
+                        Ok(returns)
+                    }
+                }
+            });
+            let f = if eager { f.eager() } else { f };
+            let imports =
+                imports! { "host" => { "f" => f, "caught" => counter(&mut store, &caught) } };
+            let instance = Instance::new(&mut store, &module, &imports).unwrap();
+            let run = instance.exports.get_function("run").unwrap().clone();
+            let store = store.into_async();
+            // Once with a host function that is ready, once with one that waits.
+            for round in 0..2 {
+                let arguments: Vec<Value> = (0..arity)
+                    .map(|index| samples(&params[index], index + round))
+                    .collect();
+                let returned = run.call_async(&store, arguments.clone()).await.unwrap();
+                let sent: Vec<_> = arguments.iter().map(bits).collect();
+                assert_eq!(received.borrow()[round], sent, "{case}: arguments");
+                let returned: Vec<_> = returned.iter().map(bits).collect();
+                let expected: Vec<_> = returns.iter().map(bits).collect();
+                assert_eq!(returned, expected, "{case}: results");
+            }
+            assert_eq!(caught.get(), 0, "{case}");
+        }
     }
 }
 
