@@ -470,13 +470,15 @@ impl Drop for AsyncCallFuture {
 }
 
 async fn install_store_context(store: StoreAsync) -> ForcedStoreInstallGuard {
-    match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
-        crate::GetStoreAsyncGuardResult::NotInstalled => {
+    // Looks at the active entry without borrowing it: a borrow taken here
+    // would still be taken after the panic below is caught.
+    match crate::StoreContext::is_active(store.id) {
+        false => {
             // We always need to acquire a new write lock on the store.
             let store_guard = store.inner.write().await;
             unsafe { crate::StoreContext::install_async(store_guard) }
         }
-        _ => {
+        true => {
             // If we're already in a store context, it is unsafe to reuse
             // the existing store ref since it'll also be accessible from
             // the imported function that tried to poll us, which is a
