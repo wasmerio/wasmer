@@ -125,7 +125,8 @@ thread_local! {
 }
 
 impl StoreContext {
-    fn is_active(id: StoreId) -> bool {
+    /// Whether `id`'s entry is the active one.
+    pub(crate) fn is_active(id: StoreId) -> bool {
         STORE_CONTEXT_STACK.with(|cell| {
             let stack = cell.borrow();
             stack.last().is_some_and(|ctx| ctx.id == id)

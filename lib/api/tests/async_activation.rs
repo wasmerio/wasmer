@@ -678,8 +678,8 @@ fn a_call_that_waited_for_the_store_gives_up_its_place_among_the_waiters() {
 }
 
 /// A call polled from inside the store it runs in, by a host function of
-/// another call on that store, cannot have the store and says so. (The outer
-/// call does not survive the refusal, which is not what this test is about.)
+/// another call on that store, cannot have the store and says so. A host
+/// function that catches the refusal goes on, and so does its call.
 #[test]
 fn a_call_polled_from_inside_its_own_store_is_refused() {
     let g = gates();
@@ -700,12 +700,15 @@ fn a_call_polled_from_inside_its_own_store_is_refused() {
         }
     });
     let mut outer = guest.call("via_host", &[0]);
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| poll_once(&mut outer)));
+    expect_value("outer", &mut outer, 7);
     let refusal = refusal.borrow().clone().expect("a panic with a message");
     assert!(
         refusal.contains("cannot be polled recursively"),
         "{refusal}"
     );
+    drop(outer);
+    expect_value("next call", &mut guest.call("via_host", &[0]), 7);
+    assert!(guest.try_write().is_some(), "the store is free");
 }
 
 /// A host future is polled for the first time on the coroutine of the call,
