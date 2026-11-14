@@ -35,7 +35,7 @@ use std::{
 
 use wasmer::{
     AsStoreAsync, Function, FunctionType, Instance, Module, RuntimeError, Store, StoreAsync,
-    StoreAsyncWriteLock, Type, Value, imports,
+    StoreAsyncWriteLock, Type, TypedFunction, Value, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -675,6 +675,105 @@ fn a_call_that_waited_for_the_store_gives_up_its_place_among_the_waiters() {
     drop(call);
     drop(holder);
     assert_eq!(wakes.count(), 1, "the waiter is told the store is free");
+}
+
+/// Three waiters for a store: B waits, is woken, and finds the store taken
+/// again; C starts waiting meanwhile. Both are woken when the store is
+/// released, C again when B is done with it, and the store can be taken
+/// back out of its async handle afterwards.
+#[test]
+fn every_waiter_for_the_store_is_woken() {
+    let g = gates();
+    let guest = Guest::new(&g);
+    let lock = |wakes: &Arc<Wakes>| {
+        let mut lock = Box::pin(guest.store.write_lock());
+        let waker = Waker::from(wakes.clone());
+        let poll = lock.as_mut().poll(&mut Context::from_waker(&waker));
+        (lock, poll)
+    };
+    let (wakes_b, wakes_c) = (Arc::new(Wakes::default()), Arc::new(Wakes::default()));
+
+    let a = guest.try_write().expect("the store is free");
+    let (mut b, poll) = lock(&wakes_b);
+    assert!(poll.is_pending());
+    drop(a);
+    assert_eq!(wakes_b.count(), 1);
+
+    let a = guest.try_write().expect("the store is free");
+    let (mut c, poll) = lock(&wakes_c);
+    assert!(poll.is_pending());
+    let waker_b = Waker::from(wakes_b.clone());
+    assert!(
+        b.as_mut()
+            .poll(&mut Context::from_waker(&waker_b))
+            .is_pending()
+    );
+    drop(a);
+    assert_eq!((wakes_b.count(), wakes_c.count()), (2, 1));
+
+    let Poll::Ready(guard_b) = b.as_mut().poll(&mut Context::from_waker(&waker_b)) else {
+        panic!("B should have the store");
+    };
+    let waker_c = Waker::from(wakes_c.clone());
+    assert!(
+        c.as_mut()
+            .poll(&mut Context::from_waker(&waker_c))
+            .is_pending()
+    );
+    drop(guard_b);
+    assert_eq!(wakes_c.count(), 2);
+    let Poll::Ready(guard_c) = c.as_mut().poll(&mut Context::from_waker(&waker_c)) else {
+        panic!("C should have the store");
+    };
+    drop((guard_c, b, c));
+    guest.into_store();
+}
+
+/// A typed `call_async` waits for the store as a reader, `Function::call_async`
+/// as a writer. Releasing the store wakes only the writer; when that call is
+/// dropped before it is polled again, the typed call is woken in its place.
+#[test]
+fn a_call_waiting_behind_a_dropped_call_is_woken() {
+    let g = gates();
+    let guest = Guest::new(&g);
+    let typed: TypedFunction<i32, i32> = {
+        let guard = guest.try_write().expect("the store is free");
+        guest
+            .instance
+            .exports
+            .get_typed_function(&guard, "via_host")
+            .unwrap()
+    };
+    let (wakes_typed, wakes_untyped) = (Arc::new(Wakes::default()), Arc::new(Wakes::default()));
+    let waker_typed = Waker::from(wakes_typed.clone());
+    let waker_untyped = Waker::from(wakes_untyped.clone());
+
+    let holder = guest.try_write().expect("the store is free");
+    let mut typed_call = Box::pin(typed.call_async(&guest.store, 0));
+    let poll = typed_call
+        .as_mut()
+        .poll(&mut Context::from_waker(&waker_typed));
+    assert!(poll.is_pending());
+    let mut untyped_call = guest.call("via_host", &[0]);
+    let poll = untyped_call
+        .as_mut()
+        .poll(&mut Context::from_waker(&waker_untyped));
+    assert!(poll.is_pending());
+    drop(holder);
+    assert_eq!((wakes_untyped.count(), wakes_typed.count()), (1, 0));
+
+    drop(untyped_call);
+    assert_eq!(
+        wakes_typed.count(),
+        1,
+        "the typed call is told the store is free"
+    );
+    let poll = typed_call
+        .as_mut()
+        .poll(&mut Context::from_waker(&waker_typed));
+    assert!(matches!(poll, Poll::Ready(Ok(7))), "{poll:?}");
+    drop(typed_call);
+    guest.into_store();
 }
 
 /// A call polled from inside the store it runs in, by a host function of
