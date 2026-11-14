@@ -1117,3 +1117,195 @@ mod host_future_first_poll {
         assert!(outer.store.into_store().is_ok());
     }
 }
+
+/// A host function catches a panic from a guest it called, and goes on using
+/// its store. Its borrow of the store, which the guest call paused, is given
+/// back while the panic unwinds, as are the borrows of the host functions the
+/// panic unwinds through.
+mod caught_panics {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    use wasmer::{AsyncFunctionEnvMut, FunctionEnv, FunctionEnvMut};
+
+    use super::*;
+
+    const WAT: &str = r#"
+    (module
+      (import "h" "sync" (func $sync))
+      (import "h" "typed" (func $typed))
+      (import "h" "async_body" (func $async_body))
+      (import "h" "async_future" (func $async_future))
+      (import "h" "wait" (func $wait))
+      (import "h" "catch" (func $catch (param i32) (result i32)))
+      (import "h" "drop_call" (func $drop_call))
+      (func (export "sync") (call $sync))
+      (func (export "typed") (call $typed))
+      (func (export "async_body") (call $async_body))
+      (func (export "async_future") (call $async_future))
+      (func (export "wait") (call $wait))
+      (func (export "catch") (param i32) (result i32) (call $catch (local.get 0)))
+      (func (export "drop_call") (call $drop_call)))
+    "#;
+
+    /// The host functions that panic, by the export that calls them: a
+    /// dynamic one, a typed one, an async one in its body and an async one
+    /// in its future's first poll. `wait` does not panic: it is pending.
+    const NESTED: [&str; 5] = ["sync", "typed", "async_body", "async_future", "wait"];
+
+    #[derive(Default)]
+    struct Env {
+        nested: Vec<Function>,
+        /// How many times `catch` went on after the guest call.
+        went_on: i32,
+    }
+
+    struct Guest {
+        store: Store,
+        instance: Instance,
+        /// A call for `drop_call` to drop.
+        to_drop: Rc<RefCell<Option<CallFuture>>>,
+    }
+
+    impl Guest {
+        fn new() -> Self {
+            let mut store = Store::default();
+            let module = Module::new(&store, WAT).unwrap();
+            let env = FunctionEnv::new(&mut store, Env::default());
+            let unit = FunctionType::new(vec![], vec![]);
+            let sync = Function::new(&mut store, unit.clone(), |_| panic!("host function"));
+            fn typed_panics() {
+                panic!("typed host function")
+            }
+            let typed = Function::new_typed(&mut store, typed_panics);
+            let async_body = Function::new_with_env_async(
+                &mut store,
+                &env,
+                unit.clone(),
+                |_: AsyncFunctionEnvMut<Env>, _: &[Value]| -> std::future::Ready<_> {
+                    panic!("async host function")
+                },
+            );
+            let async_future = Function::new_with_env_async(
+                &mut store,
+                &env,
+                unit.clone(),
+                |_: AsyncFunctionEnvMut<Env>, _: &[Value]| async { panic!("host future") },
+            );
+            let wait = Function::new_async(&mut store, unit.clone(), |_| async {
+                Gate(Rc::new(Cell::new(false))).await;
+                Ok(vec![])
+            });
+            // Calls the export `NESTED[i]` and catches a panic from it. Returns
+            // how many times it went on after catching one, or -1 if there was
+            // none to catch.
+            let catch = Function::new_with_env(
+                &mut store,
+                &env,
+                FunctionType::new(vec![Type::I32], vec![Type::I32]),
+                |mut env: FunctionEnvMut<Env>, args: &[Value]| {
+                    let nested = env.data().nested[args[0].unwrap_i32() as usize].clone();
+                    let result = catch_unwind(AssertUnwindSafe(|| nested.call(&mut env, &[])));
+                    let caught = match result {
+                        Ok(_) => false,
+                        Err(payload) if payload.is::<&str>() => true,
+                        // A call that is dropped while suspended is unwound
+                        // with a payload of its own, which must go on.
+                        Err(payload) => std::panic::resume_unwind(payload),
+                    };
+                    env.data_mut().went_on += 1;
+                    let went_on = env.data().went_on;
+                    Ok(vec![Value::I32(if caught { went_on } else { -1 })])
+                },
+            );
+            let to_drop: Rc<RefCell<Option<CallFuture>>> = Rc::default();
+            let drop_call = Function::new_async(&mut store, unit, {
+                let to_drop = to_drop.clone();
+                move |_| {
+                    drop(to_drop.borrow_mut().take());
+                    async { Ok(vec![]) }
+                }
+            });
+            let instance = Instance::new(
+                &mut store,
+                &module,
+                &imports! { "h" => {
+                    "sync" => sync,
+                    "typed" => typed,
+                    "async_body" => async_body,
+                    "async_future" => async_future,
+                    "wait" => wait,
+                    "catch" => catch,
+                    "drop_call" => drop_call,
+                } },
+            )
+            .unwrap();
+            env.as_mut(&mut store).nested = NESTED
+                .iter()
+                .map(|name| instance.exports.get_function(name).unwrap().clone())
+                .collect();
+            Self {
+                store,
+                instance,
+                to_drop,
+            }
+        }
+
+        fn export(&self, name: &str) -> Function {
+            self.instance.exports.get_function(name).unwrap().clone()
+        }
+    }
+
+    fn call(store: &StoreAsync, f: &Function, args: &[i32]) -> CallFuture {
+        let args = args.iter().map(|v| Value::I32(*v)).collect();
+        Box::pin(f.call_async(store, args))
+    }
+
+    #[test]
+    fn on_a_call_async_coroutine() {
+        for (i, nested) in NESTED[..4].iter().enumerate() {
+            let guest = Guest::new();
+            let catch = guest.export("catch");
+            let store = guest.store.into_async();
+            for round in 1..=2 {
+                expect_value(nested, &mut call(&store, &catch, &[i as i32]), round);
+            }
+            assert!(store.into_store().is_ok(), "{nested}");
+        }
+    }
+
+    /// Nothing changes for a synchronous call, whose host functions borrow
+    /// entries of their own.
+    #[test]
+    fn on_a_synchronous_call() {
+        for (i, nested) in NESTED[..4].iter().enumerate() {
+            let mut guest = Guest::new();
+            let catch = guest.export("catch");
+            for round in 1..=2 {
+                let values = catch
+                    .call(&mut guest.store, &[Value::I32(i as i32)])
+                    .unwrap();
+                assert_eq!(values[0].unwrap_i32(), round, "{nested}");
+            }
+        }
+    }
+
+    /// A call that is suspended under a host function holding a paused
+    /// borrow, and is dropped by another call on the same store, is unwound
+    /// without changing the borrows of the call that drops it.
+    #[test]
+    fn a_dropped_call_leaves_the_borrows_of_the_call_that_drops_it() {
+        let guest = Guest::new();
+        let (catch, drop_call) = (guest.export("catch"), guest.export("drop_call"));
+        let to_drop = guest.to_drop.clone();
+        let store = guest.store.into_async();
+        let mut suspended = call(&store, &catch, &[4]);
+        expect_pending("suspended", &mut suspended);
+        *to_drop.borrow_mut() = Some(suspended);
+        match poll_once(&mut call(&store, &drop_call, &[])) {
+            Poll::Ready(Ok(_)) => {}
+            other => panic!("the call that drops it: {other:?}"),
+        }
+        assert!(to_drop.borrow().is_none());
+        assert!(store.into_store().is_ok());
+    }
+}

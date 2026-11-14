@@ -535,9 +535,32 @@ impl Clone for StorePtrWrapper {
     }
 }
 
+/// Runs `f` on the active entry while a panic unwinds, if there is one. Never
+/// panics: a destructor that panics while unwinding aborts the process.
+fn with_active_while_unwinding(f: impl FnOnce(&mut StoreContext)) {
+    let _ = STORE_CONTEXT_STACK.try_with(|cell| {
+        if let Ok(mut stack) = cell.try_borrow_mut()
+            && let Some(top) = stack.last_mut()
+        {
+            f(top);
+        }
+    });
+}
+
 impl Drop for StorePtrWrapper {
     fn drop(&mut self) {
         if std::thread::panicking() {
+            // The borrow is given back while unwinding too, if its entry is
+            // still the active one, because a paused borrow is restored then
+            // (see `StorePtrPauseGuard`): a host frame further up that catches
+            // the panic must find the count of its own borrow. An entry that
+            // is no longer active is removed by its install guard, whatever
+            // its count.
+            with_active_while_unwinding(|top| {
+                if unsafe { top.entry.get().as_ref().unwrap() }.as_ptr() == self.store_ptr {
+                    top.borrow_count = top.borrow_count.saturating_sub(1);
+                }
+            });
             return;
         }
         let id = self.as_mut().objects_mut().id();
@@ -649,6 +672,18 @@ impl Drop for ForcedStoreInstallGuard {
 impl Drop for StorePtrPauseGuard {
     fn drop(&mut self) {
         if std::thread::panicking() {
+            // The paused borrow is restored if its entry is still the active
+            // one: the host function that holds it may catch the panic and go
+            // on using the store, and its `StorePtrWrapper` gives the borrow
+            // back when it is dropped.
+            with_active_while_unwinding(|top| {
+                if self.ref_count_decremented
+                    && top.id == self.store_id
+                    && unsafe { top.entry.get().as_ref().unwrap() }.as_ptr() == self.ptr
+                {
+                    top.borrow_count += 1;
+                }
+            });
             return;
         }
         STORE_CONTEXT_STACK.with(|cell| {
@@ -768,6 +803,38 @@ mod borrow_provenance {
         drop(wrapper);
         drop(install);
     }
+
+    /// A host function that catches a panic from the guest it called goes on
+    /// with the borrow it held throughout, after the nested entry, the pause
+    /// and the borrow of the host function that panicked were dropped while
+    /// unwinding. Miri checks the last use.
+    #[test]
+    fn a_caught_panic_keeps_the_outer_borrow_usable() {
+        let mut store = Store::default();
+        let id = store.id();
+
+        let mut caller = store.as_store_mut();
+        let install = unsafe { StoreContext::install(caller.as_store_mut().inner as *mut _) };
+
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let mut shim = wrapper.as_mut();
+        let _ = shim.objects_mut().id();
+
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _inner_install =
+                unsafe { StoreContext::install(shim.as_store_mut().inner as *mut _) };
+            let _pause = unsafe { StoreContext::pause(id) };
+            let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
+            let _ = inner_wrapper.as_mut().objects_mut().id();
+            panic!("host function panicked");
+        }));
+        assert!(caught.is_err());
+
+        let _ = shim.objects_mut().id();
+
+        drop(wrapper);
+        drop(install);
+    }
 }
 
 #[cfg(all(test, feature = "experimental-async"))]
@@ -825,6 +892,76 @@ mod lend_async {
         drop(wrapper);
         drop(install);
         assert!(StoreContext::is_empty());
+        assert!(store.into_store().is_ok());
+    }
+}
+
+#[cfg(all(test, feature = "experimental-async"))]
+mod unwinding {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    use super::*;
+    use crate::Store;
+
+    fn active_borrows() -> u32 {
+        STORE_CONTEXT_STACK.with(|cell| cell.borrow().last().unwrap().borrow_count)
+    }
+
+    /// An async context has one entry for all the host functions of a call:
+    /// a guest call pauses the borrow of the host function that makes it,
+    /// rather than installing an entry of its own. When a host function the
+    /// guest reaches panics, and the one that made the guest call catches the
+    /// panic, the paused borrow is restored and the borrow of the one that
+    /// panicked given back while unwinding, so that the count is that of the
+    /// borrow still held.
+    #[test]
+    fn a_caught_panic_leaves_the_borrow_of_the_host_function_that_caught_it() {
+        let store = Store::default().into_async();
+        let id = store.id;
+        let install = StoreContext::install_async(store.inner.try_write().unwrap());
+
+        // --- the host function that catches the panic
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        assert_eq!(active_borrows(), 1);
+        let caught = catch_unwind(AssertUnwindSafe(|| {
+            // --- its guest call
+            let _install = unsafe { StoreContext::install(wrapper.as_mut().inner as *mut _) };
+            let _pause = unsafe { StoreContext::pause(id) };
+            assert_eq!(active_borrows(), 0);
+            // --- a host function the guest reaches, which panics
+            let _inner_wrapper = unsafe { StoreContext::get_current(id) };
+            assert_eq!(active_borrows(), 1);
+            panic!("host function panicked");
+        }));
+        assert!(caught.is_err());
+        assert_eq!(active_borrows(), 1);
+
+        let _ = wrapper.as_mut().objects_mut().id();
+        drop(wrapper);
+        drop(install);
+        assert!(StoreContext::is_empty());
+        assert!(store.into_store().is_ok());
+    }
+
+    /// A panic whose host function did not make the guest call, so that
+    /// nothing was paused, leaves the count where it was.
+    #[test]
+    fn a_caught_panic_without_a_guest_call_leaves_the_count_alone() {
+        let store = Store::default().into_async();
+        let id = store.id;
+        let install = StoreContext::install_async(store.inner.try_write().unwrap());
+
+        let wrapper = unsafe { StoreContext::get_current(id) };
+        let caught = catch_unwind(AssertUnwindSafe(|| {
+            let _inner_wrapper = unsafe { StoreContext::get_current(id) };
+            assert_eq!(active_borrows(), 2);
+            panic!("host function panicked");
+        }));
+        assert!(caught.is_err());
+        assert_eq!(active_borrows(), 1);
+
+        drop(wrapper);
+        drop(install);
         assert!(store.into_store().is_ok());
     }
 }
