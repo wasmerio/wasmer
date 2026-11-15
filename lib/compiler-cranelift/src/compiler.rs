@@ -397,6 +397,8 @@ impl CraneliftCompiler {
                     compiled.fde,
                     #[cfg(feature = "unwind")]
                     compiled.function_lsda,
+                    #[cfg(feature = "unwind")]
+                    compiled.compact_unwind_encoding,
                 )?;
                 Ok(CompileOutput::Object(object, None))
             } else {

@@ -3,6 +3,7 @@ use crate::config::OptimizationStyle;
 use crate::object_file::CompiledFunction;
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
+use crate::translator::enable_m0_optimization;
 use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -31,7 +32,7 @@ use wasmer_compiler::{
     translate_function_buckets,
 };
 use wasmer_types::ExportIndex;
-use wasmer_types::MetadataHeader;
+use wasmer_types::MemoryIndex;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
@@ -39,6 +40,7 @@ use wasmer_types::{
     SignatureIndex,
 };
 use wasmer_vm::LibCall;
+use wasmer_vm::MemoryStyle;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
@@ -208,15 +210,8 @@ impl Compiler for LLVMCompiler {
         if self.config.enable_readonly_funcref_table {
             components.push(Component::ReadonlyFuncrefTable);
         }
-        // We intentionally use a negative marker to distinguish it from the already
-        // existing compiled Artifacts built with M0 enabled!
-        // TODO: flip it to EnableM0 in the future
-        const _: () = assert!(
-            MetadataHeader::CURRENT_VERSION == 24,
-            "Rename Component::DisableM0",
-        );
-        if !self.config.enable_m0 {
-            components.push(Component::DisableM0);
+        if self.config.enable_m0 {
+            components.push(Component::EnableM0);
         }
 
         components
@@ -238,6 +233,10 @@ impl Compiler for LLVMCompiler {
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares
+    }
+
+    fn m0_pass_param_enabled(&self, memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>) -> bool {
+        enable_m0_optimization(&self.config, memory_styles)
     }
 
     fn enable_readonly_funcref_table(&self) -> bool {
@@ -472,6 +471,7 @@ impl Compiler for LLVMCompiler {
                 target,
                 compile_info_blob,
                 CompiledObjects {
+                    emit_trap_offsets: false,
                     object_files,
                     import_trampoline_object_files: Vec::new(),
                     trampoline_object_files: trampolines_objects,

@@ -95,6 +95,25 @@ impl Table {
         src_index: u32,
         len: u32,
     ) -> Result<(), RuntimeError> {
+        if !src_table.is_from_store(store) {
+            return Err(RuntimeError::new(
+                "source table does not belong to the provided Store",
+            ));
+        }
+        if !dst_table.is_from_store(store) {
+            return Err(RuntimeError::new(
+                "destination table does not belong to the provided Store",
+            ));
+        }
+
+        let dst_ty = dst_table.ty(store).ty;
+        let src_ty = src_table.ty(store).ty;
+        if dst_ty != src_ty {
+            return Err(RuntimeError::new(format!(
+                "source table element type {src_ty} does not match destination table element type {dst_ty}"
+            )));
+        }
+
         BackendTable::copy(store, &dst_table.0, dst_index, &src_table.0, src_index, len)
     }
 

@@ -36,7 +36,7 @@ jobs:
   build:
     name: ${{ matrix.build }}
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: ${{ matrix.build == 'linux-x64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.build == 'linux-arm64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-arm64' || 'aux-pub-trusted-16cpu-arm64') || matrix.os }}
+    runs-on: ${{ matrix.build == 'linux-x64' && (github.event_name == 'pull_request' && 'aux-pub-u22-16cpu-amd64' || 'aux-pub-trusted-u22-16cpu-amd64') || matrix.build == 'linux-arm64' && (github.event_name == 'pull_request' && 'aux-pub-u22-16cpu-arm64' || 'aux-pub-trusted-u22-16cpu-arm64') || matrix.os }}
     needs: setup
     strategy:
       fail-fast: false
@@ -278,17 +278,12 @@ jobs:
         run: |
           rustup target add x86_64-pc-windows-gnu
       - name: Install Windows 10 SDK with xwin
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          mkdir -p /tmp/xwin
           mkdir -p /tmp/xwindownload
           mkdir -p /tmp/xwincache
-          git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
-            clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
-          cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
-          /tmp/xwin/target/release/xwin \
+          cargo install xwin --locked
+          xwin \
             --accept-license \
             --cache-dir /tmp/xwincache \
             --timeout 180s \

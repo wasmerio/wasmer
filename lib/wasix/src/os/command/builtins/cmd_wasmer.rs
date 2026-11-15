@@ -174,7 +174,7 @@ impl CmdWasmer {
                     env.use_package_async(&binary).await.unwrap();
 
                     // Now run the module
-                    spawn_exec(*binary, name, env, &self.runtime).await
+                    spawn_exec((*binary).into(), name, env, &self.runtime).await
                 }
                 Executable::Wasm(bytes) => {
                     let data = HashedModuleData::new(bytes);

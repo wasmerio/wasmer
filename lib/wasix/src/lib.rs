@@ -82,6 +82,7 @@ use os::task::control_plane::ControlPlaneError;
 use thiserror::Error;
 // re-exports needed for OS
 pub use wasmer;
+pub use wasmer_asyncify;
 pub use wasmer_wasix_types;
 
 use wasmer::{

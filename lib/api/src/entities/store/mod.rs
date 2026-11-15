@@ -79,7 +79,6 @@ impl Store {
         Self {
             inner: Box::new(StoreInner {
                 objects: StoreObjects::from_store_ref(&store),
-                on_called: None,
                 store,
             }),
         }

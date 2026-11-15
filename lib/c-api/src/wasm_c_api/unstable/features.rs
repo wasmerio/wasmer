@@ -17,9 +17,6 @@
 //!     // Now, let's enable the SIMD feature.
 //!     wasmer_features_simd(features, true);
 //!
-//!     // And also the memory64 feature.     
-//!     wasmer_features_memory64(features, true);
-//!
 //!     wasmer_features_delete(features);
 //!
 //!     return 0;
@@ -323,39 +320,6 @@ pub extern "C" fn wasmer_features_multi_memory(
     };
 
     features.inner.multi_memory(enable);
-
-    true
-}
-
-/// Configures whether the WebAssembly 64-bit memory proposal will
-/// be enabled.
-///
-/// The [WebAssembly 64-bit memory proposal][proposal] is now
-/// fully standardized.
-/// Support for this feature can be enabled through this method
-/// for appropriate WebAssembly modules.
-///
-/// This feature gates support for linear memory of sizes larger than
-/// 2^32 bits.
-///
-/// This is `false` by default.
-///
-/// [proposal]: https://github.com/WebAssembly/memory64
-///
-/// # Example
-///
-/// See the module's documentation.
-#[unsafe(no_mangle)]
-pub extern "C" fn wasmer_features_memory64(
-    features: Option<&mut wasmer_features_t>,
-    enable: bool,
-) -> bool {
-    let features = match features {
-        Some(features) => features,
-        _ => return false,
-    };
-
-    features.inner.memory64(enable);
 
     true
 }

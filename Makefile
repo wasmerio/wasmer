@@ -652,9 +652,12 @@ test-js: test-js-api test-js-wasi
 
 # The `experimental-async` run needs JSPI, which Node enables by default from
 # version 25.
+# The module tests run again with js-serializable-module: WASIX enables it, and
+# modules then keep their binary instead of copying it.
 test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat,experimental-async
+	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat,js-serializable-module --test module
 
 lint-js:
 	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default" --locked -- -D clippy::all

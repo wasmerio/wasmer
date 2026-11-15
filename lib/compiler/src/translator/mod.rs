@@ -23,3 +23,13 @@ pub use self::module::translate_module;
 pub use self::sections::{wpheaptype_to_type, wptype_to_type};
 pub use self::state::ModuleTranslationState;
 pub use error::from_binaryreadererror_wasmerror;
+
+/// Returns the linear-memory index of a memory immediate, rejecting GC array targets.
+pub fn memarg_memory_index(memarg: &wasmparser::MemArg) -> wasmer_types::WasmResult<u32> {
+    match memarg.target {
+        wasmparser::MemArgTarget::Memory(index) => Ok(index),
+        wasmparser::MemArgTarget::Array(_) => Err(wasm_unsupported!(
+            "GC array memory targets are not supported"
+        )),
+    }
+}

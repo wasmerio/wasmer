@@ -6,6 +6,7 @@
 //! `Table` is to WebAssembly tables what `Memory` is to WebAssembly linear memories.
 
 use crate::Trap;
+use crate::VMCallerCheckedAnyfunc;
 use crate::VMExternRef;
 use crate::VMFuncRef;
 use crate::store::MaybeInstanceOwned;
@@ -67,6 +68,13 @@ impl Default for TableElement {
     }
 }
 
+fn anyfunc_from_funcref(funcref: Option<VMFuncRef>) -> VMCallerCheckedAnyfunc {
+    match funcref {
+        Some(funcref) => unsafe { *funcref.0.as_ptr() },
+        None => VMCallerCheckedAnyfunc::null(),
+    }
+}
+
 /// A table instance.
 #[derive(Debug)]
 pub struct VMTable {
@@ -77,6 +85,8 @@ pub struct VMTable {
     /// Our chosen implementation style.
     style: TableStyle,
     vm_table_definition: MaybeInstanceOwned<VMTableDefinition>,
+    // Owned by the defining instance, just like an instance-owned table definition.
+    fixed_funcref_anyfuncs: Option<NonNull<VMCallerCheckedAnyfunc>>,
 }
 
 impl VMTable {
@@ -141,6 +151,7 @@ impl VMTable {
                     maximum: table.maximum,
                     table: *table,
                     style: style.clone(),
+                    fixed_funcref_anyfuncs: None,
                     vm_table_definition: if let Some(table_loc) = vm_table_location {
                         {
                             let mut ptr = table_loc;
@@ -156,6 +167,24 @@ impl VMTable {
                         })))
                     },
                 }),
+            }
+        }
+    }
+
+    /// Attach the defining instance's inline cache and initialize it.
+    ///
+    /// # Safety
+    /// `base` must point to `self.size()` writable entries that remain valid for
+    /// the lifetime of this table, as with an instance-owned table definition.
+    pub(crate) unsafe fn set_fixed_funcref_anyfuncs(
+        &mut self,
+        base: NonNull<VMCallerCheckedAnyfunc>,
+    ) {
+        assert!(self.table.is_fixed_funcref_table());
+        self.fixed_funcref_anyfuncs = Some(base);
+        for (index, element) in self.vec.iter().enumerate() {
+            unsafe {
+                *base.as_ptr().add(index) = anyfunc_from_funcref(element.func_ref);
             }
         }
     }
@@ -199,6 +228,17 @@ impl VMTable {
         if self.maximum.is_some_and(|max| new_len > max) {
             return None;
         }
+
+        match self.table.ty {
+            ValType::FuncRef if !matches!(init_value, TableElement::FuncRef(_)) => {
+                return None;
+            }
+            ValType::ExternRef if !matches!(init_value, TableElement::ExternRef(_)) => {
+                return None;
+            }
+            _ => {}
+        }
+
         if new_len == size {
             debug_assert_eq!(delta, 0);
             return Some(size);
@@ -253,13 +293,16 @@ impl VMTable {
                     (ValType::ExternRef, r @ TableElement::ExternRef(_)) => {
                         *slot = r.into();
                     }
-                    (ValType::FuncRef, r @ TableElement::FuncRef(_)) => {
-                        *slot = r.into();
+                    (ValType::FuncRef, TableElement::FuncRef(funcref)) => {
+                        *slot = TableElement::FuncRef(funcref).into();
+                        if let Some(base) = self.fixed_funcref_anyfuncs {
+                            unsafe {
+                                *base.as_ptr().add(index as usize) = anyfunc_from_funcref(funcref);
+                            }
+                        }
                     }
-                    // This path should never be hit by the generated code due to Wasm
-                    // validation.
-                    (ty, v) => {
-                        panic!("Attempted to set a table of type {ty} with the value {v:?}")
+                    _ => {
+                        return Err(Trap::lib(TrapCode::TableElementTypeMismatch));
                     }
                 };
 

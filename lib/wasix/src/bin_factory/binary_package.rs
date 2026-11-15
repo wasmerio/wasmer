@@ -168,7 +168,8 @@ pub struct BinaryPackage {
 
     pub when_cached: Option<u128>,
     /// The name of the [`BinaryPackageCommand`] which is this package's
-    /// entrypoint.
+    /// default entrypoint. Installed commands select their own entrypoint via
+    /// [`CommandBinaryPackage`] without modifying the shared package.
     pub entrypoint_cmd: Option<String>,
     pub hash: OnceCell<ModuleHash>,
     pub package_mounts: Option<Arc<BinaryPackageMounts>>,
@@ -176,6 +177,37 @@ pub struct BinaryPackage {
     pub uses: Vec<String>,
 
     pub additional_host_mapped_directories: Vec<MappedDirectory>,
+}
+
+/// A command entrypoint backed by a shared, reusable package.
+#[derive(Debug, Clone)]
+pub struct CommandBinaryPackage {
+    pub package: Arc<BinaryPackage>,
+    /// The command to run when no command is explicitly selected by name.
+    pub entrypoint_cmd: Option<String>,
+}
+
+impl CommandBinaryPackage {
+    pub fn get_entrypoint_command(&self) -> Option<&BinaryPackageCommand> {
+        self.entrypoint_cmd
+            .as_deref()
+            .and_then(|name| self.package.get_command(name))
+    }
+}
+
+impl From<Arc<BinaryPackage>> for CommandBinaryPackage {
+    fn from(package: Arc<BinaryPackage>) -> Self {
+        Self {
+            entrypoint_cmd: package.entrypoint_cmd.clone(),
+            package,
+        }
+    }
+}
+
+impl From<BinaryPackage> for CommandBinaryPackage {
+    fn from(package: BinaryPackage) -> Self {
+        Arc::new(package).into()
+    }
 }
 
 impl BinaryPackage {

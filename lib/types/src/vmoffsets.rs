@@ -256,8 +256,8 @@ impl VMOffsets {
         let mut local_fixed_funcref_table_offsets =
             vec![None; module.tables.len() - module.num_imported_tables];
         let mut size_of_local_fixed_funcref_tables: u32 = 0;
-        // TODO: ensure it matches size_of::<VMCallerCheckedAnyfunc>
-        let size_of_vmcaller_checked_anyfunc = 4 * u32::from(pointer_size);
+        let size_of_vmcaller_checked_anyfunc =
+            u32::from(Self::new_for_trampolines(pointer_size).size_of_vmcaller_checked_anyfunc());
 
         let fixed_table_err = |table: &TableType| {
             format!(
@@ -663,17 +663,25 @@ impl VMOffsets {
 
     /// The offset of the `vmctx` field.
     pub const fn vmcaller_checked_anyfunc_vmctx(&self) -> u8 {
-        2 * self.pointer_size
+        align(
+            self.vmcaller_checked_anyfunc_include_m0_param() as u32 + 1,
+            self.pointer_size as u32,
+        ) as u8
     }
 
     /// The offset of the `call_trampoline` field.
     pub const fn vmcaller_checked_anyfunc_call_trampoline(&self) -> u8 {
-        3 * self.pointer_size
+        self.vmcaller_checked_anyfunc_vmctx() + self.pointer_size
+    }
+
+    /// The offset of the `include_m0_param` field.
+    pub const fn vmcaller_checked_anyfunc_include_m0_param(&self) -> u8 {
+        self.vmcaller_checked_anyfunc_signature_hash() + 4
     }
 
     /// Return the size of `VMCallerCheckedAnyfunc`.
     pub const fn size_of_vmcaller_checked_anyfunc(&self) -> u8 {
-        4 * self.pointer_size
+        self.vmcaller_checked_anyfunc_call_trampoline() + self.pointer_size
     }
 }
 

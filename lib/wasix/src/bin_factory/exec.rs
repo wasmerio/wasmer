@@ -1,5 +1,5 @@
 #![allow(clippy::result_large_err)]
-use super::{BinaryPackage, BinaryPackageCommand};
+use super::{BinaryPackage, BinaryPackageCommand, CommandBinaryPackage};
 use crate::{
     RewindState, SpawnError, WasiError, WasiRuntimeError,
     os::task::{
@@ -21,23 +21,23 @@ use std::{borrow::Cow, sync::Arc};
 use tracing::*;
 use virtual_mio::block_on;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer_asyncify::AsyncifyFunction;
 use wasmer_wasix_types::wasi::Errno;
 
-#[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.id))]
+#[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.package.id))]
 pub async fn spawn_exec(
-    binary: BinaryPackage,
+    binary: CommandBinaryPackage,
     name: &str,
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    import_package_mounts(&env, &binary).await?;
+    import_package_mounts(&env, &binary.package).await?;
 
     let cmd = package_command_by_name(&binary, name)?;
     let input = ModuleInput::Command(Cow::Borrowed(cmd));
     let module = runtime.resolve_module(input, None, None).await?;
 
-    // Free the space used by the binary, since we don't need it
-    // any longer
+    // Release our reference to the package now that the module is resolved.
     drop(binary);
 
     spawn_exec_module(module, env, runtime)
@@ -56,7 +56,7 @@ pub async fn spawn_exec_wasm(
 }
 
 pub fn package_command_by_name<'a>(
-    pkg: &'a BinaryPackage,
+    pkg: &'a CommandBinaryPackage,
     name: &str,
 ) -> Result<&'a BinaryPackageCommand, SpawnError> {
     // If an explicit command is provided, use it.
@@ -64,19 +64,19 @@ pub fn package_command_by_name<'a>(
     // If no entrypoint exists, and the package has a single
     // command, then use it. This is done for backwards
     // compatibility.
-    let cmd = if let Some(cmd) = pkg.get_command(name) {
+    let cmd = if let Some(cmd) = pkg.package.get_command(name) {
         cmd
     } else if let Some(cmd) = pkg.get_entrypoint_command() {
         cmd
     } else {
-        match pkg.commands.as_slice() {
+        match pkg.package.commands.as_slice() {
             // Package only has a single command, so use it.
             [first] => first,
             // Package either has no command, or has multiple commands, which
             // would make the choice ambiguous, so fail.
             _ => {
                 return Err(SpawnError::MissingEntrypoint {
-                    package_id: pkg.id.clone(),
+                    package_id: pkg.package.id.clone(),
                 });
             }
         }
@@ -201,7 +201,7 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     {
         // This does not need a context switching environment as the documentation
         // states that that is only available after the first call to main
-        let result = initialize.call(&mut store, &[]);
+        let result = initialize.call_asyncify(&mut store, &ctx.env, &[]);
 
         if let Err(err) = result {
             thread.thread.set_status_finished(Err(err.into()));

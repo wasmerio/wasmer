@@ -49,8 +49,8 @@ SETTINGS = {
         "wasmer-wasix": "sys,wasmer/sys-default",
         "wasmer-wasix-types": "wasmer/sys-default",
         "wasmer-wast": "wasmer/sys-default",
-        "wai-bindgen-wasmer": "sys",
         "wasmer-cache": "wasmer/sys-default",
+        "wasmer-asyncify": "wasmer/sys-default",
     },
     # workspace members we want to publish but whose path doesn't start by
     # "./lib/"

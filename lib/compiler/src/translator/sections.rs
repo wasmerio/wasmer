@@ -222,6 +222,9 @@ pub fn parse_table_section(
 
     for entry in tables {
         let table = entry.map_err(from_binaryreadererror_wasmerror)?;
+        if table.ty.table64 {
+            unimplemented!("64bit tables are not implemented yet");
+        }
         environ.declare_table(TableType {
             ty: wpreftype_to_type(table.ty.element_type).unwrap(),
             minimum: table.ty.initial as u32,

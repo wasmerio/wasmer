@@ -166,6 +166,9 @@ pub struct ModuleInfo {
     /// WebAssembly function signature hashes.
     pub signature_hashes: PrimaryMap<SignatureIndex, SignatureHash>,
 
+    /// Whether local function entry points take a hidden memory #0 base parameter (used by LLVM).
+    pub m0_pass_param_enabled: bool,
+
     /// WebAssembly functions (imported and local).
     pub functions: PrimaryMap<FunctionIndex, SignatureIndex>,
 
@@ -219,6 +222,7 @@ pub struct ArchivableModuleInfo {
     function_names: BTreeMap<FunctionIndex, String>,
     signatures: PrimaryMap<SignatureIndex, FunctionType>,
     signature_hashes: PrimaryMap<SignatureIndex, SignatureHash>,
+    m0_pass_param_enabled: bool,
     functions: PrimaryMap<FunctionIndex, SignatureIndex>,
     tables: PrimaryMap<TableIndex, TableType>,
     memories: PrimaryMap<MemoryIndex, MemoryType>,
@@ -236,6 +240,7 @@ pub struct ArchivableModuleInfo {
 impl From<ModuleInfo> for ArchivableModuleInfo {
     fn from(it: ModuleInfo) -> Self {
         Self {
+            m0_pass_param_enabled: it.m0_pass_param_enabled,
             name: it.name,
             hash: it.hash,
             imports: it.imports,
@@ -267,6 +272,7 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
 impl From<ArchivableModuleInfo> for ModuleInfo {
     fn from(it: ArchivableModuleInfo) -> Self {
         Self {
+            m0_pass_param_enabled: it.m0_pass_param_enabled,
             id: Default::default(),
             name: it.name,
             hash: it.hash,
@@ -336,6 +342,7 @@ where
 impl PartialEq for ModuleInfo {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
+            && self.m0_pass_param_enabled == other.m0_pass_param_enabled
             && self.imports == other.imports
             && self.exports == other.exports
             && self.start_function == other.start_function

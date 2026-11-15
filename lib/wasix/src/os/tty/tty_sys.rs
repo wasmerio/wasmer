@@ -343,7 +343,7 @@ mod sys {
             set_line_buffering(&mut state, false);
             assert_eq!(unsafe { libc::tcsetattr(pty.slave, TCSANOW, &state) }, 0);
 
-            let input = [b'\r', b'\n'];
+            let input = *b"\r\n";
             assert_eq!(
                 unsafe { libc::write(pty.master, input.as_ptr().cast(), input.len()) },
                 input.len() as isize
@@ -356,7 +356,7 @@ mod sys {
             assert_eq!(unsafe { libc::tcgetattr(pty.slave, &mut state) }, 0);
             set_line_buffering(&mut state, true);
             assert_eq!(unsafe { libc::tcsetattr(pty.slave, TCSANOW, &state) }, 0);
-            let input = [b'\r'];
+            let input = *b"\r";
             assert_eq!(
                 unsafe { libc::write(pty.master, input.as_ptr().cast(), input.len()) },
                 1

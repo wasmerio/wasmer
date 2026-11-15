@@ -25,9 +25,12 @@ use object::{
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
 #[cfg(feature = "unwind")]
-use wasmer_compiler::dwarf::{EhRelocation, EhTarget, WriterRelocate};
-#[cfg(feature = "unwind")]
 use wasmer_compiler::elf::emit_eh_frame_section;
+#[cfg(feature = "unwind")]
+use wasmer_compiler::{
+    UNWIND_HAS_LSDA, WASMER_EH_TAGS_SECTION_NAME,
+    dwarf::{EhRelocation, EhTarget, WriterRelocate},
+};
 use wasmer_compiler::{WasmSourceMap, dwarf::init_dwarf_unit};
 use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section},
@@ -213,7 +216,21 @@ fn emit_eh_tag_section(
         SectionKind::ReadOnlyData,
     );
     object.append_section_data(section, &bytes, 4);
-    Some((object.section_symbol(section), offsets))
+    let symbol = if object.format() == object::BinaryFormat::MachO {
+        object.add_symbol(Symbol {
+            name: WASMER_EH_TAGS_SECTION_NAME.to_vec(),
+            value: 0,
+            size: bytes.len() as u64,
+            kind: SymbolKind::Data,
+            scope: SymbolScope::Compilation,
+            weak: false,
+            section: SymbolSection::Section(section),
+            flags: SymbolFlags::None,
+        })
+    } else {
+        object.section_symbol(section)
+    };
+    Some((symbol, offsets))
 }
 
 /// Serialize a single compiled function into its own relocatable object file.
@@ -228,6 +245,7 @@ pub(crate) fn emit_local_function(
     source_map: &WasmSourceMap,
     #[cfg(feature = "unwind")] fde: Option<FrameDescriptionEntry>,
     #[cfg(feature = "unwind")] lsda: Option<FunctionLsdaData>,
+    #[cfg(feature = "unwind")] compact_unwind_encoding: Option<u32>,
 ) -> Result<Vec<u8>, CompileError> {
     let kind = CompiledKind::Local(index, String::new());
     let mut object = get_object_for_target(target.triple())
@@ -254,7 +272,13 @@ pub(crate) fn emit_local_function(
     )?;
 
     // Populate DWARF line info from the address map.
-    if let Ok(mut dwarf_state) = init_dwarf_unit(function_name, module_name, "Wasmer (Cranelift)") {
+    // TODO: support dSYM debug info file creation and loading in the future
+    if matches!(
+        target.triple().binary_format,
+        target_lexicon::BinaryFormat::Elf
+    ) && let Ok(mut dwarf_state) =
+        init_dwarf_unit(function_name, module_name, "Wasmer (Cranelift)")
+    {
         for instruction in &function.frame_info.address_map.instructions {
             dwarf_state.add_source_map_row(
                 instruction.code_offset as u64,
@@ -272,13 +296,10 @@ pub(crate) fn emit_local_function(
 
     emit_trap_section(&mut object, &kind, &function.frame_info.traps);
 
-    // Emit the per-function `.eh_frame` unwind table (and, for functions that
-    // catch exceptions, the matching `.gcc_except_table` LSDA).
     #[cfg(feature = "unwind")]
-    if let Some(fde) = fde
-        && let Some(mut cie) = isa.create_systemv_cie()
     {
         let pointer_bytes = isa.frontend_config().pointer_bytes();
+        let macho_compact_unwind = compact_unwind_encoding.is_some();
 
         // Emit the LSDA into `.gcc_except_table`, plus a per-object tag section
         // holding the exception tag constants referenced by its type table.
@@ -287,16 +308,36 @@ pub(crate) fn emit_local_function(
 
             let gcc_section = object.add_section(
                 object.segment_name(StandardSegment::Data).to_vec(),
-                b".gcc_except_table".to_vec(),
+                if macho_compact_unwind {
+                    b"__gcc_except_tab".to_vec()
+                } else {
+                    b".gcc_except_table".to_vec()
+                },
                 SectionKind::ReadOnlyData,
             );
             let lsda_offset =
                 object.append_section_data(gcc_section, &lsda.bytes, u64::from(pointer_bytes));
-            // The type-table slots use `DW_EH_PE_pcrel | sdata4` encoding,
-            // so their relocations are PC-relative 32-bit (`R_X86_64_PC32`).
-            // This keeps `.gcc_except_table` position-independent and read-only.
+            let subtractor = macho_compact_unwind.then(|| {
+                use wasmer_compiler::WASMER_LSDA_SECTION_NAME;
+
+                object.add_symbol(Symbol {
+                    name: WASMER_LSDA_SECTION_NAME.to_vec(),
+                    value: lsda_offset,
+                    size: lsda.bytes.len() as u64,
+                    kind: SymbolKind::Data,
+                    scope: SymbolScope::Compilation,
+                    weak: false,
+                    section: SymbolSection::Section(gcc_section),
+                    flags: SymbolFlags::None,
+                })
+            });
+            // Mach-O represents PC-relative data as a symbol difference.
             let tag_relocation_flags = RelocationFlags::Generic {
-                kind: object::RelocationKind::Relative,
+                kind: if macho_compact_unwind {
+                    object::RelocationKind::Absolute
+                } else {
+                    object::RelocationKind::Relative
+                },
                 encoding: RelocationEncoding::Generic,
                 size: 32,
             };
@@ -313,14 +354,20 @@ pub(crate) fn emit_local_function(
                         ))
                     })?;
                 object
-                    .add_relocation(
+                    .add_relocation_with_subtractor(
                         gcc_section,
                         ObjectRelocation {
                             offset: lsda_offset + reloc.offset as u64,
                             flags: tag_relocation_flags,
                             symbol: tag_symbol,
-                            addend: tag_offset as i64,
+                            addend: tag_offset as i64
+                                - if macho_compact_unwind {
+                                    reloc.offset as i64
+                                } else {
+                                    0
+                                },
                         },
+                        subtractor,
                     )
                     .map_err(|e| {
                         CompileError::Codegen(format!("failed to add LSDA relocation: {e}"))
@@ -331,51 +378,148 @@ pub(crate) fn emit_local_function(
             None
         };
 
-        // The ELF image may be mapped at any base address, so make the FDE's
-        // function reference position-independent.
-        cie.fde_address_encoding = constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4;
-        let mut fde = fde;
-        if lsda_section_symbol.is_some() {
-            // Reference the personality pointer indirectly and PC-relative.
-            // The shared ELF emitter creates the local pointer slot and its
-            // dynamic relocation. The LSDA lives in the same image and is
-            // referenced directly, PC-relative.
-            cie.personality = Some((
-                constants::DW_EH_PE_indirect
-                    | constants::DW_EH_PE_pcrel
-                    | constants::DW_EH_PE_sdata4,
-                Address::Symbol {
-                    symbol: WriterRelocate::PERSONALITY_SYMBOL,
-                    addend: 0,
-                },
-            ));
-            cie.lsda_encoding = Some(constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4);
-            fde.lsda = Some(Address::Symbol {
-                symbol: WriterRelocate::LSDA_SYMBOL,
-                addend: 0,
-            });
+        if let Some(encoding) = compact_unwind_encoding {
+            let function_length = function.body.body.len().try_into().map_err(|_| {
+                CompileError::Codegen("function body too large for Mach-O compact unwind".into())
+            })?;
+            let compact = crate::eh::build_compact_unwind_section(
+                [crate::eh::CompactUnwindEntryData {
+                    function: index,
+                    function_length,
+                    compact_encoding: encoding
+                        | if lsda_section_symbol.is_some() {
+                            UNWIND_HAS_LSDA
+                        } else {
+                            0
+                        },
+                    lsda_offset: lsda_section_symbol.map(|_| 0),
+                }],
+                lsda_section_symbol
+                    .map(|_| wasmer_compiler::types::section::SectionIndex::from_u32(0)),
+            )
+            .ok_or_else(|| {
+                CompileError::Codegen("missing compact unwind entry for function".into())
+            })?;
+            let section = object.add_section(
+                object.segment_name(StandardSegment::Data).to_vec(),
+                b"__compact_unwind".to_vec(),
+                SectionKind::ReadOnlyData,
+            );
+            object.append_section_data(section, compact.bytes.as_slice(), 8);
+            for relocation in &compact.relocations {
+                let symbol = match relocation.reloc_target {
+                    wasmer_compiler::types::relocation::RelocationTarget::LocalFunc(_) => {
+                        object.section_symbol(text)
+                    }
+                    wasmer_compiler::types::relocation::RelocationTarget::LibCall(libcall) => {
+                        wasmer_compiler::elf::add_libcall_symbol(&mut object, libcall)
+                    }
+                    wasmer_compiler::types::relocation::RelocationTarget::CustomSection(_) => {
+                        lsda_section_symbol.expect("compact unwind LSDA")
+                    }
+                    _ => unreachable!("unexpected compact unwind relocation"),
+                };
+                object
+                    .add_relocation(
+                        section,
+                        ObjectRelocation {
+                            offset: relocation.offset.into(),
+                            flags: wasmer_compiler::elf::relocation_kind_to_flags(relocation.kind)?,
+                            symbol,
+                            addend: relocation.addend,
+                        },
+                    )
+                    .map_err(|e| {
+                        CompileError::Codegen(format!(
+                            "failed to add compact unwind relocation: {e}"
+                        ))
+                    })?;
+            }
         }
 
-        let mut frametable = FrameTable::default();
-        let cie_id = frametable.add_cie(cie);
-        frametable.add_fde(cie_id, fde);
+        if let Some(fde) = fde
+            && let Some(mut cie) = isa.create_systemv_cie()
+        {
+            // The ELF image may be mapped at any base address, so make the FDE's
+            // function reference position-independent.
+            cie.fde_address_encoding = constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4;
+            let mut fde = fde;
+            if lsda_section_symbol.is_some() {
+                // Reference the personality pointer indirectly and PC-relative.
+                // The shared ELF emitter creates the local pointer slot and its
+                // dynamic relocation. The LSDA lives in the same image and is
+                // referenced directly, PC-relative.
+                cie.personality = Some((
+                    constants::DW_EH_PE_indirect
+                        | constants::DW_EH_PE_pcrel
+                        | constants::DW_EH_PE_sdata4,
+                    Address::Symbol {
+                        symbol: WriterRelocate::PERSONALITY_SYMBOL,
+                        addend: 0,
+                    },
+                ));
+                cie.lsda_encoding = Some(constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4);
+                fde.lsda = Some(Address::Symbol {
+                    symbol: WriterRelocate::LSDA_SYMBOL,
+                    addend: 0,
+                });
+            }
 
-        let mut eh_frame = EhFrame(EhFrameWriter::new());
-        frametable
-            .write_eh_frame(&mut eh_frame)
-            .map_err(|e| CompileError::Codegen(format!("failed to write .eh_frame: {e}")))?;
+            let mut frametable = FrameTable::default();
+            let cie_id = frametable.add_cie(cie);
+            frametable.add_fde(cie_id, fde);
 
-        let relocations = std::mem::take(&mut eh_frame.0.relocs);
-        emit_eh_frame_section(
-            &mut object,
-            &eh_frame.0.into_bytes(),
-            &relocations,
-            function_symbol,
-            lsda_section_symbol,
-        )?;
+            let mut eh_frame = EhFrame(EhFrameWriter::new());
+            frametable
+                .write_eh_frame(&mut eh_frame)
+                .map_err(|e| CompileError::Codegen(format!("failed to write .eh_frame: {e}")))?;
+
+            let relocations = std::mem::take(&mut eh_frame.0.relocs);
+            emit_eh_frame_section(
+                &mut object,
+                &eh_frame.0.into_bytes(),
+                &relocations,
+                function_symbol,
+                lsda_section_symbol,
+            )?;
+        }
     }
 
-    object
+    let mut bytes = object
         .write()
-        .map_err(|e| CompileError::Codegen(format!("failed to serialize object: {e}")))
+        .map_err(|e| CompileError::Codegen(format!("failed to serialize object: {e}")))?;
+    if object.format() == object::BinaryFormat::MachO {
+        use object::{Object as _, ObjectSection as _};
+
+        // Mach-O local absolute relocations store an object address, not a
+        // section-relative addend. The object writer leaves that adjustment
+        // to its caller; the linker subtracts the target section's address.
+        let file = object::File::parse(bytes.as_slice())
+            .map_err(|e| CompileError::Codegen(format!("failed to read emitted object: {e}")))?;
+        let mut adjustments = Vec::new();
+        for section in file.sections() {
+            let Some((file_offset, _)) = section.file_range() else {
+                continue;
+            };
+            for (offset, relocation) in section.relocations() {
+                if relocation.kind() == object::RelocationKind::Absolute
+                    && relocation.size() == 64
+                    && let object::RelocationTarget::Section(target) = relocation.target()
+                {
+                    let address = file
+                        .section_by_index(target)
+                        .map_err(|e| {
+                            CompileError::Codegen(format!("invalid relocation section: {e}"))
+                        })?
+                        .address();
+                    adjustments.push(((file_offset + offset) as usize, address));
+                }
+            }
+        }
+        for (offset, address) in adjustments {
+            let value = u64::from_le_bytes(bytes[offset..offset + 8].try_into().unwrap());
+            bytes[offset..offset + 8].copy_from_slice(&value.wrapping_add(address).to_le_bytes());
+        }
+    }
+    Ok(bytes)
 }

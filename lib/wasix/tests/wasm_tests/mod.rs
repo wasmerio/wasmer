@@ -103,6 +103,8 @@ use wasmer_wasix::virtual_fs::{
     StaticFile, TmpFileSystem, create_dir_all as create_virtual_dir_all, mem_fs,
 };
 
+#[cfg(not(target_os = "windows"))]
+mod ephemeral_symlink;
 mod error;
 mod runner;
 
@@ -1462,6 +1464,16 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
 
+    #[cfg(not(target_os = "windows"))]
+    for sysroot in TESTED_LIBC_VERSIONS {
+        let config =
+            ephemeral_symlink::fallback_metadata_config(&tests_dir, &tests_build_root, *sysroot)?;
+        tests.push(Trial::test(config.full_test_name(), move || {
+            ephemeral_symlink::run_fallback_metadata_test(config)
+                .map_err(|error| libtest_mimic::Failed::from(format!("{error:?}")))
+        }));
+    }
+
     tests.push(libtest_mimic::Trial::test("wasm/dynamic_runtime_hooks", {
         let tests_dir = tests_dir.clone();
         let tests_build_root = tests_build_root.clone();
@@ -1485,16 +1497,16 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let test_name = relative_test_path.display().to_string();
         let primary_sources = identify_primary_sources(entry.path())?;
 
-        #[allow(unused_mut)]
-        let mut supported_engines = Vec::new();
-        #[cfg(not(target_os = "windows"))]
-        supported_engines.push(Engine::Cranelift);
-        #[cfg(feature = "llvm")]
-        supported_engines.push(Engine::LLVM);
-        #[cfg(feature = "singlepass")]
-        supported_engines.push(Engine::Singlepass);
-        #[cfg(feature = "v8")]
-        supported_engines.push(Engine::V8);
+        let supported_engines = vec![
+            #[cfg(not(target_os = "windows"))]
+            Engine::Cranelift,
+            #[cfg(feature = "llvm")]
+            Engine::LLVM,
+            #[cfg(feature = "singlepass")]
+            Engine::Singlepass,
+            #[cfg(feature = "v8")]
+            Engine::V8,
+        ];
 
         let default_file_systems = vec![FileSystemKind::Host];
         for primary_source in primary_sources {

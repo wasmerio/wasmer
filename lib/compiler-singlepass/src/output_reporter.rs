@@ -105,7 +105,7 @@ mod tests {
 
         fn reserve(&self, amount: usize) -> Result<(), UserAbort> {
             self.remaining
-                .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |remaining| {
+                .try_update(Ordering::Relaxed, Ordering::Relaxed, |remaining| {
                     remaining.checked_sub(amount)
                 })
                 .map(|_| ())

@@ -65,7 +65,6 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "singlepass")]
-                #[cfg(target_os = "linux")]
                 fn singlepass_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::Singlepass
@@ -74,11 +73,19 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "singlepass")]
-                #[cfg(target_os = "linux")]
                 fn singlepass_dynamic_memory_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::Singlepass
                     ).with_experimental_artifact().with_dynamic_memory())
+                }
+                #[test_log::test]
+                #[cold]
+                #[cfg(feature = "singlepass")]
+                #[cfg(target_arch = "x86_64")]
+                fn singlepass_sse42() {
+                    foo(crate::Config::new(
+                        crate::Compiler::Singlepass
+                    ).with_sse42())
                 }
             }
 
@@ -96,7 +103,6 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "cranelift")]
-                #[cfg(target_os = "linux")]
                 fn cranelift_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::Cranelift
@@ -105,7 +111,6 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "cranelift")]
-                #[cfg(target_os = "linux")]
                 fn cranelift_dynamic_memory_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::Cranelift
@@ -127,7 +132,6 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "llvm")]
-                #[cfg(target_os = "linux")]
                 fn llvm_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::LLVM
@@ -136,7 +140,6 @@ gen_tests! {
                 #[test_log::test]
                 #[cold]
                 #[cfg(feature = "llvm")]
-                #[cfg(target_os = "linux")]
                 fn llvm_dynamic_memory_exp_artifact() {
                     foo(crate::Config::new(
                         crate::Compiler::LLVM

@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use futures::{Future, future::BoxFuture};
 use tokio::runtime::{Handle, Runtime};
@@ -45,34 +45,10 @@ impl RuntimeOrHandle {
     }
 }
 
-#[derive(Clone)]
-pub struct ThreadPool {
-    inner: rusty_pool::ThreadPool,
-}
-
-impl std::ops::Deref for ThreadPool {
-    type Target = rusty_pool::ThreadPool;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl std::fmt::Debug for ThreadPool {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ThreadPool")
-            .field("name", &self.get_name())
-            .field("current_worker_count", &self.get_current_worker_count())
-            .field("idle_worker_count", &self.get_idle_worker_count())
-            .finish()
-    }
-}
-
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
 pub struct TokioTaskManager {
     rt: RuntimeOrHandle,
-    pool: Arc<ThreadPool>,
 }
 
 impl TokioTaskManager {
@@ -80,29 +56,23 @@ impl TokioTaskManager {
     where
         I: Into<RuntimeOrHandle>,
     {
-        let concurrency = std::thread::available_parallelism()
-            .unwrap_or(NonZeroUsize::new(1).unwrap())
-            .get();
-        let max_threads = 200usize.max(concurrency * 100);
-
-        Self {
-            rt: rt.into(),
-            pool: Arc::new(ThreadPool {
-                inner: rusty_pool::Builder::new()
-                    .name("TokioTaskManager Thread Pool".to_string())
-                    .core_size(max_threads)
-                    .max_size(max_threads)
-                    .build(),
-            }),
-        }
+        Self { rt: rt.into() }
     }
 
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
         self.rt.handle().clone()
     }
 
-    pub fn pool_handle(&self) -> Arc<ThreadPool> {
-        self.pool.clone()
+    /// Runs `task` on a thread of its own, which ends with the task.
+    fn spawn_thread(task: impl FnOnce() + Send + 'static) -> Result<(), WasiThreadError> {
+        std::thread::Builder::new()
+            .name("TokioTaskManager thread".to_string())
+            .spawn(task)
+            .map(drop)
+            .map_err(|error| {
+                tracing::warn!("failed to start a thread: {error}");
+                WasiThreadError::Unsupported
+            })
     }
 }
 
@@ -173,7 +143,7 @@ impl VirtualTaskManager for TokioTaskManager {
 
         if task.callbacks.trigger.is_some() {
             tracing::trace!("spawning task_wasm trigger in async pool");
-            self.pool.execute(move || {
+            Self::spawn_thread(move || {
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
                     Ok(x) => {
                         sx.send(Ok(())).unwrap();
@@ -243,12 +213,12 @@ impl VirtualTaskManager for TokioTaskManager {
                     trigger_result: Some(result),
                     recycle: callbacks.recycle,
                 });
-            });
+            })?;
         } else {
             tracing::trace!("spawning task_wasm in blocking thread");
 
             // Run the callback on a dedicated thread
-            self.pool.execute(move || {
+            Self::spawn_thread(move || {
                 tracing::trace!("task_wasm started in blocking thread");
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
                     Ok(x) => {
@@ -272,7 +242,7 @@ impl VirtualTaskManager for TokioTaskManager {
                     trigger_result: None,
                     recycle: callbacks.recycle,
                 });
-            });
+            })?;
         }
 
         rx.recv()
@@ -286,9 +256,9 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        self.pool.execute(move || {
+        Self::spawn_thread(move || {
             task();
-        });
+        })?;
         Ok(())
     }
 

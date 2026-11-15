@@ -454,7 +454,9 @@ pub(crate) fn register_with_source(
     image_base: usize,
     elf_data: Option<DebugInfoSource>,
 ) -> Option<GlobalFrameInfoRegistration> {
-    let trap_reader = elf_data.clone().map(TrapReader::new);
+    let trap_reader = elf_data
+        .clone()
+        .map(|source| TrapReader::new(source, image_base));
     let mut min = usize::MAX;
     let mut max = 0;
     let mut functions = BTreeMap::new();

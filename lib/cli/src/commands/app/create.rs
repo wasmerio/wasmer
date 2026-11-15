@@ -285,7 +285,7 @@ impl CmdAppCreate {
         let ask_confirmation = || {
             eprintln!(
                 "A package manifest was found in path {}.",
-                &manifest_path.display()
+                manifest_path.display()
             );
             let theme = dialoguer::theme::ColorfulTheme::default();
             Confirm::with_theme(&theme)

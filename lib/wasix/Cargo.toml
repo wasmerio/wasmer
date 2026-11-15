@@ -25,6 +25,9 @@ wasmer-wasix-types = { path = "../wasi-types", version = "0.705.0", features = [
   "enable-serde",
 ] }
 wasmer-types = { path = "../types", version = "=7.5.0", default-features = false }
+wasmer-asyncify = { path = "../asyncify", version = "=7.5.0", features = [
+  "experimental-async",
+] }
 wasmer = { path = "../api", version = "=7.5.0", default-features = false, features = [
   "experimental-async",
 ] }
@@ -51,7 +54,6 @@ derive_more.workspace = true
 wasm-encoder.workspace = true
 
 xxhash-rust = { workspace = true, features = ["xxh64"] }
-rusty_pool = { workspace = true, optional = true }
 thiserror.workspace = true
 tracing.workspace = true
 getrandom.workspace = true
@@ -117,6 +119,8 @@ web-sys = { workspace = true, features = [
   "WorkerGlobalScope",
   "RequestMode",
   "Response",
+  "ReadableStream",
+  "ReadableStreamDefaultReader",
   "Headers",
 ], optional = true }
 hyper-util = { workspace = true, features = [
@@ -128,7 +132,6 @@ hyper-util = { workspace = true, features = [
 ], optional = true }
 http-body-util = { workspace = true, optional = true }
 toml.workspace = true
-pin-utils.workspace = true
 wasmparser.workspace = true
 crossbeam-channel.workspace = true
 bus.workspace = true
@@ -242,7 +245,7 @@ package-authoring = ["wasmer-package/authoring"]
 sys-default = ["sys"]
 sys-poll = []
 extra-logging = []
-sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]
+sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility

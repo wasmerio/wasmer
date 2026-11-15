@@ -12,7 +12,8 @@ use crate::{state::DlModuleSpec, syscalls::*};
 use std::{path::PathBuf, sync::atomic::AtomicUsize};
 use wasm_encoder::{
     CodeSection, CustomSection, ExportKind, ExportSection, FunctionSection, GlobalType,
-    ImportSection, InstructionSink, MemArg, MemoryType, RefType, TableType, TypeSection, ValType,
+    ImportSection, InstructionSink, MemArg, MemArgTarget, MemoryType, RefType, TableType,
+    TypeSection, ValType,
 };
 use wasmer::{FunctionType, Table, Type, imports};
 
@@ -56,27 +57,32 @@ impl ValTypeOps for ValType {
             Self::I32 => sink.i32_store(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             Self::I64 => sink.i64_store(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             Self::F32 => sink.f32_store(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             Self::F64 => sink.f64_store(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             Self::V128 => sink.v128_store(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             // Not supported in closures
             Self::Ref(_) => panic!("Cannot store reference type"),
@@ -87,27 +93,32 @@ impl ValTypeOps for ValType {
             Self::I32 => sink.i32_load(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             Self::I64 => sink.i64_load(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             Self::F32 => sink.f32_load(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             Self::F64 => sink.f64_load(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             Self::V128 => sink.v128_load(MemArg {
                 offset,
                 align: 0,
-                memory_index,
+                target: MemArgTarget::Memory(memory_index),
+                ordering: None,
             }),
             // Not supported in closures
             Self::Ref(_) => panic!("Cannot load reference type"),
