@@ -21,6 +21,7 @@ use crate::{
     Value, WasmTypeList, WithEnv, WithoutEnv,
     entities::function::call_wrapper::call_wrapped,
     js::{
+        error::trap_value,
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
     },
@@ -154,7 +155,7 @@ impl Function {
                 let future = func(env_mut, &values);
                 drop(store_context);
 
-                let results = future.await.map_err(JsValue::from)?;
+                let results = future.await.map_err(trap_value)?;
                 match result_types.len() {
                     0 => Ok(JsValue::UNDEFINED),
                     1 => Ok(wasmer_value_to_js(&results[0])),
@@ -323,7 +324,7 @@ impl Function {
                     })
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let _results = func(env, &wasm_arguments)?;
+                let _results = func(env, &wasm_arguments).map_err(trap_value)?;
                 Ok(())
             })
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
@@ -339,7 +340,7 @@ impl Function {
                     })
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &wasm_arguments)?;
+                let results = func(env, &wasm_arguments).map_err(trap_value)?;
                 Ok(wasmer_value_to_js(&results[0]))
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
@@ -355,7 +356,7 @@ impl Function {
                     })
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &wasm_arguments)?;
+                let results = func(env, &wasm_arguments).map_err(trap_value)?;
                 Ok(wasmer_array_to_js_array(&results))
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)

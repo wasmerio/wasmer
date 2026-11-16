@@ -650,10 +650,13 @@ test-js: test-js-api test-js-wasi
 # test-js-core:
 # 	cd lib/api && wasm-pack test --node -- --no-default-features --features js,core,wasm-types-polyfill,wat
 
+# The `experimental-async` run needs JSPI, which Node enables by default from
+# version 25.
 # The module tests run again with js-serializable-module: WASIX enables it, and
 # modules then keep their binary instead of copying it.
 test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
+	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat,experimental-async
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat,js-serializable-module --test module
 
 lint-js:
