@@ -117,7 +117,6 @@ impl Function {
         let call_trampoline = host_data.ctx.call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
             include_m0_param: false,
-            uses_tail_call_conv: false,
             func_ptr,
             type_signature_hash,
             vmctx,
@@ -234,7 +233,6 @@ impl Function {
         let call_trampoline = host_data.ctx.call_trampoline_address();
         let anyfunc = VMCallerCheckedAnyfunc {
             include_m0_param: false,
-            uses_tail_call_conv: false,
             func_ptr,
             type_signature_hash,
             vmctx,
@@ -280,7 +278,6 @@ impl Function {
             <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address().unwrap_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             include_m0_param: false,
-            uses_tail_call_conv: false,
             func_ptr,
             type_signature_hash,
             vmctx,
@@ -435,7 +432,6 @@ impl Function {
             <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address().unwrap_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             include_m0_param: false,
-            uses_tail_call_conv: false,
             func_ptr,
             type_signature_hash,
             vmctx,

@@ -1042,15 +1042,16 @@ fn issue_4169_funcref_externref_import(mut config: crate::Config) -> Result<()> 
     Ok(())
 }
 
-#[cfg(any(feature = "llvm", feature = "cranelift"))]
+#[cfg(feature = "llvm")]
 #[compiler_test(issues)]
 fn issue_return_call_import(mut config: crate::Config) -> Result<()> {
-    if !matches!(
-        config.compiler,
-        crate::Compiler::LLVM | crate::Compiler::Cranelift
-    ) {
+    if config.compiler != crate::Compiler::LLVM {
         return Ok(());
     }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
 
     let mut store = config.store();
     let wasm_bytes = wat2wasm(
@@ -1091,6 +1092,9 @@ fn issue_return_call_import_without_m0(mut config: crate::Config) -> Result<()> 
         return Ok(());
     }
 
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
     let mut store = config.store();
 
     let provider = Module::new(
@@ -1139,15 +1143,16 @@ fn issue_return_call_import_without_m0(mut config: crate::Config) -> Result<()> 
     Ok(())
 }
 
-#[cfg(any(feature = "llvm", feature = "cranelift"))]
+#[cfg(feature = "llvm")]
 #[compiler_test(issues)]
 fn issue_return_call_indirect_mixed_local_import(mut config: crate::Config) -> Result<()> {
-    if !matches!(
-        config.compiler,
-        crate::Compiler::LLVM | crate::Compiler::Cranelift
-    ) {
+    if config.compiler != crate::Compiler::LLVM {
         return Ok(());
     }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
 
     let mut store = config.store();
     let wasm_bytes = wat2wasm(
@@ -1195,15 +1200,16 @@ fn issue_return_call_indirect_mixed_local_import(mut config: crate::Config) -> R
     Ok(())
 }
 
-#[cfg(any(feature = "llvm", feature = "cranelift"))]
+#[cfg(feature = "llvm")]
 #[compiler_test(issues)]
 fn issue_return_call_sret_multivalue(mut config: crate::Config) -> Result<()> {
-    if !matches!(
-        config.compiler,
-        crate::Compiler::LLVM | crate::Compiler::Cranelift
-    ) {
+    if config.compiler != crate::Compiler::LLVM {
         return Ok(());
     }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
 
     let mut store = config.store();
     let wasm_bytes = wat2wasm(
@@ -1232,18 +1238,19 @@ fn issue_return_call_sret_multivalue(mut config: crate::Config) -> Result<()> {
     Ok(())
 }
 
-#[cfg(any(feature = "llvm", feature = "cranelift"))]
+#[cfg(feature = "llvm")]
 #[compiler_test(issues)]
 fn issue_return_call_indirect_import(mut config: crate::Config) -> Result<()> {
     // Reproducer for LLVM `musttail` selection based only on wasm signatures:
     // the caller has static memory and therefore an `m0` parameter, but the
     // imported target does not.
-    if !matches!(
-        config.compiler,
-        crate::Compiler::LLVM | crate::Compiler::Cranelift
-    ) {
+    if config.compiler != crate::Compiler::LLVM {
         return Ok(());
     }
+
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
 
     let mut store = config.store();
     let wasm_bytes = wat2wasm(
@@ -1989,7 +1996,9 @@ fn indirect_call_runtime_m0_abi(mut config: crate::Config) -> Result<()> {
     if config.compiler != crate::Compiler::LLVM {
         return Ok(());
     }
-
+    let mut features = wasmer::sys::Features::new();
+    features.tail_call(true);
+    config.set_features(features);
     let mut store = config.store();
 
     let provider = Module::new(
