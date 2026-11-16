@@ -115,7 +115,9 @@ pub fn resolve_imports(
                         // are linked at runtime and not instantiation time. And those will not work properly with the current logic.
                         // Ideally, this logic should be done directly in the `wasmer-vm` crate.
                         // TODO (@syrusakbary): Get rid of `VMFunctionKind`
-                        unsafe { f.anyfunc.as_ptr().as_mut() }.func_ptr = ptr;
+                        let anyfunc = unsafe { f.anyfunc.as_ptr().as_mut() };
+                        anyfunc.func_ptr = ptr;
+                        anyfunc.uses_tail_call_conv = module.uses_tail_call_conv;
                         ptr
                     }
                     VMFunctionKind::Static => unsafe { f.anyfunc.as_ptr().as_ref().func_ptr },
@@ -126,6 +128,7 @@ pub fn resolve_imports(
                     environment: unsafe { f.anyfunc.as_ptr().as_ref().vmctx },
                     handle,
                     include_m0_param: unsafe { f.anyfunc.as_ptr().as_ref().include_m0_param },
+                    uses_tail_call_conv: unsafe { f.anyfunc.as_ptr().as_ref().uses_tail_call_conv },
                 });
             }
             VMExtern::Table(handle) => {

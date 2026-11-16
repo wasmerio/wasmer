@@ -169,6 +169,9 @@ pub struct ModuleInfo {
     /// Whether local function entry points take a hidden memory #0 base parameter (used by LLVM).
     pub m0_pass_param_enabled: bool,
 
+    /// Whether local functions use Cranelift's tail calling convention.
+    pub uses_tail_call_conv: bool,
+
     /// WebAssembly functions (imported and local).
     pub functions: PrimaryMap<FunctionIndex, SignatureIndex>,
 
@@ -223,6 +226,7 @@ pub struct ArchivableModuleInfo {
     signatures: PrimaryMap<SignatureIndex, FunctionType>,
     signature_hashes: PrimaryMap<SignatureIndex, SignatureHash>,
     m0_pass_param_enabled: bool,
+    uses_tail_call_conv: bool,
     functions: PrimaryMap<FunctionIndex, SignatureIndex>,
     tables: PrimaryMap<TableIndex, TableType>,
     memories: PrimaryMap<MemoryIndex, MemoryType>,
@@ -241,6 +245,7 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
     fn from(it: ModuleInfo) -> Self {
         Self {
             m0_pass_param_enabled: it.m0_pass_param_enabled,
+            uses_tail_call_conv: it.uses_tail_call_conv,
             name: it.name,
             hash: it.hash,
             imports: it.imports,
@@ -273,6 +278,7 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
     fn from(it: ArchivableModuleInfo) -> Self {
         Self {
             m0_pass_param_enabled: it.m0_pass_param_enabled,
+            uses_tail_call_conv: it.uses_tail_call_conv,
             id: Default::default(),
             name: it.name,
             hash: it.hash,
@@ -343,6 +349,7 @@ impl PartialEq for ModuleInfo {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.m0_pass_param_enabled == other.m0_pass_param_enabled
+            && self.uses_tail_call_conv == other.uses_tail_call_conv
             && self.imports == other.imports
             && self.exports == other.exports
             && self.start_function == other.start_function

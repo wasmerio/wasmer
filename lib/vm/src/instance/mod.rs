@@ -1729,6 +1729,7 @@ fn build_funcrefs(
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr: func_ptr.0,
             include_m0_param: module_info.m0_pass_param_enabled,
+            uses_tail_call_conv: module_info.uses_tail_call_conv,
             type_signature_hash,
             vmctx: VMFunctionContext { vmctx: vmctx_ptr },
             call_trampoline,

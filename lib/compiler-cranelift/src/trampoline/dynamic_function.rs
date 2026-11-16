@@ -67,13 +67,19 @@ pub fn make_trampoline_dynamic_function(
 
         let values_vec_ptr_val = builder.ins().stack_addr(pointer_type, ss, 0);
         let mflags = ir::MemFlagsData::trusted();
-        // Copy only normal WebAssembly arguments; special ABI arguments are separate.
+        let return_abi = abi::classify_returns(arch, func_type.results());
+        // The explicit return pointer is normal in IR, but is not a Wasm argument.
         let mut wasm_param = 0usize;
         let mut vmctx_ptr_val = None;
         let mut sret_ptr = None;
         for (i, param) in signature.params.iter().enumerate() {
             let val = builder.func.dfg.block_params(block0)[i];
             match param.purpose {
+                ir::ArgumentPurpose::Normal
+                    if i == 0 && matches!(return_abi, wasmer_compiler::abi::ReturnAbi::Sret(_)) =>
+                {
+                    sret_ptr = Some(val);
+                }
                 ir::ArgumentPurpose::Normal => {
                     builder.ins().store(
                         mflags,
@@ -84,7 +90,6 @@ pub fn make_trampoline_dynamic_function(
                     wasm_param += 1;
                 }
                 ir::ArgumentPurpose::VMContext => vmctx_ptr_val = Some(val),
-                ir::ArgumentPurpose::StructReturn => sret_ptr = Some(val),
                 _ => unreachable!("unexpected WebAssembly ABI parameter"),
             }
         }
@@ -117,7 +122,6 @@ pub fn make_trampoline_dynamic_function(
             );
             results.push(load);
         }
-        let return_abi = abi::classify_returns(arch, func_type.results());
         match &return_abi {
             wasmer_compiler::abi::ReturnAbi::Sret(types) => {
                 let layout = abi::return_area_layout(types);

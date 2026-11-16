@@ -490,6 +490,11 @@ impl VMOffsets {
         3 * self.pointer_size
     }
 
+    /// The offset of the tail calling convention flag.
+    pub const fn vmfunction_import_uses_tail_call_conv(&self) -> u8 {
+        self.vmfunction_import_include_m0_param() + 1
+    }
+
     /// Return the size of `VMFunctionImport`.
     pub const fn size_of_vmfunction_import(&self) -> u8 {
         4 * self.pointer_size
@@ -664,7 +669,7 @@ impl VMOffsets {
     /// The offset of the `vmctx` field.
     pub const fn vmcaller_checked_anyfunc_vmctx(&self) -> u8 {
         align(
-            self.vmcaller_checked_anyfunc_include_m0_param() as u32 + 1,
+            self.vmcaller_checked_anyfunc_uses_tail_call_conv() as u32 + 1,
             self.pointer_size as u32,
         ) as u8
     }
@@ -677,6 +682,11 @@ impl VMOffsets {
     /// The offset of the `include_m0_param` field.
     pub const fn vmcaller_checked_anyfunc_include_m0_param(&self) -> u8 {
         self.vmcaller_checked_anyfunc_signature_hash() + 4
+    }
+
+    /// The offset of the tail calling convention flag.
+    pub const fn vmcaller_checked_anyfunc_uses_tail_call_conv(&self) -> u8 {
+        self.vmcaller_checked_anyfunc_include_m0_param() + 1
     }
 
     /// Return the size of `VMCallerCheckedAnyfunc`.
@@ -824,6 +834,12 @@ impl VMOffsets {
     /// Remember updating precompute upon changes
     pub fn vmctx_vmfunction_import_body(&self, index: FunctionIndex) -> u32 {
         self.vmctx_vmfunction_import(index) + u32::from(self.vmfunction_import_body())
+    }
+
+    /// Return the offset of an imported function's tail calling convention flag.
+    pub fn vmctx_vmfunction_import_uses_tail_call_conv(&self, index: FunctionIndex) -> u32 {
+        self.vmctx_vmfunction_import(index)
+            + u32::from(self.vmfunction_import_uses_tail_call_conv())
     }
 
     /// Return the offset to the `vmctx` field in `*const VMFunctionBody` index `index`.
