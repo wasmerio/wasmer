@@ -74,7 +74,8 @@ impl Function {
             unsafe {
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
                 let mut store_mut = store_wrapper.as_mut();
-                let mut args = smallvec::SmallVec::<[Value; 4]>::with_capacity(func_ty.params().len());
+                let mut args =
+                    smallvec::SmallVec::<[Value; 4]>::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
@@ -200,7 +201,8 @@ impl Function {
                         panic!("No store context installed on this thread")
                     }
                 };
-                let mut args = smallvec::SmallVec::<[Value; 4]>::with_capacity(func_ty.params().len());
+                let mut args =
+                    smallvec::SmallVec::<[Value; 4]>::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
@@ -269,7 +271,8 @@ impl Function {
         F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
     {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
-        if numeric_signature(&signature) {
+        if Args::IS_STORE_INDEPENDENT && Rets::IS_STORE_INDEPENDENT && numeric_signature(&signature)
+        {
             return Self::new_numeric_async(store, signature, move |args| {
                 func.call_async(AsyncFunctionEnv::new(), args)
             });
@@ -329,7 +332,8 @@ impl Function {
         Rets: WasmTypeList + 'static,
     {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
-        if numeric_signature(&signature) {
+        if Args::IS_STORE_INDEPENDENT && Rets::IS_STORE_INDEPENDENT && numeric_signature(&signature)
+        {
             let id = store.objects_mut().id();
             let env = env.as_sys().clone();
             return Self::new_numeric_async(store, signature, move |args| {
@@ -395,19 +399,29 @@ impl Function {
         let num_params = signature.params().len();
         let num_results = signature.results().len();
         Self::new_raw(store, signature, move |values| {
+            // A synchronous async import holds its store through construction and
+            // polling, even when the user's function does not take an environment.
+            let _sync_borrow = if StoreContext::top_is_async() {
+                // Validate which store entered this import before running host code.
+                unsafe { StoreContext::get_current_transient(id) };
+                None
+            } else {
+                Some(unsafe { StoreContext::get_current(id) })
+            };
+            // These codecs opt in to store-independent conversion. An incorrect
+            // implementation gets a panic without ever acquiring a store reference.
+            let mut codec_store = std::cell::LazyCell::new(|| -> &mut StoreInner {
+                panic!("store-independent numeric codec requested its store")
+            });
             let args = {
-                // Only borrow the installed store while converting the ABI slots.
-                let mut guard = unsafe { StoreContext::get_current(id) };
                 let mut args = Args::empty_array();
                 for (index, slot) in args.as_mut().iter_mut().take(num_params).enumerate() {
                     *slot = unsafe { values.add(index).read_unaligned() };
                 }
-                unsafe { Args::from_array(&mut guard.as_mut(), args) }
+                unsafe { Args::from_array(&mut codec_store, args) }
             };
             let result = block_on_typed_host_future(call(args)).and_then(|rets| {
-                // The poller has reinstalled the store before returning here.
-                let mut guard = unsafe { StoreContext::get_current(id) };
-                let mut rets = unsafe { rets.into_array(&mut guard.as_mut()) };
+                let mut rets = unsafe { rets.into_array(&mut codec_store) };
                 let slots = rets.as_mut().get(..num_results).ok_or_else(|| {
                     AsyncRuntimeError::RuntimeError(RuntimeError::new(
                         "typed host function returned too few results",

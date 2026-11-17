@@ -451,3 +451,55 @@ fn typed_reference_import_keeps_its_argument_across_suspension() -> Result<()> {
     );
     Ok(())
 }
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn synchronous_typed_import_holds_the_store_while_constructing_and_polling() -> Result<()> {
+    fn ready() -> impl Future<Output = i32> {
+        assert!(Store::with_current(|_| ()).is_none());
+        async {
+            assert!(Store::with_current(|_| ()).is_none());
+            42
+        }
+    }
+    let mut store = Store::default();
+    let first = Function::new_typed_async(&mut store, ready);
+    let env = FunctionEnv::new(&mut store, ());
+    let second =
+        Function::new_typed_with_env_async(&mut store, &env, |env: AsyncFunctionEnvMut<()>| {
+            drop(env);
+            ready()
+        });
+    for host in [first, second] {
+        assert_eq!(host.call(&mut store, &[])?[0], Value::I32(42));
+    }
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn custom_numeric_codec_keeps_its_store_conversion_context() -> Result<()> {
+    struct Checked(i32);
+    unsafe impl wasmer::FromToNativeWasmType for Checked {
+        type Native = i32;
+
+        fn from_native(x: i32) -> Self {
+            assert!(Store::with_current(|_| ()).is_none());
+            Self(x)
+        }
+        fn to_native(self) -> i32 {
+            self.0
+        }
+    }
+    let mut store = Store::default();
+    let host = Function::new_typed_async(&mut store, async |x: Checked| Checked(x.0 + 1));
+    let args = [Value::I32(41)];
+    // Custom results still acquire the environment's write lock for conversion.
+    assert_eq!(
+        host.call(&mut store, &args).unwrap_err().to_trap(),
+        Some(TrapCode::YieldOutsideAsyncContext)
+    );
+    let result = futures::executor::block_on(host.call_async(&store.into_async(), args.to_vec()))?;
+    assert_eq!(result[0], Value::I32(42));
+    Ok(())
+}
