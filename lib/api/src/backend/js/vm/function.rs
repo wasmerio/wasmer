@@ -35,6 +35,9 @@ fn decode_types(types: &Array) -> Option<Vec<Type>> {
 pub struct VMFunction {
     pub(crate) function: JsHandle<JsFunction>,
     pub(crate) ty: FunctionType,
+    /// Whether calls of the function take the numeric lane: worked out once
+    /// from `ty`, which does not change, instead of on every call.
+    pub(crate) numeric: bool,
     /// `WebAssembly.promising(function)`, which makes a new function every
     /// time it is called: made by the first `call_async` and kept.
     #[cfg(feature = "experimental-async")]
@@ -54,6 +57,7 @@ impl VMFunction {
         Self::annotate_type(&function, &ty);
         Self {
             function: JsHandle::new(function),
+            numeric: crate::js::function::numeric::is_numeric(&ty),
             ty,
             #[cfg(feature = "experimental-async")]
             promising: Default::default(),

@@ -13,6 +13,8 @@
 //! general path: a lane for it would need a closure type per position of the
 //! BigInts. So do references and multiple results.
 
+use std::mem::MaybeUninit;
+
 use js_sys::Function as JsFunction;
 use wasm_bindgen::{
     JsCast, JsValue,
@@ -41,6 +43,7 @@ pub(crate) fn is_numeric(ty: &FunctionType) -> bool {
 }
 
 /// A number the engine passed for a parameter of type `ty`, or returned.
+#[inline]
 pub(crate) fn value(ty: &Type, number: f64) -> Value {
     match ty {
         Type::I32 => Value::I32(number as i32),
@@ -49,12 +52,37 @@ pub(crate) fn value(ty: &Type, number: f64) -> Value {
     }
 }
 
+/// The values of a call that arrived as `numbers`, kept on the stack. Only
+/// as many as the call has are made: the others stay uninitialized.
+pub(crate) struct Values {
+    values: [MaybeUninit<Value>; MAX_ARITY],
+    len: usize,
+}
+
+impl std::ops::Deref for Values {
+    type Target = [Value];
+
+    #[inline]
+    fn deref(&self) -> &[Value] {
+        // SAFETY: `values` initialized the first `len`.
+        unsafe { std::slice::from_raw_parts(self.values.as_ptr().cast::<Value>(), self.len) }
+    }
+}
+
 /// The values of a call that arrived as `numbers`, for parameters of `types`.
-pub(crate) fn values(types: &[Type], numbers: &[f64]) -> [Value; MAX_ARITY] {
-    std::array::from_fn(|index| match types.get(index) {
-        Some(ty) => value(ty, numbers[index]),
-        None => Value::I32(0),
-    })
+#[inline]
+pub(crate) fn values(types: &[Type], numbers: &[f64]) -> Values {
+    // Making all eight values, as `std::array::from_fn` or a filled array
+    // does, costs a dynamic host function about a fifth of its call. The
+    // values made are numbers, which own nothing, so that `MaybeUninit`
+    // does not drop them loses nothing.
+    let mut values = [const { MaybeUninit::uninit() }; MAX_ARITY];
+    let mut len = 0;
+    for ((slot, ty), number) in values.iter_mut().zip(types).zip(numbers) {
+        slot.write(value(ty, *number));
+        len += 1;
+    }
+    Values { values, len }
 }
 
 /// The arguments of a call that arrived as `numbers`, to keep.

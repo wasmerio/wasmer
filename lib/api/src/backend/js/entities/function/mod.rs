@@ -315,7 +315,7 @@ impl Function {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
                 let arguments = numeric::values(function_type.params(), numbers);
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &arguments[..numbers.len()])?;
+                let results = func(env, &arguments)?;
                 Ok(match function_type.results() {
                     [] => 0.0,
                     _ => numeric::result(&results),
@@ -472,7 +472,7 @@ impl Function {
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         let ty = &self.handle.ty;
-        if numeric::is_numeric(ty)
+        if self.handle.numeric
             && let Some(numbers) = numeric::numbers(ty, params)
         {
             // Nothing but numbers: they are passed as they are.
@@ -833,7 +833,7 @@ where
                     .collect()
             }
             Arguments::Numbers((numbers, arity)) => {
-                numeric::values(types, &numbers[..*arity])[..*arity].to_vec()
+                numeric::values(types, &numbers[..*arity]).to_vec()
             }
         }
     }
