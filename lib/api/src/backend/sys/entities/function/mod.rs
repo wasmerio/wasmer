@@ -181,7 +181,7 @@ impl Function {
                 let mut context = StoreContext::try_get_current_async(store_id);
                 let mut store_mut = match &mut context {
                     crate::GetStoreAsyncGuardResult::Ok(wrapper) => StoreMut {
-                        inner: wrapper.guard.as_mut().unwrap(),
+                        inner: wrapper.store_ptr.as_mut().unwrap(),
                     },
                     crate::GetStoreAsyncGuardResult::NotAsync(ptr) => ptr.as_mut(),
                     crate::GetStoreAsyncGuardResult::NotInstalled => {
@@ -530,10 +530,8 @@ impl Function {
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
         let result = {
-            let store_id = store.objects_mut().id();
-
             #[cfg(feature = "experimental-host-interrupt")]
-            let interrupt_guard = match interrupt_registry::install(store_id) {
+            let interrupt_guard = match interrupt_registry::install(store.objects_mut().id()) {
                 Ok(x) => x,
                 Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
                     return Err(Trap::lib(TrapCode::HostInterrupt).into());
@@ -552,7 +550,7 @@ impl Function {
                 // returns, and the store mut is valid for its duration. It is
                 // installed only while Wasm runs: the wrapper holds the store
                 // between entries, so it must not be lendable then.
-                let _store_install_guard =
+                let store_install_guard =
                     unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
                 let storeref = store.as_store_ref();
                 let vm_function = self.handle.get(storeref.objects().as_sys());
@@ -561,7 +559,7 @@ impl Function {
                 unsafe {
                     // Safety: This is the intended use-case for StoreContext::pause, as
                     // documented in the function's doc comments.
-                    let _pause_guard = StoreContext::pause(store_id);
+                    let _pause_guard = store_install_guard.pause();
                     wasmer_call_trampoline(
                         signal_handler,
                         config,
