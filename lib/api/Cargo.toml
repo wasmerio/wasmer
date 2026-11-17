@@ -32,6 +32,7 @@ more-asserts.workspace = true
 bytes.workspace = true
 tracing = { workspace = true, default-features = true }
 # - Optional shared dependencies.
+wasm-encoder = { workspace = true, optional = true }
 wat = { workspace = true, optional = true }
 symbolic-demangle = { workspace = true, optional = true }
 shared-buffer.workspace = true
@@ -135,7 +136,7 @@ demangle = ["dep:symbolic-demangle"]
 headless = []
 
 # Experimental concurrent execution support
-experimental-async = ["dep:futures", "dep:corosensei"]
+experimental-async = ["dep:wasm-encoder", "dep:futures", "dep:corosensei"]
 
 # Enables Store::coroutine_store_guard for manual cothread store context management.
 unsafe-cothread = ["sys"]

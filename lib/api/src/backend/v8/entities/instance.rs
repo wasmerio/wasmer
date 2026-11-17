@@ -121,11 +121,14 @@ impl Instance {
             .iter()
             .map(|extern_| extern_.to_vm_extern())
             .collect::<Vec<_>>();
-        let instance = InstanceHandle::new(
-            store_ref.inner.store.as_v8().inner,
-            module.as_v8().handle.v8_shared_module_handle,
-            externs,
-        )?;
+        let raw_store = store_ref.inner.store.as_v8().inner;
+        let instance = crate::v8::enter_sync(&mut store.as_store_mut(), || {
+            InstanceHandle::new(
+                raw_store,
+                module.as_v8().handle.v8_shared_module_handle,
+                externs,
+            )
+        })?;
         let exports = instance.get_exports(store, module);
 
         Ok((

@@ -133,6 +133,17 @@ Wasmer can run on.
 ENABLE_V8=1 make build-wasmer
 ```
 
+#### Experimental asynchronous V8 calls
+
+Build or unpack the JSPI-enabled [wee8 distribution](https://github.com/wasmerio/v8-custom-builds/pull/24) for your target. Set `WASMER_WEE8_DIR` to the directory containing `include/wasm-c-api/wasm.h` and `lib/`. For a source build, this is `v8/out/dist`.
+
+```sh
+WASMER_WEE8_DIR=/path/to/v8/out/dist cargo test -p wasmer --no-default-features \
+  --features v8-default,experimental-async --test jspi_async --test simple_greenthread
+```
+
+A host import can await work when entered through `Function::call_async` or `TypedFunction::call_async`. A synchronous call, including a nested call from a synchronous host callback, can run an immediately ready import. If that import needs to suspend, the call returns `YieldOutsideAsyncContext`.
+
 ### All Compilers
 
 Once you have LLVM and Rust, you can just run:

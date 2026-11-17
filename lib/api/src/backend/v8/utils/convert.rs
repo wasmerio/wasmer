@@ -80,9 +80,14 @@ impl IntoWasmerValue for wasm_val_t {
             bindings::wasm_valkind_enum_WASM_V128 => {
                 Value::V128(u128::from_le_bytes(unsafe { self.of.v128.bytes }))
             }
+            bindings::wasm_valkind_enum_WASM_FUNCREF if unsafe { self.of.ref_.is_null() } => {
+                Value::FuncRef(None)
+            }
             bindings::wasm_valkind_enum_WASM_FUNCREF => Value::FuncRef(Some(Function(
                 BackendFunction::V8(crate::backend::v8::function::Function {
                     handle: unsafe { self.of.ref_ as _ },
+                    #[cfg(feature = "experimental-async")]
+                    store_id: None,
                 }),
             ))),
             bindings::wasm_valkind_enum_WASM_EXTERNREF => {

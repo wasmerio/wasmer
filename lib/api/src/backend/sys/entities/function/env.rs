@@ -310,7 +310,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     /// Creates an [`AsStoreAsync`] from this [`AsyncFunctionEnvMut`].
-    pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
+    pub fn as_store_async(&self) -> StoreAsync {
         match &self.store {
             AsyncFunctionEnvMutStore::Sync(_) => {
                 panic!("Cannot build a StoreAsync within a sync context")
@@ -354,7 +354,7 @@ impl<T: 'static> AsyncFunctionEnvHandle<T> {
     }
 
     /// Returns both the host state and the attached StoreRef
-    pub fn data_and_store(&self) -> (&T, &impl AsStoreRef) {
+    pub fn data_and_store(&self) -> (&T, &StoreAsyncReadLock) {
         (self.data(), &self.read_lock)
     }
 }
@@ -374,7 +374,7 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     }
 
     /// Returns both the host state and the attached StoreMut
-    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreAsyncWriteLock) {
         let data = self.data_mut() as *mut T;
         // Wisdom of the ancients:
         // telling the borrow check to close his eyes here

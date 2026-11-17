@@ -15,6 +15,8 @@ pub struct Store {
     pub(crate) engine: Engine,
     pub(crate) inner: *mut wasm_store_t,
     pub(crate) thread_id: ThreadId,
+    #[cfg(feature = "experimental-async")]
+    pub(crate) jspi: crate::v8::jspi::Adapters,
 }
 
 impl std::fmt::Debug for Store {
@@ -33,6 +35,8 @@ impl Store {
             inner,
             engine,
             thread_id,
+            #[cfg(feature = "experimental-async")]
+            jspi: Default::default(),
         }
     }
 
@@ -47,6 +51,8 @@ impl Store {
 
 impl Drop for Store {
     fn drop(&mut self) {
+        #[cfg(feature = "experimental-async")]
+        drop(std::mem::take(&mut self.jspi));
         unsafe { wasm_store_delete(self.inner) }
     }
 }

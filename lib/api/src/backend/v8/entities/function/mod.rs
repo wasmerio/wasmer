@@ -37,6 +37,8 @@ type CCallback = unsafe extern "C" fn(
 /// A WebAssembly `function` in `v8`.
 pub struct Function {
     pub(crate) handle: VMFunction,
+    #[cfg(feature = "experimental-async")]
+    pub(crate) store_id: Option<wasmer_types::StoreId>,
 }
 
 unsafe impl Send for Function {}
@@ -44,17 +46,21 @@ unsafe impl Sync for Function {}
 
 impl From<VMFunction> for Function {
     fn from(handle: VMFunction) -> Self {
-        Self { handle }
+        Self {
+            handle,
+            #[cfg(feature = "experimental-async")]
+            store_id: None,
+        }
     }
 }
 
-pub(crate) struct FunctionCallbackEnv<'a, F> {
-    pub(crate) store: StoreMut<'a>,
+pub(crate) struct FunctionCallbackEnv<F> {
+    pub(crate) store_id: wasmer_types::StoreId,
     pub(crate) func: F,
     pub(crate) env_handle: Option<StoreHandle<VMFunctionEnvironment>>,
 }
 
-impl<'a, F> std::fmt::Debug for FunctionCallbackEnv<'a, F> {
+impl<F> std::fmt::Debug for FunctionCallbackEnv<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FunctionCallbackEnv")
             .field("env_is_some", &self.env_handle.is_some())
@@ -129,13 +135,14 @@ impl Function {
         };
 
         let mut store = store.as_store_mut();
+        let store_id = store.objects_mut().id();
         let inner = store.inner.store.as_v8().inner;
 
         let callback: CCallback = make_fn_callback(&func, param_types.len());
 
-        let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
+        let mut callback_env: *mut FunctionCallbackEnv<F> =
             Box::leak(Box::new(FunctionCallbackEnv {
-                store,
+                store_id,
                 func,
                 env_handle: Some(env.as_v8().handle.clone()),
             }));
@@ -156,6 +163,8 @@ impl Function {
 
         Self {
             handle: wasm_function,
+            #[cfg(feature = "experimental-async")]
+            store_id: Some(store_id),
         }
     }
 
@@ -199,15 +208,16 @@ impl Function {
             unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
 
         let mut store = store.as_store_mut();
+        let store_id = store.objects_mut().id();
         let inner = store.inner.store.as_v8().inner;
 
         let callback: CCallback = unsafe {
             std::mem::transmute(func.function_callback(crate::BackendKind::V8).unwrap_v_8())
         };
 
-        let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
+        let mut callback_env: *mut FunctionCallbackEnv<F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
-                store,
+                store_id,
                 func,
                 env_handle: None,
             }));
@@ -228,6 +238,8 @@ impl Function {
 
         Self {
             handle: wasm_function,
+            #[cfg(feature = "experimental-async")]
+            store_id: Some(store_id),
         }
     }
 
@@ -279,15 +291,16 @@ impl Function {
         };
 
         let mut store = store.as_store_mut();
+        let store_id = store.objects_mut().id();
         let inner = store.inner.store.as_v8().inner;
 
         let callback: CCallback = unsafe {
             std::mem::transmute(func.function_callback(crate::BackendKind::V8).unwrap_v_8())
         };
 
-        let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
+        let mut callback_env: *mut FunctionCallbackEnv<F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
-                store,
+                store_id,
                 func,
                 env_handle: Some(env.as_v8().handle.clone()),
             }));
@@ -308,6 +321,8 @@ impl Function {
 
         Self {
             handle: wasm_function,
+            #[cfg(feature = "experimental-async")]
+            store_id: Some(store_id),
         }
     }
 
@@ -333,6 +348,7 @@ impl Function {
             res
         };
 
+        unsafe { wasm_functype_delete(type_) };
         FunctionType::new(params, returns)
     }
 
@@ -400,12 +416,14 @@ impl Function {
             }
         };
 
-        call_wrapped(store, wrapper, |_| {
+        call_wrapped(store, wrapper, |store| {
             // `wasm_func_call` takes the arguments, so every entry gets its own.
             let mut args = Default::default();
             let trap = unsafe {
                 wasm_val_vec_new(&mut args, wasm_params.len(), wasm_params.as_ptr());
-                wasm_func_call(self.handle, &mut args as _, &mut results as *mut _)
+                crate::v8::enter_sync(&mut store.as_store_mut(), || {
+                    wasm_func_call(self.handle, &mut args as _, &mut results as *mut _)
+                })
             };
             if trap.is_null() {
                 Ok(())
@@ -428,6 +446,8 @@ impl Function {
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
         Self {
             handle: internal.unwrap_v_8(),
+            #[cfg(feature = "experimental-async")]
+            store_id: Some(_store.objects_mut().id()),
         }
     }
 
@@ -444,7 +464,21 @@ impl Function {
 
     /// Checks whether this `Function` can be used with the given context.
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-        true
+        #[cfg(feature = "experimental-async")]
+        {
+            let store = _store.as_store_ref();
+            if let Some(owner) = self.store_id {
+                return owner == store.objects().id();
+            }
+            store.inner.store.is_v8()
+                && unsafe {
+                    wasm_func_belongs_to_store(self.handle, store.inner.store.as_v8().inner)
+                }
+        }
+        #[cfg(not(feature = "experimental-async"))]
+        {
+            true
+        }
     }
 }
 
@@ -466,9 +500,10 @@ where
             + Send
             + Sync,
     {
-        let r: *mut (FunctionCallbackEnv<'_, F>) = env as _;
+        let r: *mut (FunctionCallbackEnv<F>) = env as _;
 
-        let mut store = unsafe { (*r).store.as_store_mut() };
+        let mut current = unsafe { crate::StoreContext::get_current((*r).store_id) };
+        let mut store = current.as_mut();
         let env_handle = unsafe { (*r).env_handle.as_ref().unwrap().clone() };
         let mut fn_env = env::FunctionEnv::from_handle(env_handle).into_mut(&mut store);
         let func: &F = unsafe { &(*r).func };
@@ -578,7 +613,8 @@ macro_rules! impl_host_function {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             { unsafe {
                 let mut r: *mut crate::backend::v8::function::FunctionCallbackEnv<Func> = unsafe {std::mem::transmute(env)};
-                let store = &mut (*r).store.as_store_mut();
+                let mut current = crate::StoreContext::get_current((*r).store_id);
+                let store = &mut current.as_mut();
                 let mut i = 0;
 
                 $(
@@ -648,8 +684,9 @@ macro_rules! impl_host_function {
               Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             { unsafe {
 
-              let r: *mut (crate::backend::v8::function::FunctionCallbackEnv<'_, Func>) = env as _;
-              let store = &mut (*r).store.as_store_mut();
+              let r: *mut (crate::backend::v8::function::FunctionCallbackEnv<Func>) = env as _;
+              let mut current = crate::StoreContext::get_current((*r).store_id);
+                let store = &mut current.as_mut();
 
               let mut i = 0;
 

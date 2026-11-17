@@ -7,3 +7,14 @@ pub(crate) mod utils;
 pub(crate) mod vm;
 
 pub use entities::{engine::Engine as V8, *};
+
+#[cfg(feature = "experimental-async")]
+pub(crate) mod jspi;
+
+#[cfg(feature = "experimental-async")]
+pub(crate) use jspi::enter_sync;
+
+#[cfg(not(feature = "experimental-async"))]
+pub(crate) fn enter_sync<T>(store: &mut crate::StoreMut, f: impl FnOnce() -> T) -> T {
+    store.parked(f)
+}

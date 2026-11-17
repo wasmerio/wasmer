@@ -8,7 +8,7 @@ use wasmer::{
     AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module,
     Store, StoreAsync, Type, TypedFunction, Value, imports,
 };
-use wasmer_vm::TrapCode;
+use wasmer_types::TrapCode;
 
 #[derive(Default)]
 struct DeltaState {
@@ -31,10 +31,6 @@ fn jspi_module() -> &'static [u8] {
 }
 
 #[test]
-#[cfg_attr(
-    feature = "v8-default",
-    ignore = "async functions are not supported by the default v8 backend"
-)]
 fn async_state_updates_follow_jspi_example() -> Result<()> {
     let wasm = jspi_module();
     let mut store = Store::default();
@@ -120,10 +116,6 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(
-    feature = "v8-default",
-    ignore = "async functions are not supported by the default v8 backend"
-)]
 fn typed_async_host_and_calls_work() -> Result<()> {
     let wasm = wat::parse_str(
         r#"
@@ -188,10 +180,6 @@ fn typed_async_host_and_calls_work() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(
-    feature = "v8-default",
-    ignore = "async functions are not supported by the default v8 backend"
-)]
 fn cannot_yield_when_not_in_async_context() -> Result<()> {
     const WAT: &str = r#"
     (module
@@ -241,10 +229,6 @@ fn cannot_yield_when_not_in_async_context() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(
-    feature = "v8-default",
-    ignore = "async functions are not supported by the default v8 backend"
-)]
 fn nested_async_in_sync() -> Result<()> {
     const WAT: &str = r#"
     (module
@@ -280,7 +264,6 @@ fn nested_async_in_sync() -> Result<()> {
             .as_ref()
             .expect("inner_async function to be set")
             .call(&mut store)
-            .expect("inner async call to succeed")
     });
 
     let async_ = Function::new_typed_async(&mut store, async || {
@@ -309,13 +292,96 @@ fn nested_async_in_sync() -> Result<()> {
     let entry = instance
         .exports
         .get_typed_function::<(), i32>(&store, "entry")?;
+    #[cfg(feature = "v8")]
+    let is_v8 = store.is_v8();
     let result = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap()
-        .block_on(entry.call_async(&store.into_async()))?;
+        .block_on(entry.call_async(&store.into_async()));
 
-    assert_eq!(result, 42);
+    #[cfg(feature = "v8")]
+    if is_v8 {
+        assert_eq!(
+            result.unwrap_err().to_trap(),
+            Some(TrapCode::YieldOutsideAsyncContext)
+        );
+        return Ok(());
+    }
+    assert_eq!(result?, 42);
 
+    Ok(())
+}
+
+#[cfg(feature = "v8")]
+#[test]
+fn v8_suspended_calls_keep_their_own_continuations() -> Result<()> {
+    use futures::{channel::oneshot, poll};
+    use std::{collections::VecDeque, rc::Rc};
+
+    let mut store = Store::new(wasmer::v8::V8::new());
+    assert!(store.engine().supports_async());
+    let module = Module::new(
+        &store,
+        r#"
+        (module
+          (import "" "wait" (func $wait (param i32) (result i32)))
+          (func (export "run") (param i32 v128) (result i32 v128)
+            local.get 0 call $wait i32.const 1 i32.add local.get 1))
+    "#,
+    )?;
+    let receivers = Rc::new(RefCell::new(VecDeque::new()));
+    let queue = receivers.clone();
+    let wait = Function::new_typed_async(&mut store, move |input: i32| {
+        let receiver: oneshot::Receiver<i32> = queue.borrow_mut().pop_front().unwrap();
+        async move { input + receiver.await.unwrap() }
+    });
+    let instance = Instance::new(&mut store, &module, &imports! { "" => { "wait" => wait } })?;
+    let run = instance.exports.get_function("run")?;
+    let store = store.into_async();
+    futures::executor::block_on(async {
+        let (cancel, first) = oneshot::channel();
+        let (release, second) = oneshot::channel();
+        receivers.borrow_mut().extend([first, second]);
+        let mut a = run.call_async(&store, vec![Value::I32(1), Value::V128(100)]);
+        let mut b = run.call_async(&store, vec![Value::I32(2), Value::V128(u128::MAX)]);
+        assert!(poll!(&mut a).is_pending());
+        assert!(poll!(&mut b).is_pending());
+        drop(a);
+        assert!(cancel.send(10).is_err());
+        release.send(20).unwrap();
+        let result = b.await?;
+        assert_eq!(result[0].unwrap_i32(), 23);
+        assert_eq!(result[1].unwrap_v128(), u128::MAX);
+        Ok(())
+    })
+}
+
+#[cfg(feature = "v8")]
+#[test]
+fn v8_preserves_host_errors_after_suspension() -> Result<()> {
+    let mut store = Store::new(wasmer::v8::V8::new());
+    let fail = Function::new_async(&mut store, FunctionType::new([], []), |_| async {
+        tokio::task::yield_now().await;
+        Err(wasmer::RuntimeError::new("failed after suspension"))
+    });
+    let store = store.into_async();
+    let error = futures::executor::block_on(fail.call_async(&store, vec![])).unwrap_err();
+    assert_eq!(error.message(), "failed after suspension");
+    Ok(())
+}
+
+#[cfg(feature = "v8")]
+#[test]
+fn v8_ready_typed_import_and_foreign_store() -> Result<()> {
+    let mut store = Store::new(wasmer::v8::V8::new());
+    let add = Function::new_typed_async(&mut store, |n: i32| future::ready(n + 1));
+    let typed = add.typed::<i32, i32>(&store)?;
+    assert_eq!(typed.call(&mut store, 6)?, 7);
+    drop(store);
+
+    let other = Store::new(wasmer::v8::V8::new()).into_async();
+    assert!(futures::executor::block_on(typed.call_async(&other, 6)).is_err());
+    assert!(futures::executor::block_on(add.call_async(&other, vec![Value::I32(6)])).is_err());
     Ok(())
 }

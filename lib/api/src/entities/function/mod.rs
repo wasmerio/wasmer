@@ -365,10 +365,9 @@ impl Function {
 
     /// Calls the function asynchronously.
     ///
-    /// The returned future drives execution of the WebAssembly function on a
-    /// coroutine stack. Host functions created with [`Function::new_async`] may
-    /// suspend execution by awaiting futures, and their completion will resume
-    /// the Wasm instance according to the JSPI proposal.
+    /// Polling the returned future drives guest execution. A host function
+    /// created with [`Function::new_async`] can suspend the guest while it
+    /// awaits work. The guest resumes when the host future completes.
     #[must_use = "This function spawns a future that must be awaited to produce results"]
     #[cfg(feature = "experimental-async")]
     pub fn call_async(
