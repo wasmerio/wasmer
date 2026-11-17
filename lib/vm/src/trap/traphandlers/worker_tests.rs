@@ -1,4 +1,7 @@
-use super::{IDLE_WORKER, STACK_POOL, StackExt, VMConfig, drain_stack_pool, tests::GLOBAL_STATE};
+use super::{
+    IDLE_WORKER, STACK_POOL, StackExt, VMConfig, YIELDER, drain_stack_pool, on_host_stack,
+    on_wasm_stack, tests::GLOBAL_STATE,
+};
 use crate::{
     Trap, VMContext, VMFunctionBody, VMFunctionContext, raise_user_trap, wasmer_call_trampoline,
 };
@@ -82,6 +85,48 @@ fn completes_distinct_calls_then_retires_a_trapped_worker() {
     call(STACK_SIZE, i32::wrapping_sub, &60, &mut second).unwrap();
     assert_eq!(second, 5);
     assert_eq!(WORKERS_CREATED.get(), before + 2);
+    drain_stack_pool();
+}
+
+#[test]
+fn host_reentry_reuses_only_the_outer_worker() {
+    fn reenter(depth: i32, value: i32) -> i32 {
+        if depth == 0 {
+            return value + 1;
+        }
+        on_host_stack(|| {
+            let mut slot = value.into();
+            call(STACK_SIZE, reenter, &(depth - 1), &mut slot).unwrap();
+            unsafe { slot.i32 }
+        })
+    }
+
+    let _lock = GLOBAL_STATE.lock().unwrap();
+    drain_stack_pool();
+    let before = WORKERS_CREATED.get();
+    let mut slot = 0.into();
+    for depth in [0, 2, 1, 2] {
+        call(STACK_SIZE, reenter, &depth, &mut slot).unwrap();
+    }
+    assert_eq!(slot, 4);
+    assert_eq!(WORKERS_CREATED.get(), before + 1);
+    assert!(has_idle_worker());
+    drain_stack_pool();
+}
+
+#[test]
+fn nested_trampoline_restores_its_guest_stack_caller() {
+    let _lock = GLOBAL_STATE.lock().unwrap();
+    drain_stack_pool();
+    let before = WORKERS_CREATED.get();
+    let restored = on_wasm_stack(STACK_SIZE, None, || {
+        let outer = YIELDER.with(Cell::get);
+        let mut slot = 1.into();
+        call(STACK_SIZE, i32::wrapping_add, &2, &mut slot).unwrap();
+        slot == 3 && outer.is_some() && YIELDER.with(Cell::get) == outer
+    });
+    assert!(matches!(restored, Ok(true)));
+    assert_eq!(WORKERS_CREATED.get(), before);
     drain_stack_pool();
 }
 

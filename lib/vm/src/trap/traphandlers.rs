@@ -900,8 +900,8 @@ type WasmYielder = Yielder<WasmInput, WasmYield>;
 // We need two separate thread-local variables here:
 // - YIELDER is set within the new stack and is used to unwind back to the root
 //   of the stack from inside it.
-// - TRAP_HANDLER is set from outside the new stack and is solely used from
-//   signal handlers. It must be atomic since it is used by signal handlers.
+// - TRAP_HANDLER is set from outside the new stack and identifies an active
+//   Wasm entry. It must be atomic since it is used by signal handlers.
 //
 // We also do per-thread signal stack initialization on the first time
 // TRAP_HANDLER is accessed.
@@ -1195,9 +1195,10 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
         Ok(f())
     });
 
-    // Ensure that YIELDER is reset on exit even if the coroutine panics,
+    // A low-level VM caller may itself be running on a Wasm stack.
+    let previous = YIELDER.with(Cell::get);
     defer! {
-        YIELDER.with(|cell| cell.set(None));
+        YIELDER.with(|cell| cell.set(previous));
     }
 
     coro.scope(|mut coro_ref| {
@@ -1286,11 +1287,18 @@ pub(super) unsafe fn call_trampoline(
     let cached = IDLE_WORKER.with(|slot| slot.0.take());
     let mut worker = match cached {
         Some(worker) if worker.stack_size >= min_size => worker,
-        Some(worker) => {
-            drop(worker.stop());
+        cached => {
+            if let Some(undersized) = cached {
+                drop(undersized.stop());
+            }
+            // The outer call owns its worker until it returns. A nested call
+            // can reuse a stack without building a worker it would then evict.
+            if TRAP_HANDLER.with(|ptr| !ptr.load(Ordering::Relaxed).is_null()) {
+                return on_wasm_stack(min_size, trap_handler, move || unsafe { call.invoke() })
+                    .map_err(UnwindReason::into_trap);
+            }
             IdleWorker::new(min_size)
         }
-        None => IdleWorker::new(min_size),
     };
 
     let result = {
