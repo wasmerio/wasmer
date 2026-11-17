@@ -21,9 +21,9 @@ use std::any::Any;
 use std::cell::Cell;
 use std::error::Error;
 use std::io;
-use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
+use std::mem::{self, ManuallyDrop};
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering, compiler_fence};
 use std::sync::{LazyLock, Once};
@@ -89,38 +89,195 @@ pub fn get_stack_size() -> usize {
 
 /// Pool of pre-allocated coroutine stacks to avoid repeated mmap syscalls.
 /// Acts as the cross-thread overflow store; per-thread reuse is served by
-/// `TLS_STACK` to keep the hot path atomic-free.
+/// `ThreadState::stack` to keep the hot path atomic-free.
 static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
     LazyLock::new(crossbeam_queue::SegQueue::new);
 
-/// Per-thread cache holding a single ready-to-use coroutine stack. The hot
-/// path of `on_wasm_stack` pops from here without touching the global
-/// `STACK_POOL`'s atomics; only the first call on a thread or re-entrant
-/// nested calls fall back to the pool.
+/// The per-thread state of the trap machinery.
 ///
-/// On thread exit the held stack (if any) is pushed to `STACK_POOL` so memory
-/// cycles correctly across thread lifetimes (no mmap leaks).
-struct StackCache(Cell<Option<DefaultStack>>);
+/// Every entry into Wasm and every call out of it to the host touches this
+/// state, so it lives in a single `const` thread-local without a destructor:
+/// reaching it is a plain thread-local address lookup, with no lazy
+/// initialization or destructor-registration check. An entry looks it up once
+/// and passes the reference down instead of going through one thread-local
+/// per field. The one-time per-thread work (the signal stack, returning the
+/// cached stack at thread exit) is tracked with bits in `flags` and done out
+/// of line the first time it is needed.
+///
+/// On targets where the standard library keeps thread-locals behind OS keys
+/// rather than native thread-local storage, every thread-local is a heap block
+/// that is freed when the thread exits, destructor or not, so there
+/// `ThreadState` has a destructor of its own that returns the cached stack
+/// (see its `Drop` impl).
+struct ThreadState {
+    /// The trap handler context of the innermost Wasm entry on this thread.
+    /// It is set from outside the Wasm stack and read only by signal
+    /// handlers, so it is atomic. It belongs to the running activation and is
+    /// exchanged by [`ActivationState::swap`].
+    trap_handler: AtomicPtr<TrapHandlerContext>,
+    /// The yielder of the Wasm stack the thread is running on. It is set
+    /// within the new stack and used to unwind back to the root of that stack
+    /// from inside it. `None` while the thread runs host code.
+    yielder: Cell<Option<NonNull<Yielder<(), UnwindReason>>>>,
+    /// A single ready-to-use coroutine stack. The hot path of `on_wasm_stack`
+    /// takes it from here without touching the global `STACK_POOL`'s atomics;
+    /// only the first call on a thread or re-entrant nested calls fall back to
+    /// the pool.
+    ///
+    /// `ManuallyDrop` keeps the thread-local free of a destructor. On thread
+    /// exit `ThreadExit` pushes the held stack to `STACK_POOL` (or, where the
+    /// state itself is freed at exit, `ThreadState`'s destructor does), so
+    /// memory cycles correctly across thread lifetimes (no mmap leaks).
+    stack: ManuallyDrop<Cell<Option<DefaultStack>>>,
+    /// One-time per-thread work already done: `SIGNAL_STACK_READY`,
+    /// `EXIT_HOOK_REGISTERED`.
+    flags: Cell<u8>,
+}
 
-impl Drop for StackCache {
+/// `lazy_per_thread_init` has set up this thread's signal stack.
+#[cfg(unix)]
+const SIGNAL_STACK_READY: u8 = 1 << 0;
+/// `ThreadExit` is registered to return the cached stack when the thread
+/// exits.
+const EXIT_HOOK_REGISTERED: u8 = 1 << 1;
+
+impl ThreadState {
+    fn set_flag(&self, flag: u8) {
+        self.flags.set(self.flags.get() | flag);
+    }
+
+    fn clear_flag(&self, flag: u8) {
+        self.flags.set(self.flags.get() & !flag);
+    }
+
+    /// Ensures the per-thread setup that has to happen before any WebAssembly
+    /// is entered on this thread.
+    #[inline]
+    fn per_thread_init(&self) -> Result<(), Trap> {
+        #[cfg(unix)]
+        if self.flags.get() & SIGNAL_STACK_READY == 0 {
+            return lazy_per_thread_init(self);
+        }
+        #[cfg(windows)]
+        lazy_per_thread_init()?;
+        Ok(())
+    }
+
+    /// Registers `ThreadExit` for this thread. Returns false if the thread is
+    /// already past that point of its exit, when nothing can be registered.
+    #[cold]
+    #[inline(never)]
+    fn register_exit_hook(&self) -> bool {
+        let registered = THREAD_EXIT.try_with(|_| ()).is_ok();
+        if registered {
+            self.set_flag(EXIT_HOOK_REGISTERED);
+        }
+        registered
+    }
+}
+
+// Targets whose thread-locals are heap blocks behind OS keys rather than
+// native thread-local storage (Android, OpenBSD, windows-gnu, and a few more):
+// the standard library frees each of them when the thread exits, whether or
+// not the value has a destructor. There `ThreadState` has one, which returns
+// the cached stack: `ThreadExit` may run after the block was freed (the
+// destructors of a thread's keys run in an order of the platform's choosing,
+// oldest first on Android), and would then find no stack to return. A target
+// listed here that has native thread-locals only pays for a destructor it does
+// not need; one that is missing leaks the cached stack of every thread that
+// exits. The list is repeated in the check below.
+#[cfg(any(
+    target_os = "android",
+    target_os = "openbsd",
+    target_os = "illumos",
+    target_os = "solaris",
+    target_os = "haiku",
+    target_os = "nto",
+    target_env = "ohos",
+    all(windows, target_env = "gnu"),
+))]
+impl Drop for ThreadState {
     fn drop(&mut self) {
-        if let Some(stack) = self.0.take() {
+        if let Some(stack) = self.stack.take() {
             STACK_POOL.push(stack);
         }
     }
 }
 
+// Everywhere else `ThreadState` must not need dropping: a field with a
+// destructor would make the `const` thread-local register one, and every
+// access check whether it ran.
+#[cfg(not(any(
+    target_os = "android",
+    target_os = "openbsd",
+    target_os = "illumos",
+    target_os = "solaris",
+    target_os = "haiku",
+    target_os = "nto",
+    target_env = "ohos",
+    all(windows, target_env = "gnu"),
+)))]
+const _: () = assert!(!std::mem::needs_drop::<ThreadState>());
+
 thread_local! {
-    static TLS_STACK: StackCache = const { StackCache(Cell::new(None)) };
+    static THREAD_STATE: ThreadState = const {
+        ThreadState {
+            trap_handler: AtomicPtr::new(ptr::null_mut()),
+            yielder: Cell::new(None),
+            stack: ManuallyDrop::new(Cell::new(None)),
+            flags: Cell::new(0),
+        }
+    };
+}
+
+/// Runs `f` with the calling thread's state.
+///
+/// Same as `THREAD_STATE.with(f)`, except that the thread-local is looked up
+/// by a closure small enough to be inlined: when `f` is large, `with` itself
+/// is not inlined, and then the lookup becomes an indirect call through the
+/// `LocalKey`.
+#[inline(always)]
+fn with_thread_state<R>(f: impl FnOnce(&ThreadState) -> R) -> R {
+    let state = THREAD_STATE.with(ptr::from_ref);
+    // SAFETY: with native thread-locals `THREAD_STATE` has no destructor, so
+    // it lives as long as the thread, and `f` runs on this thread, within this
+    // call. Where thread-locals are freed at exit (see `ThreadState`), it
+    // lives until the thread's thread-local destructors run.
+    f(unsafe { &*state })
+}
+
+/// Returns the cached stack to the global pool when the thread exits. This
+/// is a thread-local of its own, accessed once per thread, so that the
+/// destructor's bookkeeping stays off `THREAD_STATE`, which every call
+/// touches.
+struct ThreadExit;
+
+impl Drop for ThreadExit {
+    fn drop(&mut self) {
+        // With native thread-locals `THREAD_STATE` has no destructor, so it
+        // is still there. Where thread-locals are freed at exit it may be gone
+        // already, having returned its stack itself; looking it up then makes
+        // a new, empty one, which has nothing to return.
+        let _ = THREAD_STATE.try_with(|state| {
+            state.clear_flag(EXIT_HOOK_REGISTERED);
+            if let Some(stack) = state.stack.take() {
+                STACK_POOL.push(stack);
+            }
+        });
+    }
+}
+
+thread_local! {
+    static THREAD_EXIT: ThreadExit = const { ThreadExit };
 }
 
 /// Acquire a coroutine stack large enough for `min_size`. Prefers the
 /// thread-local cache (no atomics), falls back to the global `STACK_POOL`,
 /// then allocates a fresh stack.
-fn acquire_stack(min_size: usize) -> DefaultStack {
+fn acquire_stack(state: &ThreadState, min_size: usize) -> DefaultStack {
     // Fast path: thread-local cache. Steady-state per-thread reuse never
     // touches the SegQueue.
-    if let Some(stack) = TLS_STACK.with(|cache| cache.0.take()) {
+    if let Some(stack) = state.stack.take() {
         if stack.size() >= min_size {
             return stack;
         }
@@ -139,8 +296,14 @@ fn acquire_stack(min_size: usize) -> DefaultStack {
 /// Release a coroutine stack. Prefers the thread-local slot if empty (no
 /// atomics); otherwise pushes to the global `STACK_POOL` so the stack is
 /// still reusable by other threads.
-fn release_stack(stack: DefaultStack) {
-    let displaced = TLS_STACK.with(|cache| cache.0.replace(Some(stack)));
+fn release_stack(state: &ThreadState, stack: DefaultStack) {
+    // A stack may only be cached once something will return it to the pool
+    // when the thread exits.
+    if state.flags.get() & EXIT_HOOK_REGISTERED == 0 && !state.register_exit_hook() {
+        STACK_POOL.push(stack);
+        return;
+    }
+    let displaced = state.stack.replace(Some(stack));
     if let Some(displaced) = displaced {
         STACK_POOL.push(displaced);
     }
@@ -164,7 +327,7 @@ fn release_stack(stack: DefaultStack) {
 pub fn drain_stack_pool() {
     // Drain the calling thread's TLS slot first (best-effort across threads
     // still applies — other threads' caches aren't touched).
-    if let Some(stack) = TLS_STACK.with(|cache| cache.0.take()) {
+    if let Some(stack) = THREAD_STATE.with(|state| state.stack.take()) {
         drop(stack);
     }
     while STACK_POOL.pop().is_some() {}
@@ -878,25 +1041,16 @@ pub unsafe fn catch_traps<F, R: 'static>(
 where
     F: FnOnce() -> R + 'static,
 {
-    // Ensure that per-thread initialization is done.
-    lazy_per_thread_init()?;
-    let stack_size = config
-        .wasm_stack_size
-        .unwrap_or_else(|| DEFAULT_STACK_SIZE.load(Ordering::Relaxed));
-    on_wasm_stack(stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
-}
-
-// We need two separate thread-local variables here:
-// - YIELDER is set within the new stack and is used to unwind back to the root
-//   of the stack from inside it.
-// - TRAP_HANDLER is set from outside the new stack and is solely used from
-//   signal handlers. It must be atomic since it is used by signal handlers.
-//
-// We also do per-thread signal stack initialization on the first time
-// TRAP_HANDLER is accessed.
-thread_local! {
-    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
-    static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
+    // One thread-local lookup for the whole entry: the call stays on this
+    // thread until it returns, so the reference stays valid throughout.
+    with_thread_state(|state| {
+        // Ensure that per-thread initialization is done.
+        state.per_thread_init()?;
+        let stack_size = config
+            .wasm_stack_size
+            .unwrap_or_else(|| DEFAULT_STACK_SIZE.load(Ordering::Relaxed));
+        on_wasm_stack(state, stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
+    })
 }
 
 /// The thread-local state of one *activation*: a chain of Wasm entries whose
@@ -952,18 +1106,23 @@ impl ActivationState {
     ///   swapped in once the stack that owns it is gone, nor on another
     ///   thread.
     pub unsafe fn swap(&mut self) {
-        // The Wasm stack's yielder is not part of the exchange because it is
-        // unset on both sides: `on_host_stack` takes it for as long as host
-        // code runs, and `on_wasm_stack` clears it on the way out.
-        debug_assert!(
-            YIELDER.with(|cell| cell.get()).is_none(),
-            "activation switched while running on the Wasm stack"
-        );
-        compiler_fence(Ordering::Release);
-        TRAP_HANDLER.with(|ptr| {
-            self.trap_handler = ptr.swap(self.trap_handler, Ordering::Relaxed);
+        // Only the trap handler (and the interrupt registry's active stores)
+        // belongs to an activation. The Wasm stack's yielder is not part of
+        // the exchange because it is unset on both sides: `on_host_stack`
+        // takes it for as long as host code runs, and `on_wasm_stack` clears
+        // it on the way out. The cached stack and the one-time setup flags
+        // belong to the thread.
+        THREAD_STATE.with(|state| {
+            debug_assert!(
+                state.yielder.get().is_none(),
+                "activation switched while running on the Wasm stack"
+            );
+            compiler_fence(Ordering::Release);
+            self.trap_handler = state
+                .trap_handler
+                .swap(self.trap_handler, Ordering::Relaxed);
+            compiler_fence(Ordering::Acquire);
         });
-        compiler_fence(Ordering::Acquire);
         #[cfg(feature = "experimental-host-interrupt")]
         self.active_stores.swap();
     }
@@ -1011,6 +1170,7 @@ impl TrapHandlerContext {
     /// Runs the given function with a trap handler context. The previous
     /// trap handler context is preserved and restored afterwards.
     fn install<T, R>(
+        state: &ThreadState,
         custom_trap: Option<*const TrapHandlerFn<'static>>,
         coro_trap_handler: CoroutineTrapHandler<Result<T, UnwindReason>>,
         f: impl FnOnce() -> R,
@@ -1042,14 +1202,13 @@ impl TrapHandlerContext {
         };
 
         compiler_fence(Ordering::Release);
-        let prev = TRAP_HANDLER.with(|ptr| {
-            let prev = ptr.load(Ordering::Relaxed);
-            ptr.store(&ctx as *const Self as *mut Self, Ordering::Relaxed);
-            prev
-        });
+        let prev = state.trap_handler.load(Ordering::Relaxed);
+        state
+            .trap_handler
+            .store(&ctx as *const Self as *mut Self, Ordering::Relaxed);
 
         defer! {
-            TRAP_HANDLER.with(|ptr| ptr.store(prev, Ordering::Relaxed));
+            state.trap_handler.store(prev, Ordering::Relaxed);
             compiler_fence(Ordering::Acquire);
         }
 
@@ -1066,7 +1225,7 @@ impl TrapHandlerContext {
         call_handler: impl Fn(&TrapHandlerFn<'static>) -> bool,
     ) -> bool {
         unsafe {
-            let ptr = TRAP_HANDLER.with(|ptr| ptr.load(Ordering::Relaxed));
+            let ptr = THREAD_STATE.with(|state| state.trap_handler.load(Ordering::Relaxed));
             if ptr.is_null() {
                 return false;
             }
@@ -1148,8 +1307,8 @@ impl<T> TrapHandlerContextInner<T> {
 
 unsafe fn unwind_with(reason: UnwindReason) -> ! {
     unsafe {
-        let yielder = YIELDER
-            .with(|cell| cell.replace(None))
+        let yielder = THREAD_STATE
+            .with(|state| state.yielder.replace(None))
             .expect("not running on Wasm stack");
 
         yielder.as_ref().suspend(reason);
@@ -1163,6 +1322,7 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
 fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
+    state: &ThreadState,
     stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
@@ -1173,26 +1333,27 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     // inside `acquire_stack`. `base() - limit()` is the full mmap region
     // (including guard page), which is always >= the requested size for
     // stacks allocated with that size.
-    let stack = acquire_stack(stack_size);
-    let mut stack = scopeguard::guard(stack, release_stack);
+    let stack = acquire_stack(state, stack_size);
+    let mut stack = scopeguard::guard(stack, |stack| release_stack(state, stack));
 
-    // Create a coroutine with a new stack to run the function on.
+    // Create a coroutine with a new stack to run the function on. It runs on
+    // this thread, so it reaches the thread state through `state` too.
     let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
         // Save the yielder to TLS so that it can be used later.
-        YIELDER.with(|cell| cell.set(Some(yielder.into())));
+        state.yielder.set(Some(yielder.into()));
 
         Ok(f())
     });
 
-    // Ensure that YIELDER is reset on exit even if the coroutine panics,
+    // Ensure that the yielder is reset on exit even if the coroutine panics,
     defer! {
-        YIELDER.with(|cell| cell.set(None));
+        state.yielder.set(None);
     }
 
     coro.scope(|mut coro_ref| {
         // Set up metadata for the trap handler for the duration of the coroutine
         // execution. This is restored to its previous value afterwards.
-        TrapHandlerContext::install(trap_handler, coro_ref.trap_handler(), || {
+        TrapHandlerContext::install(state, trap_handler, coro_ref.trap_handler(), || {
             match coro_ref.resume(()) {
                 CoroutineResult::Yield(trap) => {
                     // This came from unwind_with which requires that there be only
@@ -1217,36 +1378,41 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
 /// stack overflow in the middle of a sensitive host operations (e.g. growing
 /// a memory) which would be hard to recover from.
 pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
-    // Reset YIEDER to None for the duration of this call to indicate that we
-    // are no longer on the Wasm stack.
-    let yielder_ptr = YIELDER.with(|cell| cell.replace(None));
+    // One thread-local lookup for the take and the restore below: the host
+    // call returns to this thread before the restore runs.
+    with_thread_state(|state| {
+        // Reset the yielder to None for the duration of this call to indicate
+        // that we are no longer on the Wasm stack.
+        let yielder_ptr = state.yielder.replace(None);
 
-    // If we are already on the host stack, execute the function directly. This
-    // happens if a host function is called directly from the API.
-    let yielder = match yielder_ptr {
-        Some(ptr) => unsafe { ptr.as_ref() },
-        None => return f(),
-    };
+        // If we are already on the host stack, execute the function directly.
+        // This happens if a host function is called directly from the API.
+        let yielder = match yielder_ptr {
+            Some(ptr) => unsafe { ptr.as_ref() },
+            None => return f(),
+        };
 
-    // Restore YIELDER upon exiting normally or unwinding.
-    defer! {
-        YIELDER.with(|cell| cell.set(yielder_ptr));
-    }
+        // Restore the yielder upon exiting normally or unwinding.
+        defer! {
+            state.yielder.set(yielder_ptr);
+        }
 
-    // on_parent_stack requires the closure to be Send so that the Yielder
-    // cannot be called from the parent stack. This is not a problem for us
-    // since we don't expose the Yielder.
-    struct SendWrapper<T>(T);
-    unsafe impl<T> Send for SendWrapper<T> {}
-    let wrapped = SendWrapper(f);
-    yielder.on_parent_stack(move || {
-        let wrapped = wrapped;
-        (wrapped.0)()
+        // on_parent_stack requires the closure to be Send so that the Yielder
+        // cannot be called from the parent stack. This is not a problem for us
+        // since we don't expose the Yielder.
+        struct SendWrapper<T>(T);
+        unsafe impl<T> Send for SendWrapper<T> {}
+        let wrapped = SendWrapper(f);
+        yielder.on_parent_stack(move || {
+            let wrapped = wrapped;
+            (wrapped.0)()
+        })
     })
 }
 
+/// Called on every entry into WebAssembly.
 #[cfg(windows)]
-pub fn lazy_per_thread_init() -> Result<(), Trap> {
+fn lazy_per_thread_init() -> Result<(), Trap> {
     // We need additional space on the stack to handle stack overflow
     // exceptions. Rust's initialization code sets this to 0x5000 but this
     // seems to be insufficient in practice.
@@ -1264,8 +1430,14 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
 /// always large enough for our signal handling code. Override it by creating
 /// and registering our own alternate stack that is large enough and has a guard
 /// page.
+///
+/// Called by [`ThreadState::per_thread_init`] until it succeeds on the thread;
+/// it then sets `SIGNAL_STACK_READY`, and the signal stack's destructor clears
+/// it again, so an entry after that point runs this again as it always did.
 #[cfg(unix)]
-pub fn lazy_per_thread_init() -> Result<(), Trap> {
+#[cold]
+#[inline(never)]
+fn lazy_per_thread_init(state: &ThreadState) -> Result<(), Trap> {
     use std::ptr::null_mut;
 
     thread_local! {
@@ -1346,12 +1518,16 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
         if let Tls::OutOfMemory = tls {
             Err(Trap::oom())
         } else {
+            state.set_flag(SIGNAL_STACK_READY);
             Ok(())
         }
     });
 
     impl Drop for Tls {
         fn drop(&mut self) {
+            // The signal stack is gone from here on: send the next entry on
+            // this thread back through `lazy_per_thread_init`.
+            let _ = THREAD_STATE.try_with(|state| state.clear_flag(SIGNAL_STACK_READY));
             let (ptr, size) = match self {
                 Self::Allocated {
                     mmap_ptr,
@@ -1499,8 +1675,7 @@ mod tests {
         // The undersized stack was discarded; the correctly-sized stack
         // allocated for the call now lives in the TLS cache (the hot path).
         // It will end up in the global pool only on thread exit or eviction.
-        let returned = TLS_STACK
-            .with(|cache| cache.0.take())
+        let returned = cached_stack(|cache| cache.take())
             .or_else(|| STACK_POOL.pop())
             .expect("stack should have been returned to TLS cache or pool");
         assert!(
@@ -1534,10 +1709,10 @@ mod tests {
         );
 
         // Verify TLS holds a stack, then put it back.
-        let cached_present = TLS_STACK.with(|cache| {
-            let taken = cache.0.take();
+        let cached_present = cached_stack(|cache| {
+            let taken = cache.take();
             let present = taken.is_some();
-            cache.0.set(taken);
+            cache.set(taken);
             present
         });
         assert!(cached_present, "TLS slot should hold the post-call stack");
@@ -1548,10 +1723,10 @@ mod tests {
             STACK_POOL.is_empty(),
             "second call must not push to the global pool"
         );
-        let still_cached = TLS_STACK.with(|cache| {
-            let taken = cache.0.take();
+        let still_cached = cached_stack(|cache| {
+            let taken = cache.take();
             let present = taken.is_some();
-            cache.0.set(taken);
+            cache.set(taken);
             present
         });
         assert!(
@@ -1566,8 +1741,8 @@ mod tests {
         clear_tls_stack();
     }
 
-    /// On thread exit, the TLS cache's `Drop` impl returns the held stack to
-    /// the global pool so memory cycles correctly across thread lifetimes.
+    /// On thread exit, `ThreadExit` returns the stack cached in `ThreadState`
+    /// to the global pool so memory cycles correctly across thread lifetimes.
     #[test]
     fn tls_stack_returns_to_pool_on_thread_exit() {
         // Keep other tests from draining the pool or changing the stack size
@@ -1584,23 +1759,155 @@ mod tests {
         });
         handle.join().unwrap();
 
-        // The spawned thread's TLS cache was dropped on join; the stack must
-        // have made it back to the global pool.
+        // The spawned thread's `ThreadExit` ran before the join returned; the
+        // stack must have made it back to the global pool.
         let returned = STACK_POOL
             .pop()
             .expect("thread exit should return TLS-cached stack to the global pool");
         assert!(returned.size() >= size);
     }
 
+    /// A call made from a thread-local destructor that runs after
+    /// `ThreadExit`'s cannot cache its stack, which nothing would return any
+    /// more: the stack goes to the global pool, and nothing stays cached on
+    /// the exiting thread. (Destructors run in reverse order of registration
+    /// on these targets, so one registered before `ThreadExit` runs after it.)
+    #[cfg(any(target_os = "linux", target_vendor = "apple"))]
+    #[test]
+    fn a_call_after_thread_exit_returns_its_stack_to_the_pool() {
+        use std::cell::RefCell;
+        use std::sync::mpsc;
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        /// What the late call saw: its result, whether `ThreadExit` had run
+        /// before it, the flags after it, and whether a stack stayed cached.
+        type Seen = (i32, bool, u8, bool);
+        struct Late(mpsc::Sender<Seen>);
+        impl Drop for Late {
+            fn drop(&mut self) {
+                let exit_ran = THREAD_STATE.with(|s| s.flags.get() & EXIT_HOOK_REGISTERED == 0);
+                let result = on_wasm_stack(get_stack_size(), None, || 7).unwrap();
+                let flags = THREAD_STATE.with(|s| s.flags.get());
+                let cached = cached_stack(|c| {
+                    let stack = c.take();
+                    let cached = stack.is_some();
+                    c.set(stack);
+                    cached
+                });
+                self.0.send((result, exit_ran, flags, cached)).unwrap();
+            }
+        }
+        thread_local! {
+            static LATE: RefCell<Option<Late>> = const { RefCell::new(None) };
+        }
+        let (tx, rx) = mpsc::channel();
+        let size = get_stack_size();
+        std::thread::spawn(move || {
+            // Registered inside the first call, before the release at its
+            // end registers `ThreadExit`.
+            assert!(
+                on_wasm_stack(size, None, move || {
+                    LATE.with(|late| *late.borrow_mut() = Some(Late(tx)));
+                })
+                .is_ok()
+            );
+        })
+        .join()
+        .unwrap();
+
+        let (result, exit_ran, flags, cached) = rx.recv().unwrap();
+        assert_eq!(result, 7);
+        assert!(exit_ran, "ThreadExit ran before the late call");
+        assert_eq!(flags & EXIT_HOOK_REGISTERED, 0);
+        assert!(!cached, "nothing may stay cached after ThreadExit ran");
+        // The stack `ThreadExit` returned, which the late call took and gave
+        // back, is in the pool.
+        let mut pooled = 0;
+        while STACK_POOL.pop().is_some() {
+            pooled += 1;
+        }
+        assert!(pooled >= 1, "the late call's stack is in the pool");
+    }
+
+    /// Many threads entering, trapping, re-entering through the host stack
+    /// and exiting: every stack comes back, and the pool stays bounded by the
+    /// number of threads alive at once.
+    #[test]
+    fn stacks_of_exiting_threads_stay_bounded() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+        let size = get_stack_size();
+        const THREADS: usize = 16;
+        for _wave in 0..30 {
+            let handles: Vec<_> = (0..THREADS)
+                .map(|i| {
+                    std::thread::spawn(move || {
+                        for j in 0..50 {
+                            let traps = (i + j) % 2 == 0;
+                            let result: Result<(), UnwindReason> =
+                                on_wasm_stack(size, None, move || unsafe {
+                                    if traps {
+                                        raise_lib_trap(Trap::lib(TrapCode::UnreachableCodeReached));
+                                    }
+                                    on_host_stack(|| {
+                                        assert_eq!(on_wasm_stack(size, None, || 3).unwrap(), 3);
+                                    });
+                                });
+                            assert_eq!(result.is_err(), traps);
+                        }
+                    })
+                })
+                .collect();
+            for handle in handles {
+                handle.join().unwrap();
+            }
+        }
+        let mut pooled = 0;
+        while STACK_POOL.pop().is_some() {
+            pooled += 1;
+        }
+        // At most two stacks (outer and nested call) per thread alive at once.
+        assert!(pooled <= 2 * THREADS, "pool grew to {pooled} stacks");
+    }
+
     // -----------------------------------------------------------------
     // Test helpers
     // -----------------------------------------------------------------
+
+    // The functions under test take the thread's state; these wrappers look
+    // it up for each call the way `catch_traps` does, and shadow the
+    // originals in this module.
+    fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
+        stack_size: usize,
+        trap_handler: Option<*const TrapHandlerFn<'static>>,
+        f: F,
+    ) -> Result<T, UnwindReason> {
+        THREAD_STATE.with(|state| super::on_wasm_stack(state, stack_size, trap_handler, f))
+    }
+
+    fn acquire_stack(min_size: usize) -> DefaultStack {
+        THREAD_STATE.with(|state| super::acquire_stack(state, min_size))
+    }
+
+    fn release_stack(stack: DefaultStack) {
+        THREAD_STATE.with(|state| super::release_stack(state, stack))
+    }
+
+    /// The current thread's cached stack slot.
+    fn cached_stack<R>(f: impl FnOnce(&Cell<Option<DefaultStack>>) -> R) -> R {
+        THREAD_STATE.with(|state| f(&state.stack))
+    }
 
     /// Clears the current thread's TLS slot so tests don't see state from
     /// previous tests (they share the same thread under cargo test's
     /// per-test serialization via `GLOBAL_STATE`).
     fn clear_tls_stack() {
-        TLS_STACK.with(|cache| cache.0.set(None));
+        cached_stack(|cache| cache.set(None));
     }
 
     /// `base().get() - limit().get()` (i.e. `Stack::size`) is constant per
@@ -1644,7 +1951,7 @@ mod tests {
         let size = get_stack_size();
         let tls_stack = DefaultStack::new(size).unwrap();
         let tls_id = stack_id(&tls_stack);
-        TLS_STACK.with(|cache| cache.0.set(Some(tls_stack)));
+        cached_stack(|cache| cache.set(Some(tls_stack)));
 
         let pool_stack = DefaultStack::new(size).unwrap();
         let pool_id = stack_id(&pool_stack);
@@ -1696,7 +2003,7 @@ mod tests {
 
         let small_size = ByteSize::kib(512).as_u64() as usize;
         let undersized = DefaultStack::new(small_size).unwrap();
-        TLS_STACK.with(|cache| cache.0.set(Some(undersized)));
+        cached_stack(|cache| cache.set(Some(undersized)));
 
         let big_size = ByteSize::mib(2).as_u64() as usize;
         let got = acquire_stack(big_size);
@@ -1712,10 +2019,10 @@ mod tests {
             got.size() >= big_size,
             "acquired stack must satisfy big_size"
         );
-        let tls_empty = TLS_STACK.with(|cache| {
-            let s = cache.0.take();
+        let tls_empty = cached_stack(|cache| {
+            let s = cache.take();
             let empty = s.is_none();
-            cache.0.set(s);
+            cache.set(s);
             empty
         });
         assert!(
@@ -1779,8 +2086,7 @@ mod tests {
         let id = stack_id(&stack);
         release_stack(stack);
 
-        let in_tls = TLS_STACK
-            .with(|cache| cache.0.take())
+        let in_tls = cached_stack(|cache| cache.take())
             .expect("release into empty TLS should leave the stack in TLS");
         assert_eq!(stack_id(&in_tls), id);
         assert!(
@@ -1800,15 +2106,14 @@ mod tests {
         let size = get_stack_size();
         let older = DefaultStack::new(size).unwrap();
         let older_id = stack_id(&older);
-        TLS_STACK.with(|cache| cache.0.set(Some(older)));
+        cached_stack(|cache| cache.set(Some(older)));
 
         let newer = DefaultStack::new(size).unwrap();
         let newer_id = stack_id(&newer);
         release_stack(newer);
 
-        let in_tls = TLS_STACK
-            .with(|cache| cache.0.take())
-            .expect("TLS should hold the newly-released stack");
+        let in_tls =
+            cached_stack(|cache| cache.take()).expect("TLS should hold the newly-released stack");
         assert_eq!(
             stack_id(&in_tls),
             newer_id,
@@ -1838,11 +2143,11 @@ mod tests {
         clear_tls_stack();
 
         let stack = DefaultStack::new(get_stack_size()).unwrap();
-        TLS_STACK.with(|cache| cache.0.set(Some(stack)));
+        cached_stack(|cache| cache.set(Some(stack)));
 
         drain_stack_pool();
 
-        let tls_empty = TLS_STACK.with(|cache| cache.0.take().is_none());
+        let tls_empty = cached_stack(|cache| cache.take().is_none());
         assert!(
             tls_empty,
             "drain_stack_pool must also clear current thread's TLS slot"
@@ -2016,6 +2321,77 @@ mod tests {
     }
 
     // -----------------------------------------------------------------
+    // Thread state
+    // -----------------------------------------------------------------
+
+    /// `ActivationState::swap` exchanges the trap handler, and leaves the
+    /// thread's cached stack and its one-time setup alone: they belong to the
+    /// thread, not to the activation that is switched out.
+    #[test]
+    fn activation_swap_exchanges_only_the_trap_handler() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        drain_stack_pool();
+        clear_tls_stack();
+
+        assert!(on_wasm_stack(get_stack_size(), None, || ()).is_ok());
+        let cached = cached_stack(|cache| {
+            let s = cache.take();
+            let id = s.as_ref().map(stack_id);
+            cache.set(s);
+            id
+        })
+        .expect("the call leaves its stack cached");
+        let flags = THREAD_STATE.with(|state| state.flags.get());
+        assert_ne!(flags & EXIT_HOOK_REGISTERED, 0);
+
+        // A suspended activation's trap handler. Never dereferenced: nothing
+        // traps while it is installed.
+        let outer = NonNull::<TrapHandlerContext>::dangling().as_ptr();
+        let mut activation = ActivationState::new();
+        activation.trap_handler = outer;
+        unsafe { activation.swap() };
+        THREAD_STATE.with(|state| {
+            assert_eq!(state.trap_handler.load(Ordering::Relaxed), outer);
+            assert_eq!(state.flags.get(), flags);
+            assert!(state.yielder.get().is_none());
+        });
+        assert_eq!(
+            cached_stack(|cache| {
+                let s = cache.take();
+                let id = s.as_ref().map(stack_id);
+                cache.set(s);
+                id
+            }),
+            Some(cached)
+        );
+        unsafe { activation.swap() };
+        assert_eq!(activation.trap_handler, outer);
+        THREAD_STATE.with(|state| {
+            assert!(state.trap_handler.load(Ordering::Relaxed).is_null());
+        });
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    /// The signal stack is set up by the first entry on a thread, and later
+    /// entries skip that work.
+    #[cfg(unix)]
+    #[test]
+    fn per_thread_init_is_remembered() {
+        std::thread::spawn(|| {
+            THREAD_STATE.with(|state| {
+                assert_eq!(state.flags.get() & SIGNAL_STACK_READY, 0);
+                state.per_thread_init().unwrap();
+                assert_ne!(state.flags.get() & SIGNAL_STACK_READY, 0);
+                state.per_thread_init().unwrap();
+            });
+        })
+        .join()
+        .unwrap();
+    }
+
+    // -----------------------------------------------------------------
     // Re-entrancy
     // -----------------------------------------------------------------
 
@@ -2106,8 +2482,8 @@ mod tests {
     #[test]
     fn reentrant_with_on_host_stack_in_between() {
         // Outer wasm → on_host_stack → inner wasm. This exercises the
-        // YIELDER save/restore in `unwind_with` / `on_host_stack` against
-        // a re-entrant boundary.
+        // save/restore of `ThreadState::yielder` in `unwind_with` /
+        // `on_host_stack` against a re-entrant boundary.
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
         drain_stack_pool();
@@ -2160,8 +2536,8 @@ mod tests {
 
         assert_eq!(counter.load(O::Relaxed), THREADS * CALLS_PER_THREAD);
         // Pool should now hold at most `THREADS` stacks (one per thread that
-        // exited). Each thread also drops its TLS slot on exit, which pushes
-        // the stack to the pool.
+        // exited). Each thread's `ThreadExit` also returns the stack cached in
+        // its `ThreadState` to the pool on exit.
         let mut pooled = 0usize;
         while STACK_POOL.pop().is_some() {
             pooled += 1;
@@ -2191,10 +2567,10 @@ mod tests {
         set_stack_size(small);
         assert!(on_wasm_stack(small, None, || ()).is_ok());
 
-        let cached_size = TLS_STACK.with(|cache| {
-            let s = cache.0.take();
+        let cached_size = cached_stack(|cache| {
+            let s = cache.take();
             let sz = s.as_ref().map_or(0, |s| s.size());
-            cache.0.set(s);
+            cache.set(s);
             sz
         });
         assert!(
@@ -2209,10 +2585,10 @@ mod tests {
         assert!(on_wasm_stack(big, None, || ()).is_ok());
 
         // The TLS slot should now hold a stack that's big enough.
-        let cached_size = TLS_STACK.with(|cache| {
-            let s = cache.0.take();
+        let cached_size = cached_stack(|cache| {
+            let s = cache.take();
             let sz = s.as_ref().map_or(0, |s| s.size());
-            cache.0.set(s);
+            cache.set(s);
             sz
         });
         assert!(
