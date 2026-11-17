@@ -20,7 +20,7 @@ import time
 ROOT = Path(__file__).resolve().parent
 REVISIONS = {
     "pr": "cd3f199b2b78b5050741ba25a5dec7f87f82829f",
-    "prototype": "a7efdd83c70a42177e4d40377de3543463d2892f",
+    "prototype": "9e49868e561a8385380a2ff14aaf5c5bd458ff9d",
 }
 NESTED = ("nested_typed_1", "nested_dynamic_1", "nested_typed_2", "nested_dynamic_2")
 CASES = ("typed", "dynamic", "import_only", *NESTED, "typed_ready", "dynamic_ready",

@@ -26,8 +26,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$(uname -m)" = x86_64
-          git fetch --no-tags --depth=1 origin cd3f199b2b78b5050741ba25a5dec7f87f82829f a7efdd83c70a42177e4d40377de3543463d2892f
-          test "$(git rev-parse 'a7efdd83c70^{commit}')" = a7efdd83c70a42177e4d40377de3543463d2892f
+          git fetch --no-tags --depth=1 origin cd3f199b2b78b5050741ba25a5dec7f87f82829f 9e49868e561a8385380a2ff14aaf5c5bd458ff9d
+          test "$(git rev-parse '9e49868e561^{commit}')" = 9e49868e561a8385380a2ff14aaf5c5bd458ff9d
           test "$(git rev-parse 'cd3f199b2b7^{commit}')" = cd3f199b2b78b5050741ba25a5dec7f87f82829f
           mkdir -p "$RUNNER_TEMP/wasmer-x86-results"
           {
