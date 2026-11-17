@@ -296,7 +296,7 @@ pub(crate) struct HandlerState {
     clauses: Vec<CatchClause>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct LandingPad {
     pub(crate) block: Block,
     pub(crate) clauses: Vec<CatchClause>,

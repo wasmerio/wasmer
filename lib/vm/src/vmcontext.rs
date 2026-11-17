@@ -75,9 +75,6 @@ pub struct VMFunctionImport {
 
     /// Flag if the function requires extra the m0 argument (used for m0 optimization dispatch).
     pub include_m0_param: bool,
-
-    /// Whether the imported entry point uses Cranelift's tail calling convention.
-    pub uses_tail_call_conv: bool,
 }
 
 #[cfg(test)]
@@ -103,10 +100,6 @@ mod test_vmfunction_import {
         assert_eq!(
             offset_of!(VMFunctionImport, environment),
             usize::from(offsets.vmfunction_import_vmctx())
-        );
-        assert_eq!(
-            offset_of!(VMFunctionImport, uses_tail_call_conv),
-            usize::from(offsets.vmfunction_import_uses_tail_call_conv())
         );
     }
 }
@@ -631,8 +624,6 @@ pub struct VMCallerCheckedAnyfunc {
     pub type_signature_hash: VMSignatureHash,
     /// Whether the function entry point takes a hidden memory #0 base parameter.
     pub include_m0_param: bool,
-    /// Whether the entry point uses Cranelift's tail calling convention.
-    pub uses_tail_call_conv: bool,
     /// Function `VMContext` or host env.
     pub vmctx: VMFunctionContext,
     /// Address of the function call trampoline to invoke this function using
@@ -660,7 +651,6 @@ impl VMCallerCheckedAnyfunc {
             },
             call_trampoline: null_call_trampoline,
             include_m0_param: false,
-            uses_tail_call_conv: false,
         }
     }
 }
@@ -671,7 +661,6 @@ impl PartialEq for VMCallerCheckedAnyfunc {
             && self.type_signature_hash == other.type_signature_hash
             && self.vmctx == other.vmctx
             && self.include_m0_param == other.include_m0_param
-            && self.uses_tail_call_conv == other.uses_tail_call_conv
             && ptr::fn_addr_eq(self.call_trampoline, other.call_trampoline)
     }
 }
@@ -684,7 +673,6 @@ impl Hash for VMCallerCheckedAnyfunc {
         self.type_signature_hash.hash(state);
         self.vmctx.hash(state);
         self.include_m0_param.hash(state);
-        self.uses_tail_call_conv.hash(state);
         ptr::hash(self.call_trampoline as *const (), state);
     }
 }
@@ -716,10 +704,6 @@ mod test_vmcaller_checked_anyfunc {
         assert_eq!(
             offset_of!(VMCallerCheckedAnyfunc, vmctx),
             usize::from(offsets.vmcaller_checked_anyfunc_vmctx())
-        );
-        assert_eq!(
-            offset_of!(VMCallerCheckedAnyfunc, uses_tail_call_conv),
-            usize::from(offsets.vmcaller_checked_anyfunc_uses_tail_call_conv())
         );
         assert_eq!(
             offset_of!(VMCallerCheckedAnyfunc, call_trampoline),
