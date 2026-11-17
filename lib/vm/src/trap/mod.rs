@@ -4,8 +4,8 @@
 //! This is the module that facilitates the usage of Traps
 //! in Wasmer Runtime
 
+use crate::VMFunctionBody;
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
-use crate::{VMContext, VMFunctionBody};
 
 #[allow(clippy::module_inception)]
 mod trap;
@@ -38,17 +38,32 @@ pub unsafe fn wasmer_call_trampoline(
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
+    let call = TrampolineCall {
+        vmctx,
+        trampoline,
+        callee,
+        values_vec,
+    };
+    #[cfg(feature = "baremetal")]
     unsafe {
-        catch_traps(trap_handler, config, move || {
-            // pointer types are ABI-compatible; transmute to unsafe fn to preserve unsafety
-            std::mem::transmute::<
-                unsafe extern "C" fn(
-                    *mut VMContext,
-                    *const VMFunctionBody,
-                    *mut wasmer_types::RawValue,
-                ),
-                unsafe extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
-            >(trampoline)(vmctx, callee, values_vec);
-        })
+        catch_traps(trap_handler, config, move || call.invoke())
+    }
+    #[cfg(not(feature = "baremetal"))]
+    unsafe {
+        traphandlers::call_trampoline(trap_handler, config, call)
+    }
+}
+
+struct TrampolineCall {
+    vmctx: VMFunctionContext,
+    trampoline: VMTrampoline,
+    callee: *const VMFunctionBody,
+    values_vec: *mut u8,
+}
+
+impl TrampolineCall {
+    /// The caller owns the callee, its context and its ABI slots until this returns.
+    unsafe fn invoke(&self) {
+        unsafe { (self.trampoline)(self.vmctx.vmctx, self.callee, self.values_vec.cast()) }
     }
 }
