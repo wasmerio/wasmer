@@ -1,0 +1,63 @@
+name: Native x86-64 V8 internal calls and suspension
+on:
+  push:
+    branches:
+      - codex/x64-v8-internals-study-7195
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: aux-pub-16cpu-amd64
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.0.0
+      - name: Record the native V8 build and CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          test "$(node -p process.arch)" = x64
+          out="$RUNNER_TEMP/v8-x64-internals"
+          mkdir -p "$out/entry" "$out/jspi" "$out/profile"
+          cpu=$(python3 -c 'import os; print(min(os.sched_getaffinity(0)))')
+          echo "BENCH_CPU=$cpu" >> "$GITHUB_ENV"
+          echo "STUDY_ROOT=$out" >> "$GITHUB_ENV"
+          echo "$cpu" > "$out/cpu.txt"
+          uname -a > "$out/uname.txt"
+          lscpu > "$out/lscpu.txt"
+          node -p 'JSON.stringify(process.versions, null, 2)' > "$out/node-versions.json"
+          node --v8-options > "$out/v8-options.txt"
+      - name: Measure and inspect V8 entry, reentry and guest calls
+        shell: bash
+        working-directory: benches/x64_v8_internals/entry
+        run: |
+          set -euo pipefail
+          taskset -c "$BENCH_CPU" python3 run_entry.py "$STUDY_ROOT/entry" 2>&1 | tee "$STUDY_ROOT/entry/driver.log"
+      - name: Measure and inspect V8 JSPI
+        if: ${{ !cancelled() }}
+        shell: bash
+        working-directory: benches/x64_v8_internals/jspi
+        run: |
+          set -euo pipefail
+          taskset -c "$BENCH_CPU" node --no-maglev --no-turbo-inline-js-wasm-calls jspi.js > "$STUDY_ROOT/jspi/jspi.json" 2> "$STUDY_ROOT/jspi/stderr.log"
+      - name: Sample V8 internal program counters
+        if: ${{ !cancelled() }}
+        shell: bash
+        working-directory: benches/x64_v8_internals/profile
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          export STUDY_OUT="$STUDY_ROOT/profile"
+          taskset -c "$BENCH_CPU" bash profile.sh 2>&1 | tee "$STUDY_OUT/driver.log"
+      - name: Upload timing, code generation, and runtime metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-v8-internals-x86-64
+          path: ${{ runner.temp }}/v8-x64-internals
+          retention-days: 14
