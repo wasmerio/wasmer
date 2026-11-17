@@ -367,6 +367,37 @@ fn other_types_are_not_affected() -> Result<(), String> {
     Ok(())
 }
 
+/// An `i64` a dynamic host function returns reaches the guest, alone and next
+/// to other results, whichever way the guest is called.
+#[engine_test]
+fn a_dynamic_host_function_returns_an_i64() -> Result<(), String> {
+    let values = [0, 1, -1, i64::MIN, i64::MAX, (1 << 53) + 1];
+    let mut store = Store::default();
+    let signature = FunctionType::new([Type::I64], [Type::I64]);
+    let (call, calls) = guest(&mut store, &signature, |arguments| arguments.to_vec());
+    let typed: TypedFunction<i64, i64> = call.typed(&store).unwrap();
+    for value in values {
+        let returned = call.call(&mut store, &[Value::I64(value)]).unwrap();
+        assert_eq!(returned[0].unwrap_i64(), value);
+        assert_eq!(typed.call(&mut store, value).unwrap(), value);
+        let received = calls.lock().unwrap().split_off(0);
+        assert_eq!(received, [[(Type::I64, value as u64)]; 2], "{value}");
+    }
+
+    let signature = FunctionType::new([Type::I32, Type::I64], [Type::I64, Type::I32]);
+    let (call, _) = guest(&mut store, &signature, |arguments| {
+        vec![arguments[1].clone(), arguments[0].clone()]
+    });
+    let typed: TypedFunction<(i32, i64), (i64, i32)> = call.typed(&store).unwrap();
+    for value in values {
+        let returned = call.call(&mut store, &[Value::I32(-3), Value::I64(value)]);
+        let returned = all_bits(&returned.unwrap());
+        assert_eq!(returned, all_bits(&[Value::I64(value), Value::I32(-3)]));
+        assert_eq!(typed.call(&mut store, -3, value).unwrap(), (value, -3));
+    }
+    Ok(())
+}
+
 /// A dynamic host function can be reached again while it runs, through a
 /// guest it calls: one that takes nothing but plain numbers, and one that
 /// does not.

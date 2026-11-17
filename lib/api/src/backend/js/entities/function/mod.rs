@@ -11,7 +11,7 @@ use js_sys::{Array, Function as JsFunction};
 #[cfg(feature = "experimental-async")]
 use js_sys::Reflect;
 use wasm_bindgen::{JsCast, prelude::*};
-use wasmer_types::{FunctionType, RawValue};
+use wasmer_types::{FunctionType, RawValue, Type};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut,
@@ -63,9 +63,28 @@ fn raise_host_function_panic(payload: Box<dyn std::any::Any + Send>) -> ! {
     crate::backend::js::error::raise(Box::new(HostFunctionPanic(message)))
 }
 
+/// What a dynamic host function returned for a result of type `ty`, as the
+/// engine takes it: an `i64` is a BigInt there, and a Number for that result
+/// fails the call. Any other value goes as it always did, for the engine to
+/// convert to the type of the result.
 #[inline]
-fn wasmer_array_to_js_array(values: &[Value]) -> Array {
-    Array::from_iter(values.iter().map(wasmer_value_to_js))
+fn host_result_to_js(ty: &Type, value: &Value) -> JsValue {
+    match (ty, value) {
+        (Type::I64, Value::I64(value)) => JsValue::from(*value),
+        _ => wasmer_value_to_js(value),
+    }
+}
+
+/// The results of a dynamic host function with `types` of results, as the
+/// engine takes them. Values beyond those types go too, as they always did.
+#[inline]
+fn host_results_to_js(types: &[Type], values: &[Value]) -> Array {
+    Array::from_iter(values.iter().enumerate().map(|(index, value)| {
+        match types.get(index) {
+            Some(ty) => host_result_to_js(ty, value),
+            None => wasmer_value_to_js(value),
+        }
+    }))
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -334,7 +353,7 @@ impl Function {
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &wasm_arguments)?;
-                Ok(wasmer_value_to_js(&results[0]))
+                Ok(host_result_to_js(&function_type.results()[0], &results[0]))
             })
                 as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
@@ -350,7 +369,7 @@ impl Function {
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &wasm_arguments)?;
-                Ok(wasmer_array_to_js_array(&results))
+                Ok(host_results_to_js(function_type.results(), &results))
             })
                 as Box<dyn Fn(&Array) -> Result<Array, JsValue>>)
             .into_js_value(),
