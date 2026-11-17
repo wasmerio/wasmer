@@ -6,6 +6,7 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
+use super::TrampolineCall;
 use super::trap::UnwindReason;
 use crate::Trap;
 #[cfg(feature = "experimental-host-interrupt")]
@@ -15,7 +16,7 @@ use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::{DefaultStack, Stack};
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
-use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
+use corosensei::{Coroutine, CoroutineResult, ScopedCoroutine, Yielder};
 use scopeguard::defer;
 use std::any::Any;
 use std::cell::Cell;
@@ -166,6 +167,9 @@ pub fn drain_stack_pool() {
     // still applies — other threads' caches aren't touched).
     if let Some(stack) = TLS_STACK.with(|cache| cache.0.take()) {
         drop(stack);
+    }
+    if let Ok(Some(worker)) = IDLE_WORKER.try_with(|slot| slot.0.take()) {
+        drop(worker.stop());
     }
     while STACK_POOL.pop().is_some() {}
 }
@@ -886,16 +890,23 @@ where
     on_wasm_stack(stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
 }
 
+// A worker resumes with the address of a live trampoline call and yields None
+// after returning from guest code. A None input stops an idle worker. One-shot
+// coroutines share this yielder type so imports and trap exits work on either.
+type WasmInput = Option<NonNull<TrampolineCall>>;
+type WasmYield = Option<UnwindReason>;
+type WasmYielder = Yielder<WasmInput, WasmYield>;
+
 // We need two separate thread-local variables here:
 // - YIELDER is set within the new stack and is used to unwind back to the root
 //   of the stack from inside it.
-// - TRAP_HANDLER is set from outside the new stack and is solely used from
-//   signal handlers. It must be atomic since it is used by signal handlers.
+// - TRAP_HANDLER is set from outside the new stack and identifies an active
+//   Wasm entry. It must be atomic since it is used by signal handlers.
 //
 // We also do per-thread signal stack initialization on the first time
 // TRAP_HANDLER is accessed.
 thread_local! {
-    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
+    static YIELDER: Cell<Option<NonNull<WasmYielder>>> = const { Cell::new(None) };
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
 }
 
@@ -1152,7 +1163,7 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
             .with(|cell| cell.replace(None))
             .expect("not running on Wasm stack");
 
-        yielder.as_ref().suspend(reason);
+        yielder.as_ref().suspend(Some(reason));
 
         // on_wasm_stack will forcibly reset the coroutine stack after yielding.
         unreachable!();
@@ -1177,24 +1188,28 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     let mut stack = scopeguard::guard(stack, release_stack);
 
     // Create a coroutine with a new stack to run the function on.
-    let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
+    let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, _: WasmInput| {
         // Save the yielder to TLS so that it can be used later.
         YIELDER.with(|cell| cell.set(Some(yielder.into())));
 
         Ok(f())
     });
 
-    // Ensure that YIELDER is reset on exit even if the coroutine panics,
+    // A low-level VM caller may itself be running on a Wasm stack.
+    let previous = YIELDER.with(Cell::get);
     defer! {
-        YIELDER.with(|cell| cell.set(None));
+        YIELDER.with(|cell| cell.set(previous));
     }
 
     coro.scope(|mut coro_ref| {
         // Set up metadata for the trap handler for the duration of the coroutine
         // execution. This is restored to its previous value afterwards.
         TrapHandlerContext::install(trap_handler, coro_ref.trap_handler(), || {
-            match coro_ref.resume(()) {
-                CoroutineResult::Yield(trap) => {
+            match coro_ref.resume(None) {
+                CoroutineResult::Yield(None) => {
+                    unreachable!("one-shot coroutine yielded without a trap")
+                }
+                CoroutineResult::Yield(Some(trap)) => {
                     // This came from unwind_with which requires that there be only
                     // Wasm code on the stack.
                     unsafe {
@@ -1207,6 +1222,122 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
         })
     })
 }
+
+/// Only the idle coroutine lives in TLS. Each active call owns its worker,
+/// including while an async host import is suspended or reenters Wasm.
+struct IdleWorker {
+    coroutine: Coroutine<WasmInput, WasmYield, Result<(), UnwindReason>>,
+    stack_size: usize,
+}
+
+struct IdleWorkerCache(Cell<Option<Box<IdleWorker>>>);
+
+impl Drop for IdleWorkerCache {
+    fn drop(&mut self) {
+        if let Some(worker) = self.0.take() {
+            // Other threads may reuse the mapping after the worker has exited.
+            STACK_POOL.push(worker.stop());
+        }
+    }
+}
+
+thread_local! {
+    static IDLE_WORKER: IdleWorkerCache = const { IdleWorkerCache(Cell::new(None)) };
+}
+
+impl IdleWorker {
+    fn new(min_size: usize) -> Box<Self> {
+        #[cfg(test)]
+        worker_tests::worker_created();
+        let stack = acquire_stack(min_size);
+        let stack_size = stack.size();
+        let coroutine = Coroutine::with_stack(stack, |yielder, mut input: WasmInput| {
+            while let Some(call) = input {
+                YIELDER.with(|cell| cell.set(Some(yielder.into())));
+                // The owner of resume keeps this packet and its arguments live
+                // until control returns. No call data is used past this yield.
+                unsafe { call.as_ref().invoke() };
+                input = yielder.suspend(None);
+            }
+            Ok(())
+        });
+        Box::new(Self {
+            coroutine,
+            stack_size,
+        })
+    }
+
+    fn stop(mut self) -> DefaultStack {
+        // Only called after a normal completion yield. A stop command does
+        // not run guest code or touch TLS, including during thread teardown.
+        match self.coroutine.resume(None) {
+            CoroutineResult::Return(Ok(())) => self.coroutine.into_stack(),
+            _ => unreachable!("idle Wasm worker did not stop"),
+        }
+    }
+}
+
+pub(super) unsafe fn call_trampoline(
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
+    mut call: TrampolineCall,
+) -> Result<(), Trap> {
+    lazy_per_thread_init()?;
+    let min_size = config.wasm_stack_size.unwrap_or_else(get_stack_size);
+    let cached = IDLE_WORKER.try_with(|slot| slot.0.take());
+    let mut worker = match cached {
+        Ok(Some(worker)) if worker.stack_size >= min_size => worker,
+        cached => {
+            let cache_destroyed = cached.is_err();
+            if let Ok(Some(undersized)) = cached {
+                drop(undersized.stop());
+            }
+            // The outer call owns its worker until it returns. A nested call
+            // can reuse a stack without building a worker it would then evict.
+            // An embedder TLS destructor can also call after the worker cache is gone.
+            if cache_destroyed || TRAP_HANDLER.with(|ptr| !ptr.load(Ordering::Relaxed).is_null()) {
+                return on_wasm_stack(min_size, trap_handler, move || unsafe { call.invoke() })
+                    .map_err(UnwindReason::into_trap);
+            }
+            IdleWorker::new(min_size)
+        }
+    };
+
+    let result = {
+        let previous = YIELDER.with(Cell::get);
+        defer! { YIELDER.with(|cell| cell.set(previous)); }
+        TrapHandlerContext::install(trap_handler, worker.coroutine.trap_handler(), || {
+            worker.coroutine.resume(Some(NonNull::from(&mut call)))
+        })
+    };
+    match result {
+        CoroutineResult::Yield(None) => {
+            let mut returned = Some(worker);
+            match IDLE_WORKER.try_with(|slot| slot.0.replace(returned.take())) {
+                Ok(Some(displaced)) => release_stack(displaced.stop()),
+                // A suspended call can finish during thread teardown.
+                Err(_) => drop(returned.unwrap().stop()),
+                Ok(None) => (),
+            }
+            Ok(())
+        }
+        CoroutineResult::Yield(Some(trap)) => {
+            // unwind_with requires that there are no destructors to run.
+            unsafe { worker.coroutine.force_reset() };
+            release_stack(worker.coroutine.into_stack());
+            Err(trap.into_trap())
+        }
+        CoroutineResult::Return(Err(trap)) => {
+            // A hardware trap has already returned from the coroutine.
+            release_stack(worker.coroutine.into_stack());
+            Err(trap.into_trap())
+        }
+        CoroutineResult::Return(Ok(())) => unreachable!("Wasm worker stopped during a call"),
+    }
+}
+
+#[cfg(test)]
+mod worker_tests;
 
 /// When executing on the Wasm stack, temporarily switch back to the host stack
 /// to perform an operation that should not be constrained by the Wasm stack
@@ -1376,7 +1507,7 @@ mod tests {
     // Guards tests that mutate global state (DEFAULT_STACK_SIZE, STACK_POOL).
     // Rust runs tests in parallel by default; this mutex serializes them so
     // they don't step on each other.
-    static GLOBAL_STATE: Mutex<()> = Mutex::new(());
+    pub(super) static GLOBAL_STATE: Mutex<()> = Mutex::new(());
 
     /// Saves the current stack size and restores it on drop (even on panic).
     struct RestoreStackSize(usize);
