@@ -1,0 +1,108 @@
+name: Native x86-64 Wasmer, Wasmtime and V8 call comparison
+on:
+  push:
+    branches:
+      - codex/x64-call-and-import-comparison-7195
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: aux-pub-16cpu-amd64
+    timeout-minutes: 100
+    env:
+      CARGO_TERM_COLOR: never
+      CARGO_INCREMENTAL: '0'
+      RUSTUP_TOOLCHAIN: 1.99.1
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+          submodules: true
+          persist-credentials: false
+      - name: Verify source revisions and record the runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          base=c2366fe3c70acc8d713540051efc0203c5ee8311
+          git fetch --no-tags --depth=1 origin "$base"
+          candidate=$(git rev-parse 'HEAD^')
+          test "$candidate" != "$base"
+          echo "CANDIDATE=$candidate" >> "$GITHUB_ENV"
+          echo "STUDY_ROOT=$RUNNER_TEMP/wasmer-x86-comparison" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/wasmer-x86-comparison"
+          {
+            uname -a
+            lscpu
+            cat /proc/self/cgroup
+            cat /sys/fs/cgroup/cpu.max || true
+            taskset -pc $$
+            df -h .
+            free -h
+          } | tee "$RUNNER_TEMP/wasmer-x86-comparison/runner.txt"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+      - name: Install the repository's Linux x86-64 LLVM 23 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          llvm="$RUNNER_TEMP/llvm-23"
+          archive="$RUNNER_TEMP/llvm-23.tar.zst"
+          mkdir -p "$llvm"
+          curl --retry 3 --proto '=https' --tlsv1.2 -fsSL https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-amd64.tar.zst -o "$archive"
+          echo "18a4e32917af2cbbc7189e417febeada746f62cd1c8473c26bae80bf46fad203  $archive" | sha256sum --check
+          tar --zstd --strip-components=1 -xf "$archive" -C "$llvm"
+          rm "$archive"
+          echo "LLVM_SYS_231_PREFIX=$llvm" >> "$GITHUB_ENV"
+          echo "$llvm/bin" >> "$GITHUB_PATH"
+          "$llvm/bin/llvm-config" --version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.0.0
+      - name: Build both revisions and Wasmtime
+        shell: bash
+        run: python3 benches/x64_calls/run.py --repo "$PWD" --output "$STUDY_ROOT" --candidate "$CANDIDATE" --build-only
+      - name: Select and validate the native timing CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p process.arch)" = x64
+          node -p 'JSON.stringify(process.versions, null, 2)' > "$STUDY_ROOT/node-versions.json"
+          cpu=$(python3 benches/x64_calls/select_cpu.py "$STUDY_ROOT")
+          echo "BENCH_CPU=$cpu" >> "$GITHUB_ENV"
+          mkdir -p "$STUDY_ROOT/v8/entry" "$STUDY_ROOT/v8/imports" "$STUDY_ROOT/v8/jspi"
+          export STUDY_CPU_CLOCK="$STUDY_ROOT/v8/thread_cpu.node"
+          bash benches/x64_calls/v8/clock/build.sh "$STUDY_CPU_CLOCK"
+          taskset -c "$cpu" node benches/x64_calls/v8/clock/preflight.js > "$STUDY_ROOT/v8/clock.json"
+          echo "STUDY_CPU_CLOCK=$STUDY_CPU_CLOCK" >> "$GITHUB_ENV"
+      - name: Measure matched Wasmer and Wasmtime calls and guest imports
+        shell: bash
+        run: |
+          set -euo pipefail
+          taskset -c "$BENCH_CPU" python3 benches/x64_calls/run.py --repo "$PWD" --output "$STUDY_ROOT" --candidate "$CANDIDATE" --measure-only
+      - name: Measure V8 sync entry and reentry
+        working-directory: benches/x64_calls/v8/entry
+        run: taskset -c "$BENCH_CPU" python3 run_entry.py "$STUDY_ROOT/v8/entry"
+      - name: Measure V8 async entry and suspension
+        working-directory: benches/x64_calls/v8/jspi
+        run: taskset -c "$BENCH_CPU" node --no-maglev --no-turbo-inline-js-wasm-calls jspi.js > "$STUDY_ROOT/v8/jspi/results.json"
+      - name: Measure V8 on the Rust guest-loop modules
+        working-directory: benches/x64_calls/v8/imports
+        run: taskset -c "$BENCH_CPU" python3 run.py "$STUDY_ROOT/v8/imports"
+      - name: Run LLVM traps, reentry and async suspension checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          results="$RUNNER_TEMP/wasmer-x86-comparison"
+          cargo test --locked -p wasmer --no-default-features --features 'sys,wat,llvm,experimental-async,experimental-host-interrupt' --test async_activation --test interrupt --test interrupt_async --test jspi_async --test call_wrapper --test current_store --test typed_functions --test function_env --test reference_types --test dynamic_function_results --test numeric_values -- --test-threads=1 2>&1 | tee "$results/llvm-api.log"
+          cargo test --locked -p wasmer-vm --lib 2>&1 | tee "$results/vm.log"
+      - name: Upload samples, summaries and validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasmer-x86-64-call-comparison
+          path: ${{ runner.temp }}/wasmer-x86-comparison
+          retention-days: 14
