@@ -73,7 +73,7 @@ def main():
     dest.mkdir(parents=True, exist_ok=True)
     (dest / 'check.json').write_text(invoke(args.node, 'separate', 'check', 8000))
     write_json(dest / 'metadata.json', {'uname': platform.uname()._asdict(), 'base_flags': BASE, 'mode_flags': MODES,
-               'iterations': args.count, 'trials': args.trials,
+               'min_cpu_ns': int(os.environ.get('STUDY_MIN_CPU_NS', '50000000')), 'clock': 'CLOCK_THREAD_CPUTIME_ID', 'iterations_per_batch': args.count, 'trials': args.trials,
                'affinity': sorted(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else None,
                'wasm_sha256': hashlib.sha256((ROOT / 'entry.wasm').read_bytes()).hexdigest()})
     rows = []

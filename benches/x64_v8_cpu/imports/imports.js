@@ -1,5 +1,6 @@
 'use strict';
 const fs = require('node:fs');
+const clock = require(process.env.STUDY_CPU_CLOCK);
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const kind = process.argv[2];
@@ -49,12 +50,12 @@ function expected(n, x) {
     assert.equal(await execute(warm),Math.imul(warm,goal));
     const calibration=Number(process.hrtime.bigint()-calibrate);
     const batches=Math.max(8, Math.min(65536, Math.ceil(warm*1.8e8/Math.max(calibration,1))));
-    const cpuStart=process.threadCpuUsage();
+    const cpuStart=clock.nowNs();
     const start=process.hrtime.bigint();
     const checksum=await execute(batches);
     const ns=Number(process.hrtime.bigint()-start);
-    const cpu=process.threadCpuUsage(cpuStart);
-    const cpuNs=1000*(cpu.user+cpu.system);
+    const cpuNs=clock.nowNs()-cpuStart;
+    assert(cpuNs>0 && ns>0);
     assert.equal(checksum,Math.imul(batches,goal));
-    console.log(JSON.stringify({kind,count,batches,ns_per_step:ns/(count*batches),cpu_ns_per_step:cpuNs/(count*batches),cpu_to_wall:cpuNs/ns,checksum,node:process.version,v8:process.versions.v8}));
+    console.log(JSON.stringify({kind,count,batches,ns_per_step:ns/(count*batches),cpu_ns_per_step:cpuNs/(count*batches),cpu_to_wall:cpuNs/ns,clock_resolution_ns:clock.resolutionNs(),wall_duration_ns:ns,cpu_duration_ns:cpuNs,checksum,node:process.version,v8:process.versions.v8}));
 })().catch(e=>{ console.error(e); process.exitCode=1; });

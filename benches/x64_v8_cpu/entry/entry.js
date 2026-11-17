@@ -98,16 +98,33 @@ for (let i = 0; i < 5; i++) assert.equal(bench(40_000, i), expected(40_000, i));
 %OptimizeFunctionOnNextCall(bench);
 assert.equal(bench(40_000, -17), expected(40_000, -17));
 const seed = (process.pid & 1023) + 1;
+const cpu = require(process.env.STUDY_CPU_CLOCK);
+const minCpuNs = Number(process.env.STUDY_MIN_CPU_NS || 50_000_000);
+assert(Number.isFinite(minCpuNs) && minCpuNs > 0);
+const pilotStart = cpu.nowNs();
+const pilotSum = bench(count, seed);
+const pilotCpuNs = cpu.nowNs() - pilotStart;
+assert.equal(pilotSum, expected(count, seed));
+assert(pilotCpuNs > 0);
+let batches = Math.max(1, Math.ceil(minCpuNs * 1.35 / pilotCpuNs));
 const statusBefore = %GetOptimizationStatus(bench);
-const start = process.hrtime.bigint();
-const cpuStart = process.threadCpuUsage();
-const sum = bench(count, seed);
-const cpuDelta = process.threadCpuUsage(cpuStart);
-const elapsed = Number(process.hrtime.bigint() - start);
-const cpuElapsedNs = (cpuDelta.user + cpuDelta.system) * 1000;
+let cpuElapsedNs, elapsed, sum;
+for (;;) {
+  sum = 0;
+  const start = process.hrtime.bigint();
+  const cpuStart = cpu.nowNs();
+  for (let batch = 0; batch < batches; batch++) sum = (sum + bench(count, seed)) | 0;
+  cpuElapsedNs = cpu.nowNs() - cpuStart;
+  elapsed = Number(process.hrtime.bigint() - start);
+  assert.equal(sum, (expected(count, seed) * batches) | 0);
+  assert(cpuElapsedNs > 0 && cpuElapsedNs <= elapsed * 1.01 + 5_000);
+  if (cpuElapsedNs >= minCpuNs) break;
+  batches = Math.ceil(batches * minCpuNs * 1.35 / cpuElapsedNs);
+  assert(batches < 10_000);
+}
 const statusAfter = %GetOptimizationStatus(bench);
-assert.equal(sum, expected(count, seed));
-console.log(JSON.stringify({kind, count, seed, sum, elapsed, ns: elapsed / count,
-  cpuUserUs: cpuDelta.user, cpuSystemUs: cpuDelta.system, cpuElapsedNs,
-  cpuNs: cpuElapsedNs / count, cpuFraction: cpuElapsedNs / elapsed,
-  statusBefore, statusAfter, loop: bench.name, node: process.version, v8: process.versions.v8, arch: process.arch}));
+const iterations = count * batches;
+console.log(JSON.stringify({kind, count, batches, iterations, seed, sum, elapsed, ns: elapsed / iterations,
+  cpuElapsedNs, cpuNs: cpuElapsedNs / iterations, cpuFraction: cpuElapsedNs / elapsed,
+  pilotCpuNs, minCpuNs, statusBefore, statusAfter, loop: bench.name,
+  node: process.version, v8: process.versions.v8, arch: process.arch}));

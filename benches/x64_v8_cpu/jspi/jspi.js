@@ -100,25 +100,37 @@ async function awaitBatch(n, fn) {
   return acc;
 }
 
-async function sample(caseName, n, warm) {
+async function sample(caseName, initialCount, warm, minCpuNs) {
+  const clock = require(process.env.STUDY_CPU_CLOCK);
   const fn = create().fns[caseName];
   const batch = caseName.startsWith('sync_') ? syncBatch : awaitBatch;
   const expected = n => (n*(n-1)/2) | 0;
   for (let i = 0; i < 3; i++) assert.equal(await batch(warm, fn), expected(warm));
-  const cpuStart = process.threadCpuUsage();
-  const start = process.hrtime.bigint();
-  const checksum = await batch(n, fn);
-  const elapsedNs = Number(process.hrtime.bigint() - start);
-  const cpu = process.threadCpuUsage(cpuStart);
-  const threadCpuNs = (cpu.user + cpu.system) * 1000;
-  assert.equal(checksum, expected(n));
-  return { caseName, iterations: n, checksum, elapsedNs, nsPerCall: elapsedNs/n,
-    threadCpuNs, cpuNsPerCall: threadCpuNs/n };
+  let n = initialCount;
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    if (n >= 100000000) throw Error('Calibration exceeded checksum-safe sample length');
+    const usageStart = process.threadCpuUsage();
+    const cpuStart = clock.nowNs();
+    const start = process.hrtime.bigint();
+    const checksum = await batch(n, fn);
+    const elapsedNs = Number(process.hrtime.bigint() - start);
+    const threadCpuNs = clock.nowNs() - cpuStart;
+    const coarse = process.threadCpuUsage(usageStart);
+    assert.equal(checksum, expected(n));
+    assert.ok(threadCpuNs > 0);
+    if (threadCpuNs >= minCpuNs) {
+      const getrusageCpuNs = (coarse.user + coarse.system) * 1000;
+      return { caseName, iterations: n, checksum, elapsedNs, nsPerCall: elapsedNs/n,
+        threadCpuNs, cpuNsPerCall: threadCpuNs/n, getrusageCpuNs, attempts: attempt };
+    }
+    n = Math.ceil(n * 1.3 * minCpuNs / threadCpuNs);
+  }
+  throw Error('Could not reach minimum per-batch thread CPU time');
 }
 
 async function main() {
   if (process.argv[2] === 'sample') {
-    console.log(JSON.stringify(await sample(process.argv[3], Number(process.argv[4]), Number(process.argv[5]))));
+    console.log(JSON.stringify(await sample(process.argv[3], Number(process.argv[4]), Number(process.argv[5]), Number(process.argv[6]))));
     return;
   }
   await verify();
@@ -131,9 +143,10 @@ async function main() {
     const schedule = [...kinds.slice((5*round) % kinds.length), ...kinds.slice(0, (5*round) % kinds.length)];
     if (round % 2) schedule.reverse();
     for (const caseName of schedule) {
-      const n = smoke ? 10000 : caseName.startsWith('sync_') ? 3500000 : 100000;
+      const n = smoke ? 10000 : caseName.startsWith('sync_') ? 12000000 :
+        (caseName === 'await_wasm_scalar' || caseName.startsWith('await_js')) ? 1200000 : 100000;
       const warm = smoke ? 2000 : caseName.startsWith('sync_') ? 300000 : 15000;
-      const res = spawnSync(process.execPath, [...process.execArgv, __filename, 'sample', caseName, String(n), String(warm)], { encoding: 'utf8' });
+      const res = spawnSync(process.execPath, [...process.execArgv, __filename, 'sample', caseName, String(n), String(warm), String(smoke ? 0 : 50000000)], { encoding: 'utf8' });
       if (res.status !== 0) throw Error(String(res.error || res.stderr || res.signal));
       observations.push({ round, ...JSON.parse(res.stdout) });
     }
@@ -160,6 +173,7 @@ async function main() {
   }
   console.log(JSON.stringify({ node: process.version, v8: process.versions.v8, arch: process.arch,
     platform: process.platform, cpu: cpus()[0].model, flags: process.execArgv, rounds,
+    cpuClock: 'CLOCK_THREAD_CPUTIME_ID', minimumMeasuredCpuNs: smoke ? 0 : 50000000,
     verifiedPendingContinuation: true, mediansNs: medians, medianCpuNs: cpuMedians, pairedDeltasNs: pairedDeltas, pairedCpuDeltasNs: cpuPairedDeltas, observations }, null, 2));
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

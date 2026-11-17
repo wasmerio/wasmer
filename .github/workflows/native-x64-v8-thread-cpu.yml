@@ -33,6 +33,15 @@ jobs:
           for p in cpu.max cpu.stat cpuset.cpus.effective; do
             if test -r "/sys/fs/cgroup/$p"; then cp "/sys/fs/cgroup/$p" "$out/before-$p"; fi
           done
+      - name: Validate high-resolution main-thread CPU time
+        shell: bash
+        working-directory: benches/x64_v8_cpu/clock
+        run: |
+          set -euo pipefail
+          export STUDY_CPU_CLOCK="$STUDY_ROOT/thread_cpu.node"
+          bash build.sh "$STUDY_CPU_CLOCK"
+          taskset -c "$BENCH_CPU" node preflight.js > "$STUDY_ROOT/cpu-clock.json"
+          echo "STUDY_CPU_CLOCK=$STUDY_CPU_CLOCK" >> "$GITHUB_ENV"
       - name: Measure Wasm entry, reentry, and guest calls
         working-directory: benches/x64_v8_cpu/entry
         run: taskset -c "$BENCH_CPU" python3 run_entry.py "$STUDY_ROOT/entry"
