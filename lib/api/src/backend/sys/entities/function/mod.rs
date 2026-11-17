@@ -624,15 +624,16 @@ impl Function {
 
         // The trampoline is the only code that runs while this borrow is lent.
         unsafe {
-            let _context = StoreContext::enter_guest(store.inner as *mut _);
-            wasmer_call_trampoline(
-                signal_handler,
-                &config,
-                anyfunc.vmctx,
-                anyfunc.call_trampoline,
-                anyfunc.func_ptr,
-                params.as_mut_ptr().cast(),
-            )
+            StoreContext::with_guest(store.inner as *mut _, || {
+                wasmer_call_trampoline(
+                    signal_handler,
+                    &config,
+                    anyfunc.vmctx,
+                    anyfunc.call_trampoline,
+                    anyfunc.func_ptr,
+                    params.as_mut_ptr().cast(),
+                )
+            })
         }
         .map_err(RuntimeError::from)
     }

@@ -125,8 +125,8 @@ pub(crate) struct ForcedStoreInstallGuard {
     store_id: StoreId,
 }
 
-pub(crate) enum StoreInstallGuard {
-    Sync(ForcedStoreInstallGuard),
+pub(crate) enum StoreInstallGuard<S = ForcedStoreInstallGuard> {
+    Sync(S),
     #[cfg(feature = "experimental-async")]
     Async(Option<StorePtrPauseGuard>),
 }
@@ -295,41 +295,86 @@ impl StoreContext {
     /// stays alive, and unreachable to every frame on this thread, until the
     /// guard is dropped.
     pub(crate) unsafe fn install(store_ptr: *mut StoreInner) -> StoreInstallGuard {
-        unsafe { Self::install_inner(store_ptr, false) }
-    }
-
-    /// Installs the store for a guest call, pausing a host borrow when the call
-    /// reuses an async entry. A newly installed sync entry starts unborrowed.
-    ///
-    /// # Safety
-    /// As for [`Self::install`]. Any host borrow must stay inaccessible while
-    /// the guest runs and can only be used again after the guard is dropped.
-    #[inline]
-    pub(crate) unsafe fn enter_guest(store_ptr: *mut StoreInner) -> StoreInstallGuard {
-        unsafe { Self::install_inner(store_ptr, true) }
+        unsafe { Self::install_unscoped(store_ptr, false) }
     }
 
     #[inline]
-    unsafe fn install_inner(
+    unsafe fn install_unscoped(
         store_ptr: *mut StoreInner,
         pause_for_guest: bool,
     ) -> StoreInstallGuard {
-        let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
-        STORE_CONTEXT_STACK.with_borrow_mut(|stack| {
-            #[cfg(any(debug_assertions, feature = "experimental-async"))]
-            if let Some(top) = stack.last_mut()
-                && top.id == store_id
-            {
-                let entry = unsafe { &*top.entry.get() };
-                debug_assert_eq!(entry.as_ptr(), store_ptr, "Store context pointer mismatch");
-                #[cfg(feature = "experimental-async")]
-                if matches!(entry, StoreContextEntry::Async(_)) {
-                    return StoreInstallGuard::Async(pause_for_guest.then(|| top.pause()));
-                }
-            }
-            stack.push(Self::new(store_id, StoreContextEntry::Sync(store_ptr)));
-            StoreInstallGuard::Sync(ForcedStoreInstallGuard { store_id })
+        STORE_CONTEXT_STACK.with_borrow_mut(|stack| unsafe {
+            Self::install_inner(stack, store_ptr, pause_for_guest, |store_id| {
+                ForcedStoreInstallGuard { store_id }
+            })
         })
+    }
+
+    /// Runs a guest call with the store installed, pausing a host borrow when
+    /// reusing an async entry. A newly installed sync entry starts unborrowed.
+    ///
+    /// # Safety
+    /// As for [`Self::install`]. The caller's borrow must stay inaccessible
+    /// until `call` returns or unwinds.
+    #[inline]
+    pub(crate) unsafe fn with_guest<R, F: FnOnce() -> R>(store_ptr: *mut StoreInner, call: F) -> R {
+        // External cothreads can resume on another thread. Look up their
+        // active context again when they return.
+        #[cfg(feature = "unsafe-cothread")]
+        {
+            let _guard = unsafe { Self::install_unscoped(store_ptr, true) };
+            call()
+        }
+
+        #[cfg(not(feature = "unsafe-cothread"))]
+        {
+            use std::ops::ControlFlow;
+            let entry: ControlFlow<R, (F, StoreInstallGuard)> = STORE_CONTEXT_STACK.with(|cell| {
+                // Only the sync cleanup retains the cell. No borrow of the
+                // stack or its entries crosses the call.
+                let guard = unsafe {
+                    Self::install_inner(&mut cell.borrow_mut(), store_ptr, true, |store_id| {
+                        ScopedStoreInstallGuard { cell, store_id }
+                    })
+                };
+                match guard {
+                    StoreInstallGuard::Sync(_entry) => ControlFlow::Break(call()),
+                    #[cfg(feature = "experimental-async")]
+                    StoreInstallGuard::Async(pause) => {
+                        ControlFlow::Continue((call, StoreInstallGuard::Async(pause)))
+                    }
+                }
+            });
+            // Run a suspendible call outside the originating thread's TLS
+            // scope. Its existing pause guard looks up the active context.
+            match entry {
+                ControlFlow::Break(result) => result,
+                ControlFlow::Continue((call, _pause)) => call(),
+            }
+        }
+    }
+
+    #[inline]
+    unsafe fn install_inner<S>(
+        stack: &mut Vec<Self>,
+        store_ptr: *mut StoreInner,
+        pause_for_guest: bool,
+        sync_guard: impl FnOnce(StoreId) -> S,
+    ) -> StoreInstallGuard<S> {
+        let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
+        #[cfg(any(debug_assertions, feature = "experimental-async"))]
+        if let Some(top) = stack.last_mut()
+            && top.id == store_id
+        {
+            let entry = unsafe { &*top.entry.get() };
+            debug_assert_eq!(entry.as_ptr(), store_ptr, "Store context pointer mismatch");
+            #[cfg(feature = "experimental-async")]
+            if matches!(entry, StoreContextEntry::Async(_)) {
+                return StoreInstallGuard::Async(pause_for_guest.then(|| top.pause()));
+            }
+        }
+        stack.push(Self::new(store_id, StoreContextEntry::Sync(store_ptr)));
+        StoreInstallGuard::Sync(sync_guard(store_id))
     }
 
     #[cfg(feature = "experimental-async")]
@@ -602,31 +647,48 @@ impl ForcedStoreInstallGuard {
     }
 }
 
+#[cfg(not(feature = "unsafe-cothread"))]
+struct ScopedStoreInstallGuard<'a> {
+    cell: &'a RefCell<Vec<StoreContext>>,
+    store_id: StoreId,
+}
+
+#[cfg(not(feature = "unsafe-cothread"))]
+impl Drop for ScopedStoreInstallGuard<'_> {
+    #[inline]
+    fn drop(&mut self) {
+        uninstall(self.cell, self.store_id);
+    }
+}
+
 impl Drop for ForcedStoreInstallGuard {
     fn drop(&mut self) {
-        STORE_CONTEXT_STACK.with(|cell| {
-            let mut stack = cell.borrow_mut();
-            let Some(top) = stack.pop() else {
-                assert!(std::thread::panicking(), "Store context stack underflow");
-                return;
-            };
-            if top.id == self.store_id && top.borrow_count == 0 {
-                return;
-            }
-            if std::thread::panicking() {
-                // Leave a mismatched entry for its own guard to uninstall.
-                if top.id != self.store_id {
-                    stack.push(top);
-                }
-                return;
-            }
-            assert_eq!(top.id, self.store_id, "Mismatched store context uninstall");
-            assert_eq!(
-                top.borrow_count, 0,
-                "Cannot uninstall store context while it is still borrowed"
-            );
-        })
+        STORE_CONTEXT_STACK.with(|cell| uninstall(cell, self.store_id));
     }
+}
+
+#[inline]
+fn uninstall(cell: &RefCell<Vec<StoreContext>>, store_id: StoreId) {
+    let mut stack = cell.borrow_mut();
+    let Some(top) = stack.pop() else {
+        assert!(std::thread::panicking(), "Store context stack underflow");
+        return;
+    };
+    if top.id == store_id && top.borrow_count == 0 {
+        return;
+    }
+    if std::thread::panicking() {
+        // Leave a mismatched entry for its own guard to uninstall.
+        if top.id != store_id {
+            stack.push(top);
+        }
+        return;
+    }
+    assert_eq!(top.id, store_id, "Mismatched store context uninstall");
+    assert_eq!(
+        top.borrow_count, 0,
+        "Cannot uninstall store context while it is still borrowed"
+    );
 }
 
 #[cfg(feature = "experimental-async")]
@@ -712,19 +774,15 @@ mod borrow_provenance {
         let mut shim = wrapper.as_mut();
         let _ = shim.objects_mut().id();
 
-        {
-            // --- the shim calls back into the guest
-            let inner_install =
-                unsafe { StoreContext::enter_guest(shim.as_store_mut().inner as *mut _) };
-
-            // --- the inner import trampoline
-            let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
-            let mut inner_shim = inner_wrapper.as_mut();
-            let _ = inner_shim.objects_mut().id();
-            drop(inner_wrapper);
-
-            drop(inner_install);
-        }
+        // --- the shim calls back into the guest
+        unsafe {
+            StoreContext::with_guest(shim.as_store_mut().inner as *mut _, || {
+                // --- the inner import trampoline
+                let mut inner_wrapper = StoreContext::get_current(id);
+                let mut inner_shim = inner_wrapper.as_mut();
+                let _ = inner_shim.objects_mut().id();
+            })
+        };
 
         // --- and goes on using the borrow it held throughout
         let _ = shim.objects_mut().id();
@@ -779,12 +837,12 @@ mod borrow_provenance {
         let mut shim = wrapper.as_mut();
         let _ = shim.objects_mut().id();
 
-        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let _inner_install =
-                unsafe { StoreContext::enter_guest(shim.as_store_mut().inner as *mut _) };
-            let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
-            let _ = inner_wrapper.as_mut().objects_mut().id();
-            panic!("host function panicked");
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+            StoreContext::with_guest(shim.as_store_mut().inner as *mut _, || {
+                let mut inner_wrapper = StoreContext::get_current(id);
+                let _ = inner_wrapper.as_mut().objects_mut().id();
+                panic!("host function panicked");
+            })
         }));
         assert!(caught.is_err());
 
@@ -818,31 +876,29 @@ mod lend_async {
             "a store that is borrowed cannot be lent"
         );
 
-        {
-            // --- the host function calls back into the guest
-            let pause = unsafe { StoreContext::enter_guest(wrapper.as_mut().inner as *mut _) };
-
-            // --- which reaches an async import: the coroutine lends the
-            // store out for the first poll of the host future
-            assert!(
-                StoreContext::lend_async(Store::default().id()).is_none(),
-                "only the store that is running can be lent"
-            );
-            let lock = StoreContext::lend_async(id).expect("an unborrowed async store");
-            assert!(StoreContext::is_empty());
-            {
-                // --- the future locks the store
-                let mut guard = lock.try_write().expect("the store is unlocked");
-                let _ = guard.objects.id();
-                let _ = &mut guard.objects;
-                assert!(!StoreContext::return_async(&lock), "the store is locked");
+        // --- the host function calls back into the guest
+        unsafe {
+            StoreContext::with_guest(wrapper.as_mut().inner as *mut _, || {
+                // --- which reaches an async import: the coroutine lends the
+                // store out for the first poll of the host future
+                assert!(
+                    StoreContext::lend_async(Store::default().id()).is_none(),
+                    "only the store that is running can be lent"
+                );
+                let lock = StoreContext::lend_async(id).expect("an unborrowed async store");
                 assert!(StoreContext::is_empty());
-            }
-            assert!(StoreContext::return_async(&lock));
-            assert!(StoreContext::top_is_async());
-
-            drop(pause);
-        }
+                {
+                    // --- the future locks the store
+                    let mut guard = lock.try_write().expect("the store is unlocked");
+                    let _ = guard.objects.id();
+                    let _ = &mut guard.objects;
+                    assert!(!StoreContext::return_async(&lock), "the store is locked");
+                    assert!(StoreContext::is_empty());
+                }
+                assert!(StoreContext::return_async(&lock));
+                assert!(StoreContext::top_is_async());
+            })
+        };
 
         // --- the host function goes on using the borrow it held throughout
         let _ = wrapper.as_mut().objects_mut().id();
@@ -883,12 +939,15 @@ mod unwinding {
         assert_eq!(active_borrows(), 1);
         let caught = catch_unwind(AssertUnwindSafe(|| {
             // --- its guest call
-            let _entry = unsafe { StoreContext::enter_guest(wrapper.as_mut().inner as *mut _) };
-            assert_eq!(active_borrows(), 0);
-            // --- a host function the guest reaches, which panics
-            let _inner_wrapper = unsafe { StoreContext::get_current(id) };
-            assert_eq!(active_borrows(), 1);
-            panic!("host function panicked");
+            unsafe {
+                StoreContext::with_guest(wrapper.as_mut().inner as *mut _, || {
+                    assert_eq!(active_borrows(), 0);
+                    // --- a host function the guest reaches, which panics
+                    let _inner_wrapper = StoreContext::get_current(id);
+                    assert_eq!(active_borrows(), 1);
+                    panic!("host function panicked");
+                })
+            }
         }));
         assert!(caught.is_err());
         assert_eq!(active_borrows(), 1);
