@@ -1,0 +1,74 @@
+name: Native x86-64 V8 call benchmark
+on:
+  push:
+    branches:
+      - codex/x64-v8-capi-study-7195
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: aux-pub-16cpu-amd64
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Check the native runner and pinned distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          results="$RUNNER_TEMP/v8-x64-results"
+          v8="$RUNNER_TEMP/v8"
+          mkdir -p "$results" "$v8"
+          exec 2> >(tee "$results/preflight-stderr.log" >&2)
+          test "$(uname -m)" = x86_64
+          lscpu > "$results/lscpu.txt"
+          cpu=$(python3 -c 'import os; print(min(os.sched_getaffinity(0)))')
+          echo "BENCH_CPU=$cpu" >> "$GITHUB_ENV"
+          echo "$cpu" > "$results/cpu.txt"
+          curl --retry 2 --max-time 90 --proto '=https' --tlsv1.2 -fsSL https://github.com/wasmerio/v8-custom-builds/releases/download/11.9.7/v8-linux-amd64.tar.xz -o "$v8/v8.tar.xz"
+          echo "54e19938a034ee77888b10cf27704b19e317dfbfe8f68d7a5f8ad8968fe731ba  $v8/v8.tar.xz" | sha256sum --check
+          tar -xJf "$v8/v8.tar.xz" -C "$v8"
+          for member in c-api.o execution.o stack-guard.o; do
+            ar p "$v8/lib/libv8.a" "$member" > "$v8/$member"
+            readelf -h "$v8/$member" | tee "$results/$member.txt"
+            grep -q 'X86-64' "$results/$member.txt"
+          done
+          cp "$v8/include/v8-version.h" "$results/"
+          sha256sum "$v8/v8.tar.xz" "$v8/lib/libv8.a" > "$results/checksums.txt"
+      - name: Measure V8 C API exports, reentry and signature queries
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          results="$RUNNER_TEMP/v8-x64-results"
+          v8="$RUNNER_TEMP/v8"
+          exec 2> >(tee "$results/capi-stderr.log" >&2)
+          printf '%s\n' '#include <cstdio>' '#include <v8-initialization.h>' 'int main() { std::puts(v8::V8::GetVersion()); }' > "$v8/version.cc"
+          g++ -O3 -std=c++20 -I"$v8/include" "$v8/version.cc" "$v8/lib/libv8.a" -pthread -ldl -o "$v8/version"
+          "$v8/version" | tee "$results/linked-version.txt"
+          for name in native_calls signature_cost; do
+            g++ -O3 -std=c++17 -I"$v8/include" "benches/x64_study/$name.cc" "$v8/lib/libv8.a" -pthread -ldl -o "$v8/$name"
+            taskset -c "$BENCH_CPU" "$v8/$name" | tee "$results/$name.csv"
+          done
+      - uses: actions/setup-node@v4
+        if: ${{ !cancelled() }}
+        with:
+          node-version: 26.0.0
+      - name: Measure V8 JS wrapper and body inlining
+        if: ${{ !cancelled() }}
+        shell: bash
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          results="$RUNNER_TEMP/v8-x64-results"
+          exec 2> >(tee "$results/node-stderr.log" >&2)
+          cp benches/x64_study/boundary.js benches/x64_study/v8_js_study.py "$results/"
+          taskset -c "$BENCH_CPU" python3 "$results/v8_js_study.py" | tee "$results/js-summary.txt"
+      - name: Preserve measurements and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinned-v8-x86-64
+          path: ${{ runner.temp }}/v8-x64-results
+          retention-days: 14
