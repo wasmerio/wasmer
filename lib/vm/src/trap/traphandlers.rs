@@ -168,7 +168,7 @@ pub fn drain_stack_pool() {
     if let Some(stack) = TLS_STACK.with(|cache| cache.0.take()) {
         drop(stack);
     }
-    if let Some(worker) = IDLE_WORKER.with(|slot| slot.0.take()) {
+    if let Ok(Some(worker)) = IDLE_WORKER.try_with(|slot| slot.0.take()) {
         drop(worker.stop());
     }
     while STACK_POOL.pop().is_some() {}
@@ -1284,16 +1284,18 @@ pub(super) unsafe fn call_trampoline(
 ) -> Result<(), Trap> {
     lazy_per_thread_init()?;
     let min_size = config.wasm_stack_size.unwrap_or_else(get_stack_size);
-    let cached = IDLE_WORKER.with(|slot| slot.0.take());
+    let cached = IDLE_WORKER.try_with(|slot| slot.0.take());
     let mut worker = match cached {
-        Some(worker) if worker.stack_size >= min_size => worker,
+        Ok(Some(worker)) if worker.stack_size >= min_size => worker,
         cached => {
-            if let Some(undersized) = cached {
+            let cache_destroyed = cached.is_err();
+            if let Ok(Some(undersized)) = cached {
                 drop(undersized.stop());
             }
             // The outer call owns its worker until it returns. A nested call
             // can reuse a stack without building a worker it would then evict.
-            if TRAP_HANDLER.with(|ptr| !ptr.load(Ordering::Relaxed).is_null()) {
+            // An embedder TLS destructor can also call after the worker cache is gone.
+            if cache_destroyed || TRAP_HANDLER.with(|ptr| !ptr.load(Ordering::Relaxed).is_null()) {
                 return on_wasm_stack(min_size, trap_handler, move || unsafe { call.invoke() })
                     .map_err(UnwindReason::into_trap);
             }
@@ -1310,8 +1312,12 @@ pub(super) unsafe fn call_trampoline(
     };
     match result {
         CoroutineResult::Yield(None) => {
-            if let Some(displaced) = IDLE_WORKER.with(|slot| slot.0.replace(Some(worker))) {
-                release_stack(displaced.stop());
+            let mut returned = Some(worker);
+            match IDLE_WORKER.try_with(|slot| slot.0.replace(returned.take())) {
+                Ok(Some(displaced)) => release_stack(displaced.stop()),
+                // A suspended call can finish during thread teardown.
+                Err(_) => drop(returned.unwrap().stop()),
+                Ok(None) => (),
             }
             Ok(())
         }
