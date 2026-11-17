@@ -172,10 +172,10 @@ fn holochain_typed_function() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "sys")]
+#[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
 #[engine_test]
 fn typed_import_returns_a_function_from_the_active_store() -> anyhow::Result<()> {
-    let mut store = Store::default();
+    let mut store = Store::new(wasmer::sys::engine::default_engine());
     let module = Module::new(
         &store,
         r#"(module
