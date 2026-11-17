@@ -643,7 +643,7 @@ test-v8: test-v8-api
 test-v8-api:
 	cargo nextest run --package=wasmer --release --features="v8-default" --no-default-features
 
-test-js: test-js-api test-js-jspi test-js-wasi
+test-js: test-js-api test-js-csp test-js-jspi test-js-wasi
 
 # TODO: disabled because the no-std / core feature doesn't actually work at the moment.
 # See https://github.com/wasmerio/wasmer/issues/3429
@@ -655,6 +655,14 @@ test-js: test-js-api test-js-jspi test-js-wasi
 test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat,js-serializable-module --test module
+
+# The lib/api integration tests where the host forbids making functions from
+# text, as a Content Security Policy without 'unsafe-eval' does: the glue the
+# js backend makes at run time with `new Function` falls back to functions it
+# makes without it. (The unit tests compare those two kinds of glue, which
+# needs both, so they do not run here.)
+test-js-csp:
+	cd lib/api && NODE_ARGS=--disallow-code-generation-from-strings wasm-pack test --node -- --no-default-features --features js-default,wat --test '*'
 
 lint-js:
 	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default" --locked -- -D clippy::all

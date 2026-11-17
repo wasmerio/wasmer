@@ -13,16 +13,19 @@
 //! general path: a lane for it would need a closure type per position of the
 //! BigInts. So do references and multiple results.
 
-use std::mem::MaybeUninit;
+use std::{mem::MaybeUninit, rc::Rc};
 
-use js_sys::Function as JsFunction;
+use js_sys::{Function as JsFunction, WebAssembly};
 use wasm_bindgen::{
     JsCast, JsValue,
     prelude::{Closure, wasm_bindgen},
 };
 use wasmer_types::{FunctionType, Type};
 
-use crate::{Value, js::utils::convert::wasmer_value_to_js};
+use crate::{
+    Value,
+    js::{store::keep_alive, utils::convert::wasmer_value_to_js},
+};
 
 /// The most parameters a function on the numeric lane has: as many as a
 /// `wasm_bindgen` closure takes.
@@ -153,6 +156,161 @@ pub(crate) fn closure(
         _ => unreachable!("the numeric lane ends at {MAX_ARITY} parameters"),
     };
     closure.unchecked_into()
+}
+
+// A `Closure` is a slow function for a guest to call: its glue gathers the
+// arguments into an array and spreads them again, counts references around
+// the call, and the `Result` it returns comes back as an array the engine
+// makes. A dynamic host function is called the way a typed one is instead:
+// the guest calls a small JavaScript function, which calls a Rust function of
+// the host's table, a *trampoline*, with the address of the host function's
+// body and the numbers. The trampoline returns the body's result; an error
+// it stashes in a cell, and the JavaScript function throws it from there, so
+// the error is thrown by JavaScript as the `Closure` glue throws it, and no
+// Rust frame is left behind by a throw.
+
+/// What a dynamic host function of nothing but numbers runs when a guest
+/// calls it: its arguments in, its result or the value to throw out.
+type Body = dyn Fn(&[f64]) -> Result<f64, JsValue>;
+
+#[wasm_bindgen]
+extern "C" {
+    /// Makes the JavaScript function of a host function: called with a
+    /// trampoline and the address of the body it is to call.
+    type Maker;
+    #[wasm_bindgen(method, js_name = call)]
+    fn make(this: &Maker, receiver: &JsValue, trampoline: &JsValue, body: f64) -> JsFunction;
+
+    /// Keeps the value that the JavaScript function of the trampoline that
+    /// returns next is to throw.
+    type Stash;
+    #[wasm_bindgen(method, js_name = call)]
+    fn stash(this: &Stash, receiver: &JsValue, error: JsValue);
+}
+
+/// The makers of host functions of this thread, by number of parameters, and
+/// the stash they share.
+struct Hosts {
+    makers: [Maker; MAX_ARITY + 1],
+    stash: Stash,
+}
+
+impl Hosts {
+    /// The makers, if the host lets them be made.
+    fn new() -> Option<Self> {
+        let makers = (0..=MAX_ARITY).map(|arity| {
+            let parameters = (0..arity)
+                .map(|index| format!("a{index}"))
+                .collect::<Vec<_>>();
+            let arguments = [vec!["body".to_owned()], parameters.clone()].concat();
+            format!(
+                "(trampoline, body) => ({}) => {{ const result = trampoline({}); \
+                 if (thrown !== undefined) {{ const error = thrown[0]; thrown = undefined; throw error; }} \
+                 return result; }}",
+                parameters.join(", "),
+                arguments.join(", "),
+            )
+        });
+        let body = format!(
+            "\"use strict\"; let thrown; return [[{}], (error) => {{ thrown = [error]; }}];",
+            makers.collect::<Vec<_>>().join(", "),
+        );
+        let make: JsFunction = super::EvaluatedFunction::new("", &body)
+            .ok()?
+            .unchecked_into();
+        let made: js_sys::Array = make.call0(&JsValue::UNDEFINED).ok()?.unchecked_into();
+        let makers: js_sys::Array = made.get(0).unchecked_into();
+        Some(Self {
+            makers: std::array::from_fn(|arity| makers.get(arity as u32).unchecked_into()),
+            stash: made.get(1).unchecked_into(),
+        })
+    }
+}
+
+thread_local! {
+    static HOSTS: Option<Hosts> = Hosts::new();
+}
+
+macro_rules! trampolines {
+    ($( $trampoline:ident ( $( $argument:ident ),* ); )*) => {
+        $(
+            /// Calls the [`Body`] at `body` with the numbers after it, for
+            /// the JavaScript function of a host function made by [`host`].
+            ///
+            /// # Safety
+            ///
+            /// `body` is the address of a `Box<Body>` that lives until the
+            /// call returns.
+            unsafe extern "C" fn $trampoline(body: usize, $( $argument: f64 ),*) -> f64 {
+                // SAFETY: the function that passes `body` keeps it alive.
+                let body = unsafe { &*(body as *const Box<Body>) };
+                match body(&[$( $argument ),*]) {
+                    Ok(number) => number,
+                    Err(error) => {
+                        stash(error);
+                        0.0
+                    }
+                }
+            }
+        )*
+    };
+}
+
+trampolines! {
+    trampoline0();
+    trampoline1(a);
+    trampoline2(a, b);
+    trampoline3(a, b, c);
+    trampoline4(a, b, c, d);
+    trampoline5(a, b, c, d, e);
+    trampoline6(a, b, c, d, e, f);
+    trampoline7(a, b, c, d, e, f, g);
+    trampoline8(a, b, c, d, e, f, g, h);
+}
+
+/// Gives `error` to the JavaScript function of the trampoline that returns
+/// next, to throw.
+#[cold]
+fn stash(error: JsValue) {
+    HOSTS.with(|hosts| match hosts {
+        Some(hosts) => hosts.stash.stash(&JsValue::UNDEFINED, error),
+        // A trampoline is only called by a function that `Hosts` made.
+        None => unreachable!("a host function without its makers"),
+    })
+}
+
+/// A host function of `arity` numbers that calls `body` with them, as
+/// [`closure`] does, but faster to call. For a function without a result,
+/// what `body` returns is ignored by the engine.
+pub(crate) fn host(
+    arity: usize,
+    body: impl Fn(&[f64]) -> Result<f64, JsValue> + 'static,
+) -> JsFunction {
+    HOSTS.with(|hosts| {
+        let Some(hosts) = hosts else {
+            return closure(arity, body);
+        };
+        let trampoline = match arity {
+            0 => trampoline0 as *const (),
+            1 => trampoline1 as *const (),
+            2 => trampoline2 as *const (),
+            3 => trampoline3 as *const (),
+            4 => trampoline4 as *const (),
+            5 => trampoline5 as *const (),
+            6 => trampoline6 as *const (),
+            7 => trampoline7 as *const (),
+            8 => trampoline8 as *const (),
+            _ => unreachable!("the numeric lane ends at {MAX_ARITY} parameters"),
+        };
+        // The address of a function is its index in the table.
+        let table: WebAssembly::Table = wasm_bindgen::function_table().unchecked_into();
+        let trampoline = table.get(trampoline as usize as u32).unwrap();
+        let body: Rc<Box<Body>> = Rc::new(Box::new(body));
+        let address = Rc::as_ptr(&body) as usize as f64;
+        let function = hosts.makers[arity].make(&JsValue::UNDEFINED, &trampoline, address);
+        keep_alive("wasmer.host", body, &function);
+        function
+    })
 }
 
 #[wasm_bindgen]
@@ -562,6 +720,53 @@ mod tests {
                     let next = call_through(Some(&guards), &returns_nan, &numbers, true);
                     assert_eq!(outcome(next, true), Outcome::Returned(Some(u64::MAX)));
                 }
+            }
+        }
+    }
+
+    /// A host function returns and throws what a [`closure`] of the same
+    /// body does, with the arguments in the same order, and a host function
+    /// that returns after one that threw returns.
+    #[wasm_bindgen_test]
+    fn a_host_function_returns_and_throws_as_a_closure_does() {
+        assert!(
+            HOSTS.with(Option::is_some),
+            "this host makes functions from text"
+        );
+        let thrown = JsValue::from(js_sys::Object::new());
+        let returning = |number: f64| -> Rc<Body> { Rc::new(move |_| Ok(number)) };
+        let throwing = |value: JsValue| -> Rc<Body> { Rc::new(move |_| Err(value.clone())) };
+        let bodies = [
+            Rc::new(|numbers: &[f64]| Ok(numbers.iter().fold(0.5, |sum, n| sum * 2.0 + n))),
+            returning(f64::NAN),
+            returning(-0.0),
+            returning(f64::INFINITY),
+            throwing(thrown),
+            throwing(JsValue::UNDEFINED),
+            throwing(JsValue::NULL),
+            throwing(JsValue::from(f64::NAN)),
+            throwing(JsValue::from(0)),
+        ];
+        let call = |function: &JsFunction, arity: usize| {
+            let numbers = [1.5, -2.0, 3.25, 0.0, -0.0, 1e300, -7.0, 8.0];
+            let arguments: js_sys::Array =
+                numbers[..arity].iter().map(|n| JsValue::from(*n)).collect();
+            match js_sys::Reflect::apply(function, &JsValue::UNDEFINED, &arguments) {
+                Ok(returned) => Outcome::Returned(returned.as_f64().map(|n| match n.is_nan() {
+                    true => u64::MAX,
+                    false => n.to_bits(),
+                })),
+                Err(thrown) => Outcome::Threw(thrown),
+            }
+        };
+        let after = host(0, |_| Ok(1.0));
+        for arity in 0..=MAX_ARITY {
+            for body in &bodies {
+                let (made, wrapped) = (body.clone(), body.clone());
+                let made = host(arity, move |numbers| made(numbers));
+                let wrapped = closure(arity, move |numbers| wrapped(numbers));
+                assert_eq!(call(&made, arity), call(&wrapped, arity), "of {arity}");
+                assert_eq!(call(&after, 0), Outcome::Returned(Some(1.0f64.to_bits())));
             }
         }
     }

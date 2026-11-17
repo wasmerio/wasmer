@@ -74,14 +74,7 @@ impl StoreSlot {
     /// Makes `function` keep the slot alive for as long as it lives, in a
     /// property that cannot be changed or removed.
     pub(crate) fn keep_alive_by(&self, function: &JsFunction) {
-        let slot = self.clone();
-        let owner = Closure::<dyn Fn()>::new(move || {
-            let _ = &slot;
-        })
-        .into_js_value();
-        let descriptor = Object::new();
-        let _ = Reflect::set(&descriptor, &JsValue::from_str("value"), &owner);
-        Object::define_property(function, &Symbol::for_("wasmer.store").into(), &descriptor);
+        keep_alive("wasmer.store", self.clone(), function);
     }
 }
 
@@ -109,6 +102,18 @@ impl Drop for ClearSlotOnDrop {
             slot.clear();
         }
     }
+}
+
+/// Makes `function` keep `owned` alive for as long as it lives, in the
+/// property `Symbol.for(key)`, which cannot be changed or removed.
+pub(crate) fn keep_alive<T: 'static>(key: &str, owned: T, function: &JsFunction) {
+    let owner = Closure::<dyn Fn()>::new(move || {
+        let _ = &owned;
+    })
+    .into_js_value();
+    let descriptor = Object::new();
+    let _ = Reflect::set(&descriptor, &JsValue::from_str("value"), &owner);
+    Object::define_property(function, &Symbol::for_(key).into(), &descriptor);
 }
 
 /// The store in the slot at `address`, which a host function was given by

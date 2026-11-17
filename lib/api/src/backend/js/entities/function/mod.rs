@@ -312,10 +312,10 @@ impl Function {
         let slot = StoreSlot::of(&store);
         let raw_env = env.clone();
         if numeric::is_numeric(&function_type) {
-            // Nothing but numbers: the guest calls the closure itself, with
+            // Nothing but numbers: the guest passes them as they are, with
             // no array of arguments in between.
             let arity = function_type.params().len();
-            let function = numeric::closure(arity, move |numbers| {
+            let function = numeric::host(arity, move |numbers| {
                 // SAFETY: a guest calls this host function of the store.
                 let mut store = unsafe { slot.store()? };
                 let arguments = numeric::values(function_type.params(), numbers);
@@ -383,11 +383,8 @@ impl Function {
             .into_js_value(),
         };
 
-        let dyn_func =
-            JsFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
-        let binded_func = dyn_func.bind1(&JsValue::UNDEFINED, &wrapped_func);
-        let vm_function =
-            VMFunction::new(binded_func.unchecked_into::<JsFunction>(), func_ty).of_store(&store);
+        let binded_func = with_arguments_array(&wrapped_func);
+        let vm_function = VMFunction::new(binded_func, func_ty).of_store(&store);
         Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function))
     }
 
@@ -640,11 +637,40 @@ extern "C" {
 }
 
 thread_local! {
+    /// `(f, ...arguments) => f(arguments)`, for `with_arguments_array`, or
+    /// `None` where the host does not let functions be made from text.
+    static ARGUMENTS_ARRAY: Option<JsFunction> = EvaluatedFunction::new(
+        "f",
+        "return f(Array.prototype.slice.call(arguments, 1))",
+    )
+    .ok()
+    .map(JsCast::unchecked_into);
+
     /// What makes the functions of `with_leading_arguments`, by number of
     /// leading arguments and of parameters. `None` where the host does not
     /// let functions be made from text.
     static LEADING_ARGUMENTS: RefCell<HashMap<(usize, usize), Option<JsFunction>>> =
         RefCell::new(HashMap::new());
+}
+
+/// A function that calls `function` with one argument, the array of its own
+/// arguments. Where the host does not let functions be made from text, it is
+/// a proxy of `function` whose `apply` trap is given that array.
+fn with_arguments_array(function: &JsValue) -> JsFunction {
+    if let Some(spread) = ARGUMENTS_ARRAY.with(Clone::clone) {
+        return spread.bind1(&JsValue::UNDEFINED, function).unchecked_into();
+    }
+    let target = function.clone();
+    let apply = Closure::<dyn Fn(JsValue, JsValue, Array) -> Result<JsValue, JsValue>>::new(
+        move |_: JsValue, _: JsValue, arguments: Array| {
+            target
+                .unchecked_ref::<JsFunction>()
+                .call1(&JsValue::UNDEFINED, &arguments)
+        },
+    );
+    let handler = js_sys::Object::new();
+    let _ = js_sys::Reflect::set(&handler, &"apply".into(), &apply.into_js_value());
+    js_sys::Proxy::new(function, &handler).unchecked_into()
 }
 
 /// A function of `arity` parameters that calls `function` with `leading` and
