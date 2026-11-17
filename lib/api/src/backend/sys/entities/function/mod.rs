@@ -21,12 +21,13 @@ use crate::{
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     vm::{VMExtern, VMExternFunction},
 };
+use smallvec::{SmallVec, smallvec};
 use std::panic::{self, AssertUnwindSafe};
 use std::{
     cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, marker::PhantomData,
     pin::Pin, sync::Arc,
 };
-use wasmer_types::{NativeWasmType, RawValue, StoreId};
+use wasmer_types::{NativeWasmType, RawValue, StoreId, Type};
 #[cfg(feature = "experimental-host-interrupt")]
 use wasmer_vm::interrupt_registry;
 use wasmer_vm::{
@@ -35,6 +36,12 @@ use wasmer_vm::{
     VMFunctionContext, VMFunctionKind, VMTrampoline, on_host_stack, raise_lib_trap,
     raise_user_trap, resume_panic, wasmer_call_trampoline,
 };
+
+// Buffers for a call's values, inline up to a size that covers most
+// signatures, so that a call does not allocate for them.
+type RawValues = SmallVec<[RawValue; 8]>;
+type Values = SmallVec<[Value; 8]>;
+type Types = SmallVec<[Type; 8]>;
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,8 +78,7 @@ impl Function {
             unsafe {
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
                 let mut store_mut = store_wrapper.as_mut();
-                let mut args = Vec::with_capacity(func_ty.params().len());
-
+                let mut args = Values::new();
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
                         &mut store_mut,
@@ -190,8 +196,7 @@ impl Function {
                     }
                 };
                 let id = store_mut.as_store_ref().objects().id();
-                let mut args = Vec::with_capacity(func_ty.params().len());
-
+                let mut args = Values::new();
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
                         &mut store_mut,
@@ -467,67 +472,14 @@ impl Function {
             .clone()
     }
 
-    fn call_wasm(
-        &self,
-        store: &mut impl AsStoreMut,
-        wrapper: Option<&mut dyn CallWrapper>,
-        trampoline: VMTrampoline,
-        params: &[Value],
-        results: &mut [Value],
-    ) -> Result<(), RuntimeError> {
-        let format_types_for_error_message = |items: &[Value]| {
-            items
-                .iter()
-                .map(|param| param.ty().to_string())
-                .collect::<Vec<String>>()
-                .join(", ")
-        };
-        // TODO: Avoid cloning the signature here, it's expensive.
-        let signature = self.ty(store);
-        if signature.params().len() != params.len() {
-            return Err(RuntimeError::new(format!(
-                "Parameters of type [{}] did not match signature {}",
-                format_types_for_error_message(params),
-                signature
-            )));
-        }
-        if signature.results().len() != results.len() {
-            return Err(RuntimeError::new(format!(
-                "Results of type [{}] did not match signature {}",
-                format_types_for_error_message(results),
-                signature,
-            )));
-        }
-
-        let mut values_vec = vec![RawValue { i32: 0 }; max(params.len(), results.len())];
-
-        // Store the argument values into `values_vec`.
-        let param_tys = signature.params().iter();
-        for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
-            if arg.ty() != *ty {
-                let param_types = format_types_for_error_message(params);
-                return Err(RuntimeError::new(format!(
-                    "Parameters of type [{param_types}] did not match signature {signature}",
-                )));
-            }
-            if !arg.is_from_store(store) {
-                return Err(RuntimeError::new("cross-`Store` values are not supported"));
-            }
-            *slot = arg.as_raw(store);
-        }
-
-        // Invoke the call
-        self.call_wasm_raw(store, wrapper, trampoline, values_vec, results)?;
-        Ok(())
-    }
-
+    /// Calls the function with its arguments in `params`, which must also have
+    /// room for its results: the call leaves them at the start of `params`.
     fn call_wasm_raw(
         &self,
         store: &mut impl AsStoreMut,
         wrapper: Option<&mut dyn CallWrapper>,
         trampoline: VMTrampoline,
-        mut params: Vec<RawValue>,
-        results: &mut [Value],
+        params: &mut [RawValue],
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
         let result = {
@@ -541,7 +493,7 @@ impl Function {
 
             // The trampoline writes the results over the arguments, so a
             // wrapper that enters again gets them restored first.
-            let original_params = wrapper.is_some().then(|| params.clone());
+            let original_params = wrapper.is_some().then(|| RawValues::from_slice(params));
 
             let r = call_wrapped(store, wrapper, |store| {
                 if let Some(original_params) = &original_params {
@@ -580,20 +532,15 @@ impl Function {
         };
 
         result?;
-
-        // Load the return values out of `values_vec`.
-        let signature = self.ty(store);
-        for (index, &value_type) in signature.results().iter().enumerate() {
-            unsafe {
-                results[index] = Value::from_raw(store, value_type, params[index]);
-            }
-        }
-
         Ok(())
     }
 
     pub(crate) fn result_arity(&self, store: &impl AsStoreRef) -> usize {
-        self.ty(store).results().len()
+        self.handle
+            .get(store.as_store_ref().objects().as_sys())
+            .signature
+            .results()
+            .len()
     }
 
     pub(crate) fn call(
@@ -610,17 +557,53 @@ impl Function {
         wrapper: Option<&mut dyn CallWrapper>,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
-        let trampoline = unsafe {
-            self.handle
-                .get(store.objects_mut().as_sys())
-                .anyfunc
-                .as_ptr()
-                .as_ref()
-                .call_trampoline
+        let store_ref = store.as_store_ref();
+        let vm_function = self.handle.get(store_ref.objects().as_sys());
+        let signature = &vm_function.signature;
+        let trampoline = unsafe { vm_function.anyfunc.as_ptr().as_ref().call_trampoline };
+        let format_types_for_error_message = |items: &[Value]| {
+            items
+                .iter()
+                .map(|param| param.ty().to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
         };
-        let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm(store, wrapper, trampoline, params, &mut results)?;
-        Ok(results.into_boxed_slice())
+        if signature.params().len() != params.len() {
+            return Err(RuntimeError::new(format!(
+                "Parameters of type [{}] did not match signature {}",
+                format_types_for_error_message(params),
+                signature
+            )));
+        }
+
+        let mut values_vec: RawValues =
+            smallvec![RawValue { i32: 0 }; max(params.len(), signature.results().len())];
+
+        // Store the argument values into `values_vec`.
+        for ((arg, slot), ty) in params
+            .iter()
+            .zip(&mut values_vec)
+            .zip(signature.params())
+        {
+            if arg.ty() != *ty {
+                let param_types = format_types_for_error_message(params);
+                return Err(RuntimeError::new(format!(
+                    "Parameters of type [{param_types}] did not match signature {signature}",
+                )));
+            }
+            if !arg.is_from_store(&store_ref) {
+                return Err(RuntimeError::new("cross-`Store` values are not supported"));
+            }
+            *slot = arg.as_raw(&store_ref);
+        }
+
+        // The result types are copied out, and the borrow of the function
+        // ends here: its signature lives in the store's function list, which
+        // the call (or reading a funcref result) may grow and move.
+        let result_types = Types::from_slice(signature.results());
+
+        self.call_wasm_raw(store, wrapper, trampoline, &mut values_vec)?;
+        Ok(unsafe { results_from_raw(store, &result_types, &values_vec) })
     }
 
     #[cfg(feature = "experimental-async")]
@@ -640,19 +623,16 @@ impl Function {
     pub(crate) fn call_raw(
         &self,
         store: &mut impl AsStoreMut,
-        params: Vec<RawValue>,
+        mut params: Vec<RawValue>,
     ) -> Result<Box<[Value]>, RuntimeError> {
-        let trampoline = unsafe {
-            self.handle
-                .get(store.objects_mut().as_sys())
-                .anyfunc
-                .as_ptr()
-                .as_ref()
-                .call_trampoline
+        let (trampoline, result_types) = {
+            let vm_function = self.handle.get(store.objects_mut().as_sys());
+            let trampoline = unsafe { vm_function.anyfunc.as_ptr().as_ref().call_trampoline };
+            let result_types = Types::from_slice(vm_function.signature.results());
+            (trampoline, result_types)
         };
-        let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm_raw(store, None, trampoline, params, &mut results)?;
-        Ok(results.into_boxed_slice())
+        self.call_wasm_raw(store, None, trampoline, &mut params)?;
+        Ok(unsafe { results_from_raw(store, &result_types, &params) })
     }
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
@@ -741,6 +721,24 @@ where
             InvocationResult::Trap(Box::new(trap))
         }
     }
+}
+
+/// Reads the results a call left at the start of `raw`.
+///
+/// # Safety
+///
+/// `raw` must start with values of `types`, as a call to a function with
+/// these result types leaves them.
+unsafe fn results_from_raw(
+    store: &mut impl AsStoreMut,
+    types: &[Type],
+    raw: &[RawValue],
+) -> Box<[Value]> {
+    let mut values = Vec::with_capacity(types.len());
+    for (&ty, &raw) in types.iter().zip(&raw[..types.len()]) {
+        values.push(unsafe { Value::from_raw(store, ty, raw) });
+    }
+    values.into_boxed_slice()
 }
 
 fn write_dynamic_results(
