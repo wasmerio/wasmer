@@ -29,7 +29,7 @@ use std::{
     cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, marker::PhantomData,
     pin::Pin, sync::Arc,
 };
-use wasmer_types::{NativeWasmType, RawValue, StoreId};
+use wasmer_types::{NativeWasmType, RawValue, StoreId, Type};
 #[cfg(feature = "experimental-host-interrupt")]
 use wasmer_vm::interrupt_registry;
 use wasmer_vm::{
@@ -525,6 +525,7 @@ impl Function {
         }
 
         let num_results = signature.results().len();
+        let single_result = (num_results == 1).then(|| signature.results()[0]);
         let num_slots = max(params.len(), num_results);
         let mut inline = [RawValue { i32: 0 }; 8];
         let mut heap;
@@ -544,7 +545,7 @@ impl Function {
             *slot = arg.as_raw(&store_ref);
         }
 
-        self.call_wasm_raw(store, wrapper, slots, num_results)
+        self.call_wasm_raw(store, wrapper, slots, num_results, single_result)
     }
 
     fn call_wasm_raw(
@@ -553,10 +554,18 @@ impl Function {
         wrapper: Option<&mut dyn CallWrapper>,
         params: &mut [RawValue],
         num_results: usize,
+        single_result: Option<Type>,
     ) -> Result<Box<[Value]>, RuntimeError> {
         self.invoke_wasm(store, wrapper, params)?;
 
         let mut store = store.as_store_mut();
+        if let Some(ty) = single_result {
+            // A wrapper can replace the store objects after its final invocation.
+            // Validate the handle before interpreting raw reference bits.
+            self.handle.get(store.as_store_ref().objects().as_sys());
+            let value = unsafe { Value::from_raw(&mut store, ty, params[0]) };
+            return Ok(Box::new([value]));
+        }
         Ok(params[..num_results]
             .iter()
             .enumerate()
@@ -658,8 +667,15 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         let signature = self.signature(store);
         let num_results = signature.results().len();
+        let single_result = (num_results == 1).then(|| signature.results()[0]);
         let num_slots = max(signature.params().len(), num_results);
-        self.call_wasm_raw(store, None, &mut params[..num_slots], num_results)
+        self.call_wasm_raw(
+            store,
+            None,
+            &mut params[..num_slots],
+            num_results,
+            single_result,
+        )
     }
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
