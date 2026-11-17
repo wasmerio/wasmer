@@ -950,6 +950,25 @@ impl crate::Function {
     }
 }
 
+/// Converts a successful typed host return on the Wasm stack. The callback
+/// already checked the active store and has released its counted borrow.
+#[inline]
+unsafe fn typed_host_return<Rets: WasmTypeList>(store_id: StoreId, result: Rets) -> Rets::CStruct {
+    #[cfg(feature = "experimental-host-interrupt")]
+    if interrupt_registry::is_interrupted(store_id) {
+        unsafe { raise_lib_trap(Trap::lib(TrapCode::HostInterrupt)) }
+    }
+
+    // Scalar ABI conversions ignore their store. Other conversions look up
+    // the active store once, scoped to the conversion on this stack.
+    let mut store = std::cell::LazyCell::new(|| unsafe {
+        StoreContext::get_current_transient(store_id)
+            .as_mut()
+            .unwrap()
+    });
+    unsafe { result.into_c_struct(&mut store) }
+}
+
 macro_rules! impl_host_function {
     ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
         paste::paste! {
@@ -985,17 +1004,7 @@ macro_rules! impl_host_function {
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(InvocationResult::Success(result)) => unsafe {
-                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                        // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to
-                        // `into_c_struct` and `get_current_transient`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
-                        return result.into_c_struct(store);
+                        return typed_host_return(env.store_id, result);
                     },
                     Ok(InvocationResult::Exception(exception)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
@@ -1089,17 +1098,7 @@ macro_rules! impl_host_function {
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(InvocationResult::Success(result)) => unsafe {
-                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                        // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to
-                        // `into_c_struct` and `get_current_transient`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
-                        return result.into_c_struct(store);
+                        return typed_host_return(env.store_id, result);
                     },
                     Ok(InvocationResult::Exception(exception)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch

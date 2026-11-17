@@ -171,3 +171,34 @@ fn holochain_typed_function() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[cfg(feature = "sys")]
+#[engine_test]
+fn typed_import_returns_a_function_from_the_active_store() -> anyhow::Result<()> {
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+            (import "host" "identity" (func $identity (param funcref) (result funcref)))
+            (func (export "target") (result i32) i32.const 42)
+            (func (export "run") (param funcref) (result funcref)
+                local.get 0 call $identity))"#,
+    )?;
+    let identity = Function::new_typed(&mut store, |f: Option<Function>| {
+        assert!(Store::with_current(|_| ()).is_none());
+        f
+    });
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! { "host" => { "identity" => identity } },
+    )?;
+    let run = instance
+        .exports
+        .get_typed_function::<Option<Function>, Option<Function>>(&store, "run")?;
+    let target = instance.exports.get_function("target")?.clone();
+    let returned = run.call(&mut store, Some(target))?.unwrap();
+    assert_eq!(returned.typed::<(), i32>(&store)?.call(&mut store)?, 42);
+    assert!(run.call(&mut store, None)?.is_none());
+    Ok(())
+}
