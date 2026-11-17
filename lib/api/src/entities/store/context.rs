@@ -63,11 +63,21 @@ enum StoreContextEntry {
 }
 
 impl StoreContextEntry {
-    fn as_ptr(&self) -> *mut StoreInner {
+    // Address checks only need a shared guard. Access to the store needs a
+    // pointer derived from the write guard with mutable provenance.
+    fn as_ptr(&self) -> *const StoreInner {
         match self {
             Self::Sync(ptr) => *ptr,
             #[cfg(feature = "experimental-async")]
-            Self::Async(guard) => &***guard as *const _ as *mut _,
+            Self::Async(guard) => Box::as_ptr(guard),
+        }
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut StoreInner {
+        match self {
+            Self::Sync(ptr) => *ptr,
+            #[cfg(feature = "experimental-async")]
+            Self::Async(guard) => Box::as_mut_ptr(guard),
         }
     }
 }
@@ -100,7 +110,7 @@ pub(crate) struct StoreAsyncGuardWrapper {
 #[cfg(feature = "experimental-async")]
 pub(crate) struct StorePtrPauseGuard {
     store_id: StoreId,
-    ptr: *mut StoreInner,
+    ptr: *const StoreInner,
     ref_count_decremented: bool,
 }
 
@@ -353,7 +363,7 @@ impl StoreContext {
             }
             top.borrow_count += 1;
             Some(StorePtrWrapper {
-                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                store_ptr: top.entry.get_mut().as_mut_ptr(),
             })
         })
     }
@@ -375,7 +385,7 @@ impl StoreContext {
             assert_eq!(top.id, id, "Mismatched store context access");
             top.borrow_count += 1;
             StorePtrWrapper {
-                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                store_ptr: top.entry.get_mut().as_mut_ptr(),
             }
         })
     }
@@ -392,7 +402,7 @@ impl StoreContext {
                 .last_mut()
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, id, "Mismatched store context access");
-            unsafe { top.entry.get().as_mut().unwrap().as_ptr() }
+            top.entry.get_mut().as_mut_ptr()
         })
     }
 
@@ -406,7 +416,7 @@ impl StoreContext {
             }
             top.borrow_count += 1;
             Some(StorePtrWrapper {
-                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                store_ptr: top.entry.get_mut().as_mut_ptr(),
             })
         })
     }
