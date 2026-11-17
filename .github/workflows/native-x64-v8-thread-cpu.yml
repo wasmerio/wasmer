@@ -1,0 +1,61 @@
+name: Native x86-64 V8 per-thread call timings
+on:
+  push:
+    branches:
+      - codex/x64-v8-thread-cpu-study-7195
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: aux-pub-16cpu-amd64
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.0.0
+      - name: Select a lightly used native CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          test "$(node -p process.arch)" = x64
+          out="$RUNNER_TEMP/v8-x64-cpu"
+          mkdir -p "$out/entry" "$out/imports" "$out/jspi"
+          cpu=$(python3 benches/x64_v8_cpu/select_cpu.py "$out")
+          echo "BENCH_CPU=$cpu" >> "$GITHUB_ENV"
+          echo "STUDY_ROOT=$out" >> "$GITHUB_ENV"
+          uname -a > "$out/uname.txt"
+          lscpu > "$out/lscpu.txt"
+          node -p 'JSON.stringify(process.versions, null, 2)' > "$out/node-versions.json"
+          for p in cpu.max cpu.stat cpuset.cpus.effective; do
+            if test -r "/sys/fs/cgroup/$p"; then cp "/sys/fs/cgroup/$p" "$out/before-$p"; fi
+          done
+      - name: Measure Wasm entry, reentry, and guest calls
+        working-directory: benches/x64_v8_cpu/entry
+        run: taskset -c "$BENCH_CPU" python3 run_entry.py "$STUDY_ROOT/entry"
+      - name: Measure JSPI suspension and continuation
+        if: ${{ !cancelled() }}
+        shell: bash
+        working-directory: benches/x64_v8_cpu/jspi
+        run: |
+          set -euo pipefail
+          taskset -c "$BENCH_CPU" node --no-maglev --no-turbo-inline-js-wasm-calls jspi.js > "$STUDY_ROOT/jspi/jspi.json"
+      - name: Measure Wasm imports using the Rust study modules
+        if: ${{ !cancelled() }}
+        working-directory: benches/x64_v8_cpu/imports
+        run: taskset -c "$BENCH_CPU" python3 run.py "$STUDY_ROOT/imports"
+      - name: Record final cgroup CPU totals
+        if: always()
+        shell: bash
+        run: |
+          if test -r /sys/fs/cgroup/cpu.stat; then cp /sys/fs/cgroup/cpu.stat "$STUDY_ROOT/after-cpu.stat"; fi
+      - name: Upload CPU and wall-clock samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v8-x86-64-thread-cpu-study
+          path: ${{ runner.temp }}/v8-x64-cpu
+          retention-days: 14
