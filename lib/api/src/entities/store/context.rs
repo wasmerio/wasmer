@@ -106,6 +106,9 @@ pub(crate) struct StoreContext {
 
 pub(crate) struct StorePtrWrapper {
     store_ptr: *mut StoreInner,
+    /// The store's id, kept so that giving the borrow back does not have to
+    /// read it through the pointer.
+    id: StoreId,
 }
 
 #[cfg(feature = "experimental-async")]
@@ -398,6 +401,7 @@ impl StoreContext {
             top.borrow_count += 1;
             Some(StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                id: top.id,
             })
         })
     }
@@ -420,6 +424,7 @@ impl StoreContext {
             top.borrow_count += 1;
             StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                id,
             }
         })
     }
@@ -451,6 +456,7 @@ impl StoreContext {
             top.borrow_count += 1;
             Some(StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+                id: top.id,
             })
         })
     }
@@ -475,7 +481,10 @@ impl StoreContext {
                     })
                 }
                 StoreContextEntry::Sync(ptr) => {
-                    GetStoreAsyncGuardResult::NotAsync(StorePtrWrapper { store_ptr: *ptr })
+                    GetStoreAsyncGuardResult::NotAsync(StorePtrWrapper {
+                        store_ptr: *ptr,
+                        id,
+                    })
                 }
             }
         })
@@ -524,6 +533,13 @@ impl Drop for CoroutineStoreGuard<'_> {
 }
 
 impl StorePtrWrapper {
+    /// The pointer this wrapper borrows the store through, which stays valid
+    /// after the wrapper is dropped for as long as the entry it came from is
+    /// the active one.
+    pub(crate) fn as_ptr(&self) -> *mut StoreInner {
+        self.store_ptr
+    }
+
     pub(crate) fn as_ref(&self) -> StoreRef<'_> {
         // Safety: the store_mut is always initialized unless the StoreMutWrapper
         // is dropped, at which point it's impossible to call this function
@@ -551,6 +567,7 @@ impl Clone for StorePtrWrapper {
             top.borrow_count += 1;
             Self {
                 store_ptr: self.store_ptr,
+                id: self.id,
             }
         })
     }
@@ -584,13 +601,12 @@ impl Drop for StorePtrWrapper {
             });
             return;
         }
-        let id = self.as_mut().objects_mut().id();
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack
                 .last_mut()
                 .expect("No store context installed on this thread");
-            assert_eq!(top.id, id, "Mismatched store context reinstall");
+            assert_eq!(top.id, self.id, "Mismatched store context reinstall");
             top.borrow_count -= 1;
         })
     }
@@ -827,6 +843,31 @@ mod borrow_provenance {
 
         drop(wrapper);
         drop(install);
+    }
+
+    /// An import trampoline finishes on the Wasm stack, after its host
+    /// function gave the borrow back, with the pointer the borrow was taken
+    /// through; then the caller goes on with its own borrow. Miri checks both.
+    #[test]
+    fn an_import_finishes_with_the_pointer_it_borrowed_through() {
+        let mut store = Store::default();
+        let id = store.id();
+
+        let mut caller = store.as_store_mut();
+        let install = unsafe { StoreContext::install(caller.as_store_mut().inner as *mut _) };
+
+        // --- the import trampoline, on the host stack
+        let store_ptr = {
+            let mut wrapper = unsafe { StoreContext::get_current(id) };
+            let store_ptr = wrapper.as_ptr();
+            let _ = wrapper.as_mut().objects_mut().id();
+            store_ptr
+        };
+        // --- back on the Wasm stack
+        let _ = unsafe { store_ptr.as_mut().unwrap() }.objects_mut().id();
+
+        drop(install);
+        let _ = caller.objects_mut().id();
     }
 
     /// The lending path, which is the nesting above with the inner entry

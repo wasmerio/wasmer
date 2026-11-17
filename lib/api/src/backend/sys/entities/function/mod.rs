@@ -14,7 +14,7 @@ use crate::{
 };
 use crate::{
     BackendFunction, CallWrapper, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction,
-    RuntimeError, StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
+    RuntimeError, StoreContext, StoreInner, StorePtrWrapper, Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
     entities::function::call_wrapper::call_wrapped,
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
@@ -85,7 +85,8 @@ impl Function {
                     func_env: func_env.clone(),
                 }
                 .into();
-                HostCallOutcome::Ready(func(env, &args))
+                let result = func(env, &args);
+                HostCallOutcome::Ready(result, store_wrapper)
             }
         };
         let mut host_data = Box::new(VMDynamicFunctionContext {
@@ -708,25 +709,34 @@ impl Function {
 // throwing exceptions won't work since libunwind requires
 // considerable stack space to do its magic, but everything else
 // should work.
+//
+// The outcomes that still need the store on the Wasm stack carry the pointer
+// the host function borrowed it through: it is the active entry's, as nothing
+// has run since, so the trampoline does not have to look it up again.
 enum InvocationResult<T, E> {
-    Success(T),
-    Exception(crate::Exception),
+    Success(T, *mut StoreInner),
+    Exception(crate::Exception, *mut StoreInner),
     Trap(Box<E>),
     YieldOutsideAsyncContext,
 }
 
-fn to_invocation_result<T, E>(result: Result<T, E>) -> InvocationResult<T, E>
+/// `store` gives the pointer for the outcomes that carry one, and is not
+/// called for the others.
+fn to_invocation_result<T, E>(
+    result: Result<T, E>,
+    store: impl FnOnce() -> *mut StoreInner,
+) -> InvocationResult<T, E>
 where
     E: Error + 'static,
 {
     match result {
-        Ok(value) => InvocationResult::Success(value),
+        Ok(value) => InvocationResult::Success(value, store()),
         Err(trap) => {
             let dyn_err_ref = &trap as &dyn Error;
             if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>()
                 && let Some(exception) = runtime_error.to_exception()
             {
-                return InvocationResult::Exception(exception);
+                return InvocationResult::Exception(exception, store());
             }
             InvocationResult::Trap(Box::new(trap))
         }
@@ -734,13 +744,12 @@ where
 }
 
 fn write_dynamic_results(
-    store_id: StoreId,
+    store_wrapper: &mut StorePtrWrapper,
     func_ty: &FunctionType,
     returns: Vec<Value>,
     values_vec: *mut RawValue,
 ) -> Result<(), RuntimeError> {
-    let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
-    let mut store = store_wrapper.as_mut();
+    let store = store_wrapper.as_mut();
     let return_types = returns.iter().map(|ret| ret.ty());
     if return_types.ne(func_ty.results().iter().copied()) {
         return Err(RuntimeError::new(format!(
@@ -755,18 +764,6 @@ fn write_dynamic_results(
         }
     }
     Ok(())
-}
-
-fn finalize_dynamic_call(
-    store_id: StoreId,
-    func_ty: &FunctionType,
-    values_vec: *mut RawValue,
-    result: Result<Vec<Value>, RuntimeError>,
-) -> Result<(), RuntimeError> {
-    match result {
-        Ok(values) => write_dynamic_results(store_id, func_ty, values, values_vec),
-        Err(err) => Err(err),
-    }
 }
 
 fn typed_args_from_values<Args>(
@@ -818,7 +815,9 @@ where
 }
 
 pub(crate) enum HostCallOutcome {
-    Ready(Result<Vec<Value>, RuntimeError>),
+    /// The host function's results, and the borrow of the store it ran with,
+    /// which writing the results back reuses.
+    Ready(Result<Vec<Value>, RuntimeError>, StorePtrWrapper),
     #[cfg(feature = "experimental-async")]
     Future(HostFuture),
 }
@@ -843,12 +842,21 @@ where
     ) {
         let result = on_host_stack(|| {
             panic::catch_unwind(AssertUnwindSafe(|| match (this.ctx.func)(values_vec) {
-                HostCallOutcome::Ready(result) => to_invocation_result(finalize_dynamic_call(
-                    this.ctx.store_id,
-                    &this.ctx.func_ty,
-                    values_vec,
-                    result,
-                )),
+                HostCallOutcome::Ready(result, mut store_wrapper) => {
+                    let store = store_wrapper.as_ptr();
+                    let result = result.and_then(|values| {
+                        write_dynamic_results(
+                            &mut store_wrapper,
+                            &this.ctx.func_ty,
+                            values,
+                            values_vec,
+                        )
+                    });
+                    to_invocation_result(result, || store)
+                }
+                // The host function gave its borrow back before the future
+                // was polled, which may lend the store out: it is borrowed
+                // again once the future is done.
                 #[cfg(feature = "experimental-async")]
                 HostCallOutcome::Future(future) => {
                     let awaited = block_on_host_future(future);
@@ -859,12 +867,19 @@ where
                             return InvocationResult::YieldOutsideAsyncContext;
                         }
                     };
-                    to_invocation_result(finalize_dynamic_call(
-                        this.ctx.store_id,
-                        &this.ctx.func_ty,
-                        values_vec,
-                        result,
-                    ))
+                    let result = result.and_then(|values| {
+                        let mut store_wrapper =
+                            unsafe { StoreContext::get_current(this.ctx.store_id) };
+                        write_dynamic_results(
+                            &mut store_wrapper,
+                            &this.ctx.func_ty,
+                            values,
+                            values_vec,
+                        )
+                    });
+                    to_invocation_result(result, || unsafe {
+                        StoreContext::get_current_transient(this.ctx.store_id)
+                    })
                 }
             }))
         });
@@ -873,25 +888,23 @@ where
         // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
         // See: https://github.com/wasmerio/wasmer/pull/5700
         match result {
-            Ok(InvocationResult::Success(())) => unsafe {
+            Ok(InvocationResult::Success((), store_ptr)) => unsafe {
                 // Note: can't acquire a proper ref-counted context ref here, since we can switch
                 // away from the WASM stack at any time.
                 // Safety: The pointer is only used for the duration of the call to
-                // `get_current_transient`.
-                let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
-                let mut store = store_wrapper.as_mut().unwrap();
+                // `is_interrupted`.
+                let mut store = store_ptr.as_mut().unwrap();
                 #[cfg(feature = "experimental-host-interrupt")]
                 if interrupt_registry::is_interrupted(store.objects.id()) {
                     raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
                 }
             },
-            Ok(InvocationResult::Exception(exception)) => unsafe {
+            Ok(InvocationResult::Exception(exception, store_ptr)) => unsafe {
                 // Note: can't acquire a proper ref-counted context ref here, since we can switch
                 // away from the WASM stack at any time.
                 // Safety: The pointer is only used for the duration of the call to `throw` and
                 // `is_interrupted`.
-                let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
-                let mut store = store_wrapper.as_mut().unwrap();
+                let mut store = store_ptr.as_mut().unwrap();
                 #[cfg(feature = "experimental-host-interrupt")]
                 if interrupt_registry::is_interrupted(store.objects.id()) {
                     raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
@@ -986,13 +999,14 @@ macro_rules! impl_host_function {
                 let result = on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
+                        let store_ptr = store_wrapper.as_ptr();
                         let mut store = store_wrapper.as_mut();
                         $(
                             let $x = unsafe {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
                             };
                         )*
-                        to_invocation_result((env.func)($($x),* ).into_result())
+                        to_invocation_result((env.func)($($x),* ).into_result(), || store_ptr)
                     }))
                 });
 
@@ -1000,26 +1014,24 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(InvocationResult::Success(result)) => unsafe {
+                    Ok(InvocationResult::Success(result, store_ptr)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
                         // away from the WASM stack at any time.
                         // Safety: The pointer is only used for the duration of the call to
-                        // `into_c_struct` and `get_current_transient`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
+                        // `into_c_struct` and `is_interrupted`.
+                        let mut store = store_ptr.as_mut().unwrap();
                         #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
                             raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
                         }
                         return result.into_c_struct(store);
                     },
-                    Ok(InvocationResult::Exception(exception)) => unsafe {
+                    Ok(InvocationResult::Exception(exception, store_ptr)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
                         // away from the WASM stack at any time.
                         // Safety: The pointer is only used for the duration of the call to `throw` and
                         // `is_interrupted`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
+                        let mut store = store_ptr.as_mut().unwrap();
                         #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
                             raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
@@ -1086,6 +1098,7 @@ macro_rules! impl_host_function {
                 let result = wasmer_vm::on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
+                        let store_ptr = store_wrapper.as_ptr();
                         let mut store = store_wrapper.as_mut();
                         $(
                             let $x = unsafe {
@@ -1096,7 +1109,7 @@ macro_rules! impl_host_function {
                             store_mut: store,
                             func_env: env.env.as_sys().clone(),
                         }.into();
-                        to_invocation_result((env.func)(f_env, $($x),* ).into_result())
+                        to_invocation_result((env.func)(f_env, $($x),* ).into_result(), || store_ptr)
                     }))
                 });
 
@@ -1104,26 +1117,24 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(InvocationResult::Success(result)) => unsafe {
+                    Ok(InvocationResult::Success(result, store_ptr)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
                         // away from the WASM stack at any time.
                         // Safety: The pointer is only used for the duration of the call to
-                        // `into_c_struct` and `get_current_transient`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
+                        // `into_c_struct` and `is_interrupted`.
+                        let mut store = store_ptr.as_mut().unwrap();
                         #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
                             raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
                         }
                         return result.into_c_struct(store);
                     },
-                    Ok(InvocationResult::Exception(exception)) => unsafe {
+                    Ok(InvocationResult::Exception(exception, store_ptr)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
                         // away from the WASM stack at any time.
                         // Safety: The pointer is only used for the duration of the call to `throw` and
                         // `is_interrupted`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
+                        let mut store = store_ptr.as_mut().unwrap();
                         #[cfg(feature = "experimental-host-interrupt")]
                         if interrupt_registry::is_interrupted(store.objects.id()) {
                             raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
