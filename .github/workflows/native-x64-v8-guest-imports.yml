@@ -1,0 +1,41 @@
+name: V8 native x86-64 guest-driven imports
+on:
+  push:
+    branches:
+      - codex/x64-v8-guest-import-study-7195
+permissions:
+  contents: read
+jobs:
+  imports:
+    runs-on: aux-pub-16cpu-amd64
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.0.0
+      - name: Verify JSPI suspension and measure Wasm-to-host imports
+        shell: bash
+        working-directory: benches/x64_v8_guest_imports
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          test "$(node -p 'process.arch')" = x64
+          cpu=$(python3 -c 'import os; print(min(os.sched_getaffinity(0)))')
+          out="$RUNNER_TEMP/v8-guest-imports"
+          mkdir -p "$out"
+          node -p 'JSON.stringify(process.versions, null, 2)' > "$out/versions.json"
+          lscpu > "$out/lscpu.txt"
+          echo "$cpu" > "$out/cpu.txt"
+          sha256sum import.wasm loop.wasm > "$out/module-hashes.txt"
+          taskset -c "$cpu" node --no-maglev --no-turbo-inline-js-wasm-calls jspi_verify.js verify
+          taskset -c "$cpu" python3 run.py "$out" 2>&1 | tee "$out/driver.log"
+      - name: Upload import measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-v8-guest-imports-x86-64
+          path: ${{ runner.temp }}/v8-guest-imports
+          retention-days: 14
