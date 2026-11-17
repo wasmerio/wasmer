@@ -76,14 +76,17 @@ impl Store {
             }
         };
 
-        Self {
-            inner: Box::new(StoreInner {
-                objects: StoreObjects::from_store_ref(&store),
-                store,
-                #[cfg(feature = "sys")]
-                context_mode: 0,
-            }),
-        }
+        let mut inner = Box::new(StoreInner {
+            #[cfg(feature = "js")]
+            clear_slot: crate::backend::js::entities::store::ClearSlotOnDrop::of(&store),
+            objects: StoreObjects::from_store_ref(&store),
+            store,
+            #[cfg(feature = "sys")]
+            context_mode: 0,
+        });
+        #[cfg(feature = "js")]
+        crate::backend::js::entities::store::StoreSlot::bind(&mut inner);
+        Self { inner }
     }
 
     #[cfg(feature = "sys")]

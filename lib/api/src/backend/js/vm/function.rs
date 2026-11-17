@@ -3,7 +3,9 @@ use std::any::Any;
 use crate::js::utils::js_handle::JsHandle;
 use js_sys::{Array, Function as JsFunction, Reflect, Symbol};
 use wasm_bindgen::{JsCast, JsValue};
-use wasmer_types::{FunctionType, RawValue, Type};
+use wasmer_types::{FunctionType, RawValue, StoreId, Type};
+
+use crate::AsStoreRef;
 
 fn type_key() -> Symbol {
     Symbol::for_("wasmer.function-type")
@@ -38,6 +40,9 @@ pub struct VMFunction {
     /// Whether calls of the function take the numeric lane: worked out once
     /// from `ty`, which does not change, instead of on every call.
     pub(crate) numeric: bool,
+    /// The store of a host function. `None` for the functions of a guest,
+    /// which run whatever store they are called with.
+    pub(crate) store: Option<StoreId>,
     /// `WebAssembly.promising(function)`, which makes a new function every
     /// time it is called: made by the first `call_async` and kept.
     #[cfg(feature = "experimental-async")]
@@ -59,11 +64,26 @@ impl VMFunction {
             function: JsHandle::new(function),
             numeric: crate::js::function::numeric::is_numeric(&ty),
             ty,
+            store: None,
             #[cfg(feature = "experimental-async")]
             promising: Default::default(),
             #[cfg(feature = "experimental-async")]
             eager: None,
         }
+    }
+
+    /// The function as a host function of `store`.
+    pub(crate) fn of_store(self, store: &impl AsStoreRef) -> Self {
+        Self {
+            store: Some(store.as_store_ref().objects().id()),
+            ..self
+        }
+    }
+
+    /// Whether the function can be used with `store`.
+    pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.store
+            .is_none_or(|id| id == store.as_store_ref().objects().id())
     }
 
     pub(crate) fn annotate_type(function: &JsFunction, ty: &FunctionType) {

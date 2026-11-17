@@ -14,6 +14,10 @@ use wasmer_vm::TrapHandlerFn;
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
+    /// Empties the slot of a store when it is dropped, first of all: see
+    /// [`ClearSlotOnDrop`](crate::backend::js::entities::store::ClearSlotOnDrop).
+    #[cfg(feature = "js")]
+    pub(crate) clear_slot: crate::backend::js::entities::store::ClearSlotOnDrop,
     pub(crate) objects: StoreObjects,
     pub(crate) store: BackendStore,
     /// How a call into this store hands the store to its host functions:

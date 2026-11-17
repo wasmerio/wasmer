@@ -20,6 +20,7 @@ use crate::{
     Value, WasmTypeList, WithEnv, WithoutEnv,
     entities::function::call_wrapper::call_wrapped,
     js::{
+        store::StoreSlot,
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
     },
@@ -149,7 +150,7 @@ impl Function {
             env: env.as_js().clone(),
             ty: func_ty.clone(),
             store_id: store.objects_mut().id(),
-            raw_store: store.as_store_mut().as_raw(),
+            slot: StoreSlot::of(store),
         });
         let adapter = move |eager: bool| -> JsFunction {
             let start = Rc::clone(&host).start(eager);
@@ -160,7 +161,7 @@ impl Function {
                 Err(error) => wasm_bindgen::throw_val(error),
             }
         };
-        let mut vm_function = VMFunction::new(adapter(false), func_ty);
+        let mut vm_function = VMFunction::new(adapter(false), func_ty).of_store(store);
         vm_function.eager = Some(Rc::new(move || adapter(true)));
         Self::from_vm_extern(
             &mut store.as_store_mut(),
@@ -173,7 +174,10 @@ impl Function {
     pub(crate) fn eager(self) -> Self {
         match &self.handle.eager {
             Some(eager) => Self {
-                handle: VMFunction::new(eager(), self.handle.ty.clone()),
+                handle: VMFunction {
+                    store: self.handle.store,
+                    ..VMFunction::new(eager(), self.handle.ty.clone())
+                },
             },
             None => self,
         }
@@ -305,14 +309,15 @@ impl Function {
         let mut store = store.as_store_mut();
         let function_type = ty.into();
         let func_ty = function_type.clone();
-        let raw_store = store.as_raw() as *mut u8;
+        let slot = StoreSlot::of(&store);
         let raw_env = env.clone();
         if numeric::is_numeric(&function_type) {
             // Nothing but numbers: the guest calls the closure itself, with
             // no array of arguments in between.
             let arity = function_type.params().len();
             let function = numeric::closure(arity, move |numbers| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                // SAFETY: a guest calls this host function of the store.
+                let mut store = unsafe { slot.store()? };
                 let arguments = numeric::values(function_type.params(), numbers);
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &arguments)?;
@@ -321,12 +326,13 @@ impl Function {
                     _ => numeric::result(&results),
                 })
             });
-            let vm_function = VMFunction::new(function, func_ty);
+            let vm_function = VMFunction::new(function, func_ty).of_store(&store);
             return Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function));
         }
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                // SAFETY: a guest calls this host function of the store.
+                let mut store = unsafe { slot.store()? };
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -342,7 +348,8 @@ impl Function {
                 as Box<dyn Fn(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                // SAFETY: a guest calls this host function of the store.
+                let mut store = unsafe { slot.store()? };
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -358,7 +365,8 @@ impl Function {
                 as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                // SAFETY: a guest calls this host function of the store.
+                let mut store = unsafe { slot.store()? };
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -378,7 +386,8 @@ impl Function {
         let dyn_func =
             JsFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
         let binded_func = dyn_func.bind1(&JsValue::UNDEFINED, &wrapped_func);
-        let vm_function = VMFunction::new(binded_func.unchecked_into::<JsFunction>(), func_ty);
+        let vm_function =
+            VMFunction::new(binded_func.unchecked_into::<JsFunction>(), func_ty).of_store(&store);
         Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function))
     }
 
@@ -401,9 +410,13 @@ impl Function {
         let func = as_table.get(address).unwrap();
 
         let ty = function.ty();
-        let store = JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64);
-        let binded_func = with_leading_arguments(func.unchecked_ref(), &[store], ty.params().len());
-        let vm_function = VMFunction::new(binded_func, ty);
+        // The function is given the address of the slot of its store, and
+        // keeps the slot alive.
+        let slot = StoreSlot::of(&store);
+        let leading = [JsValue::from_f64(slot.address())];
+        let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
+        slot.keep_alive_by(&binded_func);
+        let vm_function = VMFunction::new(binded_func, ty).of_store(&store);
         Self {
             handle: vm_function,
         }
@@ -431,12 +444,14 @@ impl Function {
         let func = as_table.get(address).unwrap();
 
         let ty = function.ty();
+        let slot = StoreSlot::of(&store);
         let leading = [
-            JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
+            JsValue::from_f64(slot.address()),
             JsValue::from_f64(env.as_js().handle.internal_handle().index() as f64),
         ];
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
-        let vm_function = VMFunction::new(binded_func, ty);
+        slot.keep_alive_by(&binded_func);
+        let vm_function = VMFunction::new(binded_func, ty).of_store(&store);
         Self {
             handle: vm_function,
         }
@@ -609,8 +624,8 @@ impl Function {
     }
 
     /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-        true
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.handle.is_from_store(store)
     }
 }
 
@@ -731,7 +746,7 @@ struct AsyncHost<T, F> {
     store_id: wasmer_types::StoreId,
     /// For when the guest was entered by a synchronous call, which lends it
     /// the store without there being a [`StoreAsync`] to lock.
-    raw_store: *mut StoreInner,
+    slot: StoreSlot,
 }
 
 #[cfg(feature = "experimental-async")]
@@ -749,7 +764,7 @@ where
         // Nothing of a host function that is not eager runs in `start`: the
         // future is polled by the call, once the guest is suspended and the
         // store is free.
-        let (id, raw_store) = (self.store_id, self.raw_store);
+        let id = self.store_id;
         if numeric::is_numeric(&self.ty) {
             let has_result = !self.ty.results().is_empty();
             let arity = self.ty.params().len();
@@ -770,8 +785,9 @@ where
             Closure::wrap(Box::new(move |args: Array| {
                 let (host, args) = (Rc::clone(&self), Arguments::Array(args));
                 let ready = jspi::start_eager(id, move |store| host.import(args, store))?;
-                // SAFETY: the guest is on the stack, so its store is there.
-                Ok(jspi::eager_results(ready, unsafe { &*raw_store }))
+                // SAFETY: the guest is on the stack, so its store is there,
+                // unless it was dropped.
+                Ok(jspi::eager_results(ready, &unsafe { self.slot.store()? }))
             }) as Box<dyn Fn(Array) -> Result<JsValue, JsValue>>)
             .into_js_value()
         } else {
@@ -799,12 +815,14 @@ where
                 }
                 None => {
                     // SAFETY: the synchronous call beneath lent this store to
-                    // the guest, as it does for a synchronous host function.
-                    let mut store = unsafe { StoreMut::from_raw(self.raw_store) };
+                    // the guest, as it does for a synchronous host function,
+                    // unless the store was dropped.
+                    let raw_store = self.slot.inner().map_err(RuntimeError::from)?;
+                    let mut store = unsafe { StoreMut::from_raw(raw_store) };
                     let values = self.arguments(&mut store, &args);
-                    let store = AsyncFunctionEnvMutStore::Sync(self.store_id, self.raw_store);
+                    let store = AsyncFunctionEnvMutStore::Sync(self.store_id, raw_store);
                     let env = self.env(store);
-                    let _context = unsafe { StoreContext::install(self.raw_store) };
+                    let _context = unsafe { StoreContext::install(raw_store) };
                     (self.func)(env, &values)
                 }
             };
@@ -975,7 +993,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( slot: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -984,7 +1002,12 @@ macro_rules! impl_host_function {
             {
                 // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                 let func: &Func = unsafe { &*(&() as *const () as *const Func) };
-                let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
+                // SAFETY: `slot` is the address of the slot of the function's
+                // store, which the function keeps alive.
+                let mut store = match unsafe { crate::backend::js::store::store_at(slot) } {
+                    Ok(store) => store,
+                    Err(error) => wasm_bindgen::throw_val(error),
+                };
 
                 let result = panic::catch_unwind(AssertUnwindSafe(|| {
                     func($(
@@ -1018,7 +1041,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( slot: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -1026,27 +1049,34 @@ macro_rules! impl_host_function {
                 T: Send + 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
-                let mut store2 = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
+                // SAFETY: `slot` is the address of the slot of the function's
+                // store, which the function keeps alive.
+                let mut store = match unsafe { crate::backend::js::store::store_at(slot) } {
+                    Ok(store) => store,
+                    Err(error) => wasm_bindgen::throw_val(error),
+                };
 
                 let result = {
                     // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                     let func: &Func = unsafe { &*(&() as *const () as *const Func) };
                     panic::catch_unwind(AssertUnwindSafe(|| {
+                        // The arguments first: the environment then holds the
+                        // one borrow of the store until the function returns.
+                        $(
+                            let $x: $x = {
+                                let native = unsafe { NativeWasmTypeInto::from_abi(&mut store, $x) };
+                                FromToNativeWasmType::from_native(native)
+                            };
+                        )*
                         let handle: crate::backend::js::store::StoreHandle<crate::backend::js::vm::VMFunctionEnvironment> =
                           unsafe {
                               crate::backend::js::store::StoreHandle::from_internal(
-                                  store2.objects_mut().id(),
+                                  store.objects_mut().id(),
                                   crate::backend::js::store::InternalStoreHandle::from_index(handle_index).unwrap(),
                               )
                           };
-                        let env: crate::backend::js::function::env::FunctionEnvMut<T> = crate::backend::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store2);
-                        func(BackendFunctionEnvMut::Js(env).into(), $(
-                            {
-                                let native = unsafe { NativeWasmTypeInto::from_abi(&mut store, $x) };
-                                FromToNativeWasmType::from_native(native)
-                            }
-                        ),* ).into_result()
+                        let env: crate::backend::js::function::env::FunctionEnvMut<T> = crate::backend::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store);
+                        func(BackendFunctionEnvMut::Js(env).into(), $( $x ),* ).into_result()
                     }))
                 };
 
