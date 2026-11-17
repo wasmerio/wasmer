@@ -48,7 +48,7 @@ jobs:
           g++ -O3 -std=c++20 -I"$v8/include" "$v8/version.cc" "$v8/lib/libv8.a" -pthread -ldl -o "$v8/version"
           "$v8/version" | tee "$results/linked-version.txt"
           for name in native_calls signature_cost; do
-            g++ -O3 -std=c++17 -I"$v8/include" "benches/x64_study/$name.cc" "$v8/lib/libv8.a" -pthread -ldl -o "$v8/$name"
+            g++ -O3 -std=c++17 -I"$v8/include/wasm-c-api" "benches/x64_study/$name.cc" "$v8/lib/libv8.a" -pthread -ldl -o "$v8/$name"
             taskset -c "$BENCH_CPU" "$v8/$name" | tee "$results/$name.csv"
           done
       - uses: actions/setup-node@v4
