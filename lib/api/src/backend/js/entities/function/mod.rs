@@ -493,7 +493,8 @@ impl Function {
             // Nothing but numbers: they are passed as they are.
             let mut result = 0.0;
             call_wrapped(store, wrapper, |_| {
-                result = numeric::call(&self.handle.function, &numbers)?;
+                let has_result = !ty.results().is_empty();
+                result = numeric::call(&self.handle.function, &numbers, has_result)?;
                 Ok(())
             })?;
             let results = ty.results().iter();

@@ -81,7 +81,7 @@ macro_rules! numeric_lane {
             let function = &$self.func.as_js().handle.function;
             let mut result = 0.0;
             call_wrapped($store, $wrapper, |_| {
-                result = numeric::Arguments::call(numbers, function)?;
+                result = numeric::Arguments::call(numbers, function, result_ty.is_some())?;
                 Ok(())
             })?;
             let mut rets_list_array = Rets::empty_array();
