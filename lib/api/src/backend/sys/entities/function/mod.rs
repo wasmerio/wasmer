@@ -74,7 +74,7 @@ impl Function {
             unsafe {
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
                 let mut store_mut = store_wrapper.as_mut();
-                let mut args = Vec::with_capacity(func_ty.params().len());
+                let mut args = smallvec::SmallVec::<[Value; 4]>::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
@@ -200,7 +200,7 @@ impl Function {
                         panic!("No store context installed on this thread")
                     }
                 };
-                let mut args = Vec::with_capacity(func_ty.params().len());
+                let mut args = smallvec::SmallVec::<[Value; 4]>::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(

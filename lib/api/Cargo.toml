@@ -57,6 +57,7 @@ wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=7.5.0"
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=7.5.0", optional = true }
 corosensei = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
+smallvec = { workspace = true, optional = true }
 dashmap.workspace = true
 itertools.workspace = true
 
@@ -126,7 +127,7 @@ artifact-size = [
 ]
 
 # Features for `sys`.
-sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
+sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler", "dep:smallvec"]
 sys-default = ["sys", "wat", "cranelift", "demangle"]
 
 # Improve native stack traces without forcing the demanglers into browser builds.
