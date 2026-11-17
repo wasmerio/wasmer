@@ -45,6 +45,14 @@ def capture(*cmd, cwd=None):
     return subprocess.check_output(cmd, text=True, cwd=cwd).strip()
 
 
+def executable_arch(path):
+    with path.open("rb") as binary:
+        header = binary.read(20)
+    if header[:6] != b"\x7fELF\x02\x01" or int.from_bytes(header[18:20], "little") != 62:
+        raise RuntimeError(f"{path} is not a native little-endian x86-64 ELF executable")
+    return "ELF64 x86-64"
+
+
 def build(repo, output, work):
     workspace_llvm = os.environ.get("LLVM_SYS_231_PREFIX")
     llvm_config = (Path(workspace_llvm) / "bin/llvm-config") if workspace_llvm else "llvm-config-23"
@@ -101,7 +109,7 @@ def build(repo, output, work):
         save(output / f"build-{label}.json", dict(revision=revision, features=FEATURES,
              command=command, llvm=llvm_version, rust=capture("rustc", "-vV", cwd=source),
              harness_sha256=sha(harness), lock_sha256=sha(source / "Cargo.lock"),
-             executable_sha256=sha(binary), file=capture("file", binary)))
+             executable_sha256=sha(binary), file=executable_arch(binary)))
     assert sha(work/"pr/bench") != sha(work/"prototype/bench")
 
 
