@@ -162,3 +162,38 @@ fn thread_exit_returns_idle_worker_stack_to_pool() {
         .expect("worker stack returned at thread exit");
     assert!(returned.size() >= STACK_SIZE);
 }
+
+#[test]
+fn embedder_can_call_and_drain_after_worker_cache_teardown() {
+    use std::sync::mpsc;
+
+    struct CallOnExit(mpsc::Sender<bool>);
+    impl Drop for CallOnExit {
+        fn drop(&mut self) {
+            let completed = std::panic::catch_unwind(|| {
+                let mut slot = 41.into();
+                call(STACK_SIZE, i32::wrapping_add, &1, &mut slot).unwrap();
+                assert_eq!(slot, 42);
+                drain_stack_pool();
+            });
+            self.0.send(completed.is_ok()).unwrap();
+        }
+    }
+
+    thread_local! { static EMBEDDER: Cell<Option<CallOnExit>> = const { Cell::new(None) }; }
+    let _lock = GLOBAL_STATE.lock().unwrap();
+    let (sender, receiver) = mpsc::channel();
+    std::thread::spawn(move || {
+        // Initialize the signal and raw stack state first, so the embedder
+        // can still use a scoped stack after the newer worker cache is gone.
+        let config = VMConfig {
+            wasm_stack_size: Some(STACK_SIZE),
+        };
+        unsafe { super::catch_traps(None, &config, || ()) }.unwrap();
+        EMBEDDER.set(Some(CallOnExit(sender)));
+        call(STACK_SIZE, i32::wrapping_add, &1, &mut 0.into()).unwrap();
+    })
+    .join()
+    .unwrap();
+    assert!(receiver.recv().unwrap());
+}
