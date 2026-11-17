@@ -319,3 +319,67 @@ fn nested_async_in_sync() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn typed_results_wait_for_the_store_to_be_reinstalled() -> Result<()> {
+    use std::{future::Future, rc::Rc, task::Context};
+
+    let mut store = Store::default();
+    let env = FunctionEnv::new(&mut store, ());
+    let held = Rc::new(RefCell::new(None));
+    let host = Function::new_typed_with_env_async(&mut store, &env, {
+        let held = Rc::clone(&held);
+        move |env: AsyncFunctionEnvMut<()>, x: i64, y: f32| {
+            let held = Rc::clone(&held);
+            async move {
+                held.replace(Some(env.write().await));
+                (x + 1, y)
+            }
+        }
+    });
+    let host = host.typed::<(i64, f32), (i64, f32)>(&store)?;
+    let store = store.into_async();
+    let nan = f32::from_bits(0x7fc01234);
+    let mut call = Box::pin(host.call_async(&store, i64::MAX - 1, nan));
+    let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+    assert!(call.as_mut().poll(&mut cx).is_pending());
+    drop(held.take().expect("host retained the store's write lock"));
+    let (integer, float) = futures::executor::block_on(call)?;
+    assert_eq!(integer, i64::MAX);
+    assert_eq!(float.to_bits(), nan.to_bits());
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn cancelled_typed_import_drops_its_pending_future() -> Result<()> {
+    use std::{future::Future, rc::Rc, task::Context};
+
+    let mut store = Store::default();
+    let owner = Rc::new(());
+    let host = Function::new_typed_async(&mut store, {
+        let owner = Rc::clone(&owner);
+        move |x: i32| {
+            let owner = Rc::clone(&owner);
+            async move {
+                future::pending::<()>().await;
+                drop(owner);
+                x
+            }
+        }
+    });
+    let host = host.typed::<i32, i32>(&store)?;
+    let store = store.into_async();
+    let mut call = Box::pin(host.call_async(&store, 42));
+    assert!(
+        call.as_mut()
+            .poll(&mut Context::from_waker(futures::task::noop_waker_ref()))
+            .is_pending()
+    );
+    assert_eq!(Rc::strong_count(&owner), 3);
+    drop(call);
+    assert_eq!(Rc::strong_count(&owner), 2);
+    assert!(store.into_store().is_ok());
+    Ok(())
+}

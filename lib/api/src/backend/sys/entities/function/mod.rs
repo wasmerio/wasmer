@@ -8,7 +8,10 @@ use crate::{
     AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync,
     entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
     sys::{
-        async_runtime::{AsyncRuntimeError, HostFuture, block_on_host_future, call_function_async},
+        async_runtime::{
+            AsyncRuntimeError, HostFuture, block_on_host_future, block_on_typed_host_future,
+            call_function_async,
+        },
         function::env::AsyncFunctionEnvMutStore,
     },
 };
@@ -88,6 +91,15 @@ impl Function {
                 HostCallOutcome::Ready(func(env, &args))
             }
         };
+        Self::new_raw(store, function_type, wrapper)
+    }
+
+    fn new_raw(
+        store: &mut impl AsStoreMut,
+        function_type: FunctionType,
+        wrapper: impl Fn(*mut RawValue) -> HostCallOutcome + 'static,
+    ) -> Self {
+        let store_id = store.objects_mut().id();
         let mut host_data = Box::new(VMDynamicFunctionContext {
             address: std::ptr::null(),
             ctx: DynamicFunction {
@@ -188,7 +200,6 @@ impl Function {
                         panic!("No store context installed on this thread")
                     }
                 };
-                let id = store_mut.as_store_ref().objects().id();
                 let mut args = Vec::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
@@ -198,66 +209,11 @@ impl Function {
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
-                let store_async = match context {
-                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
-                        AsyncFunctionEnvMutStore::Async(StoreAsync {
-                            id,
-                            inner: crate::LocalRwLockWriteGuard::lock_handle(
-                                wrapper.guard.as_mut().unwrap(),
-                            ),
-                        })
-                    }
-                    crate::GetStoreAsyncGuardResult::NotAsync(ptr) => {
-                        AsyncFunctionEnvMutStore::Sync(ptr)
-                    }
-                    crate::GetStoreAsyncGuardResult::NotInstalled => unreachable!(),
-                };
-                let env = crate::AsyncFunctionEnvMut(crate::BackendAsyncFunctionEnvMut::Sys(
-                    env::AsyncFunctionEnvMut {
-                        store: store_async,
-                        func_env: func_env.clone(),
-                    },
-                ));
+                let env = async_host_env(store_id, &func_env, context);
                 HostCallOutcome::Future(func(env, &args))
             }
         };
-        let mut host_data = Box::new(VMDynamicFunctionContext {
-            address: std::ptr::null(),
-            ctx: DynamicFunction {
-                func: wrapper,
-                store_id,
-                func_ty: function_type.clone(),
-            },
-        });
-        host_data.address = host_data.ctx.func_body_ptr();
-
-        let func_ptr = std::ptr::null() as VMFunctionCallback;
-        let type_signature_hash = store
-            .as_store_ref()
-            .engine()
-            .as_sys()
-            .register_signature(&function_type);
-        let vmctx = VMFunctionContext {
-            host_env: host_data.as_ref() as *const _ as *mut c_void,
-        };
-        let call_trampoline = host_data.ctx.call_trampoline_address();
-        let anyfunc = VMCallerCheckedAnyfunc {
-            include_m0_param: false,
-            func_ptr,
-            type_signature_hash,
-            vmctx,
-            call_trampoline,
-        };
-
-        let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
-            kind: VMFunctionKind::Dynamic,
-            signature: function_type,
-            host_data,
-        };
-        Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
-        }
+        Self::new_raw(store, function_type, wrapper)
     }
 
     /// Creates a new host `Function` from a native function.
@@ -312,8 +268,13 @@ impl Function {
         Rets: WasmTypeList + 'static,
         F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
     {
-        let env = FunctionEnv::new(store, ());
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        if numeric_signature(&signature) {
+            return Self::new_numeric_async(store, signature, move |args| {
+                func.call_async(AsyncFunctionEnv::new(), args)
+            });
+        }
+        let env = FunctionEnv::new(store, ());
         let args_sig = Arc::new(signature.clone());
         let results_sig = Arc::new(signature.clone());
         let func = Arc::new(func);
@@ -368,6 +329,18 @@ impl Function {
         Rets: WasmTypeList + 'static,
     {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        if numeric_signature(&signature) {
+            let id = store.objects_mut().id();
+            let env = env.as_sys().clone();
+            return Self::new_numeric_async(store, signature, move |args| {
+                // The environment keeps the lock handle on an async call.
+                let context = unsafe { StoreContext::try_get_current_async(id) };
+                func.call_async(
+                    AsyncFunctionEnv::with_env(async_host_env(id, &env, context)),
+                    args,
+                )
+            });
+        }
         let args_sig = Arc::new(signature.clone());
         let results_sig = Arc::new(signature.clone());
         let func = Arc::new(func);
@@ -410,6 +383,43 @@ impl Function {
                 })
             },
         )
+    }
+
+    #[cfg(feature = "experimental-async")]
+    fn new_numeric_async<Args: WasmTypeList + 'static, Rets: WasmTypeList + 'static>(
+        store: &mut impl AsStoreMut,
+        signature: FunctionType,
+        call: impl Fn(Args) -> HostFuture<Rets> + 'static,
+    ) -> Self {
+        let id = store.objects_mut().id();
+        let num_params = signature.params().len();
+        let num_results = signature.results().len();
+        Self::new_raw(store, signature, move |values| {
+            let args = {
+                // Only borrow the installed store while converting the ABI slots.
+                let mut guard = unsafe { StoreContext::get_current(id) };
+                let mut args = Args::empty_array();
+                for (index, slot) in args.as_mut().iter_mut().take(num_params).enumerate() {
+                    *slot = unsafe { values.add(index).read_unaligned() };
+                }
+                unsafe { Args::from_array(&mut guard.as_mut(), args) }
+            };
+            let result = block_on_typed_host_future(call(args)).and_then(|rets| {
+                // The poller has reinstalled the store before returning here.
+                let mut guard = unsafe { StoreContext::get_current(id) };
+                let mut rets = unsafe { rets.into_array(&mut guard.as_mut()) };
+                let slots = rets.as_mut().get(..num_results).ok_or_else(|| {
+                    AsyncRuntimeError::RuntimeError(RuntimeError::new(
+                        "typed host function returned too few results",
+                    ))
+                })?;
+                for (index, slot) in slots.iter().enumerate() {
+                    unsafe { values.add(index).write_unaligned(*slot) };
+                }
+                Ok(())
+            });
+            HostCallOutcome::Written(result)
+        })
     }
 
     pub(crate) fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
@@ -753,6 +763,41 @@ fn finalize_dynamic_call(
     }
 }
 
+#[cfg(feature = "experimental-async")]
+fn numeric_signature(signature: &FunctionType) -> bool {
+    signature
+        .params()
+        .iter()
+        .chain(signature.results())
+        .all(|ty| ty.is_num())
+}
+
+#[cfg(feature = "experimental-async")]
+fn async_host_env<T: 'static>(
+    id: StoreId,
+    env: &env::FunctionEnv<T>,
+    context: crate::GetStoreAsyncGuardResult,
+) -> AsyncFunctionEnvMut<T> {
+    let store = match context {
+        crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
+            AsyncFunctionEnvMutStore::Async(StoreAsync {
+                id,
+                inner: crate::LocalRwLockWriteGuard::lock_handle(unsafe {
+                    wrapper.guard.as_ref().unwrap()
+                }),
+            })
+        }
+        crate::GetStoreAsyncGuardResult::NotAsync(ptr) => AsyncFunctionEnvMutStore::Sync(ptr),
+        crate::GetStoreAsyncGuardResult::NotInstalled => {
+            panic!("No store context installed on this thread")
+        }
+    };
+    AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Sys(env::AsyncFunctionEnvMut {
+        store,
+        func_env: env.clone(),
+    }))
+}
+
 fn typed_args_from_values<Args>(
     store: &mut StoreMut,
     func_ty: &FunctionType,
@@ -805,6 +850,8 @@ pub(crate) enum HostCallOutcome {
     Ready(Result<Vec<Value>, RuntimeError>),
     #[cfg(feature = "experimental-async")]
     Future(HostFuture),
+    #[cfg(feature = "experimental-async")]
+    Written(Result<(), AsyncRuntimeError>),
 }
 
 /// Host state for a dynamic function.
@@ -822,7 +869,7 @@ where
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
     unsafe extern "C-unwind" fn func_wrapper(
-        this: &mut VMDynamicFunctionContext<Self>,
+        this: &VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
     ) {
         let result = on_host_stack(|| {
@@ -833,6 +880,14 @@ where
                     values_vec,
                     result,
                 )),
+                #[cfg(feature = "experimental-async")]
+                HostCallOutcome::Written(result) => match result {
+                    Ok(()) => InvocationResult::Success(()),
+                    Err(AsyncRuntimeError::RuntimeError(err)) => to_invocation_result(Err(err)),
+                    Err(AsyncRuntimeError::YieldOutsideAsyncContext) => {
+                        InvocationResult::YieldOutsideAsyncContext
+                    }
+                },
                 #[cfg(feature = "experimental-async")]
                 HostCallOutcome::Future(future) => {
                     let awaited = block_on_host_future(future);
@@ -909,7 +964,7 @@ where
         // The VMFunctionCallback is null here: it is only filled in later
         // by the engine linker.
         unsafe {
-            let dynamic_function = &mut *(vmctx as *mut VMDynamicFunctionContext<Self>);
+            let dynamic_function = &*(vmctx as *const VMDynamicFunctionContext<Self>);
             Self::func_wrapper(dynamic_function, args);
         }
     }
