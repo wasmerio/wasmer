@@ -596,28 +596,25 @@ impl Drop for ForcedStoreInstallGuard {
     fn drop(&mut self) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
-            match (stack.pop(), std::thread::panicking()) {
-                (Some(top), false) => {
-                    assert_eq!(top.id, self.store_id, "Mismatched store context uninstall");
-                    assert_eq!(
-                        top.borrow_count, 0,
-                        "Cannot uninstall store context while it is still borrowed"
-                    );
-                }
-                (Some(top), true) => {
-                    // If we're panicking and there's a store ID mismatch, just
-                    // put the store back in the hope that its own install guard
-                    // take care of uninstalling it later.
-                    if top.id != self.store_id {
-                        stack.push(top);
-                    }
-                }
-                (None, false) => panic!("Store context stack underflow"),
-                (None, true) => {
-                    // Nothing to do if we're panicking; panics can put the context
-                    // in an invalid state, and we don't want to cause another panic here.
-                }
+            let Some(top) = stack.pop() else {
+                assert!(std::thread::panicking(), "Store context stack underflow");
+                return;
+            };
+            if top.id == self.store_id && top.borrow_count == 0 {
+                return;
             }
+            if std::thread::panicking() {
+                // Leave a mismatched entry for its own guard to uninstall.
+                if top.id != self.store_id {
+                    stack.push(top);
+                }
+                return;
+            }
+            assert_eq!(top.id, self.store_id, "Mismatched store context uninstall");
+            assert_eq!(
+                top.borrow_count, 0,
+                "Cannot uninstall store context while it is still borrowed"
+            );
         })
     }
 }
