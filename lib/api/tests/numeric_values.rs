@@ -317,6 +317,54 @@ fn any_number_of_parameters_in_a_typed_call() -> Result<(), String> {
     Ok(())
 }
 
+/// Typed calls of every number of parameters from none to one past what the
+/// `js` backend passes as plain numbers: each argument reaches its own
+/// parameter, and the result comes back.
+#[engine_test]
+fn every_number_of_parameters_in_a_typed_call() -> Result<(), String> {
+    macro_rules! check {
+        ($store:ident; $( $argument:ident = $value:literal ),*) => {{
+            let arguments: Vec<f64> = vec![$( $value ),*];
+            let signature = FunctionType::new(vec![Type::F64; arguments.len()], [Type::F64]);
+            let (call, calls) = guest(&mut $store, &signature, |arguments| {
+                let weighted = arguments.iter().enumerate();
+                let weighted = weighted.map(|(index, value)| {
+                    value.unwrap_f64() * (index + 1) as f64
+                });
+                vec![Value::F64(weighted.sum())]
+            });
+            // One parameter is written `(f64)`, which is the plain `f64` a
+            // typed function of one parameter takes.
+            #[allow(unused_parens)]
+            let call: TypedFunction<( $( check!(@f64 $argument) ),* ), f64> =
+                call.typed(&$store).unwrap();
+            $( let $argument = $value; )*
+            let returned = call.call(&mut $store, $( $argument ),*).unwrap();
+            let expected = arguments.iter().enumerate();
+            let expected: f64 = expected.map(|(index, value)| value * (index + 1) as f64).sum();
+            assert_eq!(returned, expected, "{signature}");
+            let sent: Vec<Value> = arguments.into_iter().map(Value::F64).collect();
+            assert_eq!(*calls.lock().unwrap(), [all_bits(&sent)], "{signature}");
+        }};
+        (@f64 $argument:ident) => { f64 };
+    }
+    let mut store = Store::default();
+    check!(store;);
+    check!(store; a = 1.5);
+    check!(store; a = 1.5, b = -2.0);
+    check!(store; a = 1.5, b = -2.0, c = 3.25);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3, f = 6.0);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3, f = 6.0, g = 7e7);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3, f = 6.0, g = 7e7, h = -8.5);
+    check!(
+        store;
+        a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3, f = 6.0, g = 7e7, h = -8.5, i = 9.0
+    );
+    Ok(())
+}
+
 /// Types that are not plain numbers to JavaScript go the way they always
 /// did, alone and next to numbers.
 #[engine_test]

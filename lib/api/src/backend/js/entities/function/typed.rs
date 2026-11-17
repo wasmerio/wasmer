@@ -26,13 +26,11 @@ use wasm_bindgen::JsValue;
 use wasmer_types::{RawValue, Type};
 
 /// The raw arguments of a call as the numbers JavaScript knows them by.
-/// `None` if there are too many for the numeric lane, or if one is of a type
-/// whose values are not numbers there.
-fn raw_numbers(params: &[(Type, RawValue)]) -> Option<numeric::Numbers> {
-    let mut numbers = [0.0; numeric::MAX_ARITY];
-    if params.len() > numbers.len() {
-        return None;
-    }
+/// `None` if one is of a type whose values are not numbers there. The types
+/// are constants of the call's signature, so this folds away.
+#[inline]
+fn raw_numbers<const N: usize>(params: &[(Type, RawValue); N]) -> Option<[f64; N]> {
+    let mut numbers = [0.0; N];
     for (number, (ty, raw)) in numbers.iter_mut().zip(params) {
         *number = match ty {
             Type::I32 => unsafe { raw.i32 as f64 },
@@ -41,11 +39,12 @@ fn raw_numbers(params: &[(Type, RawValue)]) -> Option<numeric::Numbers> {
             _ => return None,
         };
     }
-    Some((numbers, params.len()))
+    Some(numbers)
 }
 
 /// The type of the one result of a function on the numeric lane, if it has
 /// one. `None` for results that keep a function off the lane.
+#[inline]
 fn numeric_result(results: &[Type]) -> Option<Option<Type>> {
     match results {
         [] => Some(None),
@@ -55,12 +54,43 @@ fn numeric_result(results: &[Type]) -> Option<Option<Type>> {
 }
 
 /// The number the engine returned for a result of type `ty`, as a raw value.
+#[inline]
 fn number_to_raw(ty: Type, number: f64) -> RawValue {
     match ty {
         Type::I32 => RawValue { i32: number as i32 },
         Type::F32 => RawValue { f32: number as f32 },
         _ => RawValue { f64: number },
     }
+}
+
+/// The numeric lane of a typed call of the parameters `$x`: returns from the
+/// call if it takes the lane. The number of parameters is known here, so the
+/// call goes straight to the glue of that many, with no array of eight
+/// numbers in between. Functions of more parameters than the lane takes do
+/// not have one.
+macro_rules! numeric_lane {
+    (
+        $self:ident, $store:ident, $wrapper:ident, $params:ident;
+        $a1:ident, $a2:ident, $a3:ident, $a4:ident, $a5:ident, $a6:ident, $a7:ident, $a8:ident,
+        $( $more:ident ),+
+    ) => {};
+    ($self:ident, $store:ident, $wrapper:ident, $params:ident; $( $x:ident ),*) => {
+        if let (Some(numbers), Some(result_ty)) =
+            (raw_numbers(&$params), numeric_result(Rets::wasm_types()))
+        {
+            let function = &$self.func.as_js().handle.function;
+            let mut result = 0.0;
+            call_wrapped($store, $wrapper, |_| {
+                result = numeric::Arguments::call(numbers, function)?;
+                Ok(())
+            })?;
+            let mut rets_list_array = Rets::empty_array();
+            if let Some(ty) = result_ty {
+                rets_list_array.as_mut()[0] = number_to_raw(ty, result);
+            }
+            return Ok(unsafe { Rets::from_array($store, rets_list_array) });
+        }
+    };
 }
 
 macro_rules! impl_native_traits {
@@ -101,6 +131,7 @@ macro_rules! impl_native_traits {
             }
 
             /// Call the typed func and return results.
+            #[inline]
             #[allow(clippy::too_many_arguments)]
             pub fn call_js(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType,  )*
@@ -109,6 +140,7 @@ macro_rules! impl_native_traits {
             }
 
             /// Call the typed func through `wrapper` and return results.
+            #[inline]
             #[allow(clippy::too_many_arguments)]
             pub(crate) fn call_wrapped_js(&self, mut store: &mut impl AsStoreMut, wrapper: Option<&mut dyn CallWrapper>, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType,  )*
@@ -119,21 +151,7 @@ macro_rules! impl_native_traits {
                 };
                 // Nothing but numbers: they are passed as they are, without
                 // an array of arguments in between.
-                if let (Some(numbers), Some(result_ty)) =
-                    (raw_numbers(&params_list), numeric_result(Rets::wasm_types()))
-                {
-                    let function = &self.func.as_js().handle.function;
-                    let mut result = 0.0;
-                    call_wrapped(store, wrapper, |_| {
-                        result = numeric::call(function, &numbers)?;
-                        Ok(())
-                    })?;
-                    let mut rets_list_array = Rets::empty_array();
-                    if let Some(ty) = result_ty {
-                        rets_list_array.as_mut()[0] = number_to_raw(ty, result);
-                    }
-                    return Ok(unsafe { Rets::from_array(store, rets_list_array) });
-                }
+                numeric_lane!(self, store, wrapper, params_list; $( $x ),*);
                 let mut results = JsValue::UNDEFINED;
                 call_wrapped(store, wrapper, |store| {
                     let args_array = unsafe {

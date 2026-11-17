@@ -234,6 +234,43 @@ extern "C" {
     ) -> Result<f64, JsValue>;
 }
 
+/// The arguments of a call on the numeric lane whose number of parameters is
+/// known where it is made: a call of a [`crate::TypedFunction`]. It calls the
+/// glue of that many parameters directly, without going through
+/// [`Numbers`].
+pub(crate) trait Arguments {
+    /// Calls `function` with these numbers, and returns the number it
+    /// returns.
+    fn call(self, function: &JsFunction) -> Result<f64, JsValue>;
+}
+
+macro_rules! arguments {
+    ($( $arity:literal => $call:ident ( $( $argument:ident ),* ); )*) => {
+        $(
+            impl Arguments for [f64; $arity] {
+                #[inline]
+                fn call(self, function: &JsFunction) -> Result<f64, JsValue> {
+                    let [$( $argument ),*] = self;
+                    let function: &NumericFunction = function.unchecked_ref();
+                    function.$call(&JsValue::UNDEFINED, $( $argument ),*)
+                }
+            }
+        )*
+    };
+}
+
+arguments! {
+    0 => call0();
+    1 => call1(a);
+    2 => call2(a, b);
+    3 => call3(a, b, c);
+    4 => call4(a, b, c, d);
+    5 => call5(a, b, c, d, e);
+    6 => call6(a, b, c, d, e, f);
+    7 => call7(a, b, c, d, e, f, g);
+    8 => call8(a, b, c, d, e, f, g, h);
+}
+
 /// Calls `function` with `numbers`, and returns the number it returns.
 pub(crate) fn call(function: &JsFunction, (numbers, arity): &Numbers) -> Result<f64, JsValue> {
     let function: &NumericFunction = function.unchecked_ref();
