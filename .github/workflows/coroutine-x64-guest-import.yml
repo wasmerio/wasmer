@@ -1,0 +1,73 @@
+name: Native x86-64 Wasm guest-to-host imports
+on:
+  push:
+    branches:
+      - codex/x64-guest-import-study-7195
+permissions:
+  contents: read
+jobs:
+  benchmark:
+    runs-on: aux-pub-16cpu-amd64
+    timeout-minutes: 100
+    env:
+      CARGO_TERM_COLOR: never
+      CARGO_INCREMENTAL: '0'
+      RUSTUP_TOOLCHAIN: 1.99.1
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          submodules: true
+          persist-credentials: false
+      - name: Verify source revisions and record the runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = x86_64
+          git fetch --no-tags --depth=1 origin cd3f199b2b78b5050741ba25a5dec7f87f82829f 9e49868e561a8385380a2ff14aaf5c5bd458ff9d
+          test "$(git rev-parse '9e49868e561^{commit}')" = 9e49868e561a8385380a2ff14aaf5c5bd458ff9d
+          test "$(git rev-parse 'cd3f199b2b7^{commit}')" = cd3f199b2b78b5050741ba25a5dec7f87f82829f
+          mkdir -p "$RUNNER_TEMP/wasmer-guest-import-results"
+          {
+            uname -a
+            lscpu
+            cat /proc/self/cgroup
+            cat /sys/fs/cgroup/cpu.max || true
+            taskset -pc $$
+            df -h .
+            free -h
+          } | tee "$RUNNER_TEMP/wasmer-guest-import-results/runner.txt"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+      - name: Install the repository's Linux x86-64 LLVM 23 toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          llvm="$RUNNER_TEMP/llvm-23"
+          archive="$RUNNER_TEMP/llvm-23.tar.zst"
+          mkdir -p "$llvm"
+          curl --retry 3 --proto '=https' --tlsv1.2 -fsSL https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-amd64.tar.zst -o "$archive"
+          echo "18a4e32917af2cbbc7189e417febeada746f62cd1c8473c26bae80bf46fad203  $archive" | sha256sum --check
+          tar --zstd --strip-components=1 -xf "$archive" -C "$llvm"
+          rm "$archive"
+          echo "LLVM_SYS_231_PREFIX=$llvm" >> "$GITHUB_ENV"
+          echo "$llvm/bin" >> "$GITHUB_PATH"
+          "$llvm/bin/llvm-config" --version
+      - name: Build both revisions and Wasmtime
+        shell: bash
+        run: python3 benches/x64_guest_imports/run.py --repo "$PWD" --output "$RUNNER_TEMP/wasmer-guest-import-results" --build-only
+      - name: Measure guest-to-host imports on one native CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 benches/x64_guest_imports/run.py --repo "$PWD" --output "$RUNNER_TEMP/wasmer-guest-import-results" --measure-only
+      - name: Upload samples, summaries and validation logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasmer-x86-64-guest-imports
+          path: ${{ runner.temp }}/wasmer-guest-import-results
+          retention-days: 14
