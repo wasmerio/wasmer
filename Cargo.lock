@@ -1106,8 +1106,7 @@ dependencies = [
 [[package]]
 name = "cranelift-assembler-x64"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "249a61efca6a54425e027f5704a6f68a0232b4df527e05a3ef947d89dbdcb078"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "cranelift-assembler-x64-meta 0.136.5",
 ]
@@ -1124,8 +1123,7 @@ dependencies = [
 [[package]]
 name = "cranelift-assembler-x64-meta"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5336a46e05db2d515440b1ce8a9363e7bc04b608c0f66cc98dddc5492a66fbf"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "cranelift-srcgen 0.136.5",
 ]
@@ -1142,8 +1140,7 @@ dependencies = [
 [[package]]
 name = "cranelift-bforest"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01b3675b13214270fddbd257d5fbf4109be8b02d92fc636fe96e2829514a7235"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "cranelift-entity 0.136.5",
  "wasmtime-internal-core 49.0.5",
@@ -1162,8 +1159,7 @@ dependencies = [
 [[package]]
 name = "cranelift-bitset"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7c1d67aa02b6e174bd2b165c113e94af9498fcc20e2892d0f4d5ab8c9618d09"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "serde",
  "serde_derive",
@@ -1184,8 +1180,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26fe6f3ec5344c32602c414e986dcbe699fa501a3e3e7b02f887d9d12b14ae42"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "bumpalo",
  "cranelift-assembler-x64 0.136.5",
@@ -1244,8 +1239,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-meta"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96c5e6323d458486d95781defdb5016a1176fc911d8bc8e64b696adbda6e9044"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "cranelift-assembler-x64-meta 0.136.5",
  "cranelift-codegen-shared 0.136.5",
@@ -1270,8 +1264,7 @@ dependencies = [
 [[package]]
 name = "cranelift-codegen-shared"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1260aa93b0bd48e8e55c1c7fd9ff6a260f1a1bc46e1f0151a5055b124e5b15d"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 
 [[package]]
 name = "cranelift-codegen-shared"
@@ -1282,8 +1275,7 @@ checksum = "e667a0e9ed3bbbed0e7e52cd2dea85a645745b39f547097e2fca0bf317cac9df"
 [[package]]
 name = "cranelift-control"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50c179632a09850f81f1a1e9116cb09330c734a86689f3ee4c3f4ec81543acbd"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "arbitrary",
 ]
@@ -1300,8 +1292,7 @@ dependencies = [
 [[package]]
 name = "cranelift-entity"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8c071188cb1c3b1803e23ae415a8d5f58d741d3a4b26a79b83dd61921112eac"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "cranelift-bitset 0.136.5",
  "serde",
@@ -1324,8 +1315,7 @@ dependencies = [
 [[package]]
 name = "cranelift-frontend"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2b85ba0a55d7685117b275fe6f36c819d438862e4223d28f0b97902460ff0ac"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "cranelift-codegen 0.136.5",
  "hashbrown 0.17.1",
@@ -1350,8 +1340,7 @@ dependencies = [
 [[package]]
 name = "cranelift-isle"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20ed364edcaed769da7b2709d540f8f7d0ff257749ba193f475e22dba6a0178b"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 
 [[package]]
 name = "cranelift-isle"
@@ -1374,8 +1363,7 @@ dependencies = [
 [[package]]
 name = "cranelift-srcgen"
 version = "0.136.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f016b9994e39cad68107f33fa5b8dcee8fb7e38332bde3f97690e5e8abe1b10"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 
 [[package]]
 name = "cranelift-srcgen"
@@ -4667,8 +4655,7 @@ dependencies = [
 [[package]]
 name = "pulley-interpreter"
 version = "49.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d74df9e20cba0f6dd07f01c3140535a6b23e40aecccfcacfb921621b41d0acb"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "cranelift-bitset 0.136.5",
  "log",
@@ -4690,8 +4677,7 @@ dependencies = [
 [[package]]
 name = "pulley-macros"
 version = "49.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8415513bfa407c06de6f11dbe9437f2352e075a5520ff491a131166d3d90aed1"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8372,8 +8358,7 @@ checksum = "33c2836b127721e0abdc3490545cdc6d5269d1050a19a4057909901c16e1b781"
 [[package]]
 name = "wasmtime-internal-core"
 version = "49.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ad86a65d12c6a9202584ceb658c9a20cf5b25c32eed61c9be5e5f863f88f0d9"
+source = "git+https://github.com/marxin/wasmtime?branch=macho-tail-cc#ce8f02b4ad10d41c0e242054308fdbdf7ff07824"
 dependencies = [
  "hashbrown 0.17.1",
  "libm",
