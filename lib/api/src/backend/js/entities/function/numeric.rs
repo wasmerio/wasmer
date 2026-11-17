@@ -5,7 +5,8 @@
 //! and several crossings between WebAssembly and JavaScript per argument. A
 //! function whose parameters and result are all `i32`, `f32` or `f64` needs
 //! none of that: the engine hands such values over as JavaScript numbers,
-//! which cross as plain `f64`s. This module is that second way, the *numeric
+//! which cross as plain `f64`s (the arguments of a guest function of nothing
+//! but `i32`s as `i32`s). This module is that second way, the *numeric
 //! lane*, for functions of up to [`MAX_ARITY`] parameters and at most one
 //! result.
 //!
@@ -112,6 +113,28 @@ pub(crate) fn numbers(ty: &FunctionType, values: &[Value]) -> Option<Numbers> {
         };
     }
     Some((numbers, values.len()))
+}
+
+/// The arguments of a call on the numeric lane whose parameters are all
+/// i32s, and how many of them count.
+pub(crate) type Integers = ([i32; MAX_ARITY], usize);
+
+/// `values` as the i32s to call a function with, if the function `ty` takes
+/// nothing but i32s and `values` are as many i32s. `None` otherwise, for
+/// [`numbers`] to see to.
+#[inline]
+pub(crate) fn integers(ty: &FunctionType, values: &[Value]) -> Option<Integers> {
+    if values.len() != ty.params().len() || values.is_empty() {
+        return None;
+    }
+    let mut integers = [0; MAX_ARITY];
+    for ((integer, value), ty) in integers.iter_mut().zip(values).zip(ty.params()) {
+        *integer = match (value, ty) {
+            (Value::I32(value), Type::I32) => *value,
+            _ => return None,
+        };
+    }
+    Some((integers, values.len()))
 }
 
 /// What a host function returned, as the number to hand to the engine: what
@@ -470,6 +493,69 @@ extern "C" {
         h: f64,
     ) -> f64;
 
+    // The same guards, called with i32s. JavaScriptCore calls a WebAssembly
+    // function fast only with int32 values for its i32 parameters: any other
+    // number sends the whole call down a slow path, even a whole one. An f64
+    // that crosses into JavaScript is not an int32 value there, an i32 is,
+    // so a function of nothing but i32s is called through these.
+    #[wasm_bindgen(method, js_name = call)]
+    fn guard1_i32(this: &Guard, function: &JsFunction, a: i32) -> f64;
+    #[wasm_bindgen(method, js_name = call)]
+    fn guard2_i32(this: &Guard, function: &JsFunction, a: i32, b: i32) -> f64;
+    #[wasm_bindgen(method, js_name = call)]
+    fn guard3_i32(this: &Guard, function: &JsFunction, a: i32, b: i32, c: i32) -> f64;
+    #[wasm_bindgen(method, js_name = call)]
+    fn guard4_i32(this: &Guard, function: &JsFunction, a: i32, b: i32, c: i32, d: i32) -> f64;
+    #[wasm_bindgen(method, js_name = call)]
+    fn guard5_i32(
+        this: &Guard,
+        function: &JsFunction,
+        a: i32,
+        b: i32,
+        c: i32,
+        d: i32,
+        e: i32,
+    ) -> f64;
+    #[wasm_bindgen(method, js_name = call)]
+    #[allow(clippy::too_many_arguments)]
+    fn guard6_i32(
+        this: &Guard,
+        function: &JsFunction,
+        a: i32,
+        b: i32,
+        c: i32,
+        d: i32,
+        e: i32,
+        f: i32,
+    ) -> f64;
+    #[wasm_bindgen(method, js_name = call)]
+    #[allow(clippy::too_many_arguments)]
+    fn guard7_i32(
+        this: &Guard,
+        function: &JsFunction,
+        a: i32,
+        b: i32,
+        c: i32,
+        d: i32,
+        e: i32,
+        f: i32,
+        g: i32,
+    ) -> f64;
+    #[wasm_bindgen(method, js_name = call)]
+    #[allow(clippy::too_many_arguments)]
+    fn guard8_i32(
+        this: &Guard,
+        function: &JsFunction,
+        a: i32,
+        b: i32,
+        c: i32,
+        d: i32,
+        e: i32,
+        f: i32,
+        g: i32,
+        h: i32,
+    ) -> f64;
+
     /// Empties the cell of the guards: `undefined`, or an array of the one
     /// value a guard caught.
     type Take;
@@ -565,7 +651,8 @@ thread_local! {
 /// The arguments of a call on the numeric lane whose number of parameters is
 /// known where it is made: a call of a [`crate::TypedFunction`]. It calls the
 /// glue of that many parameters directly, without going through
-/// [`Numbers`].
+/// [`Numbers`]. Arguments of nothing but i32s are `[i32; N]`, the others
+/// `[f64; N]`.
 pub(crate) trait Arguments: Sized {
     /// Calls `function` with these numbers, and returns the number it
     /// returns. `result` is whether `function` has a result.
@@ -612,6 +699,57 @@ macro_rules! arguments {
     };
 }
 
+macro_rules! integer_arguments {
+    ($( $arity:literal => $call:ident, $guard:ident ( $( $argument:ident ),* ); )*) => {
+        $(
+            impl Arguments for [i32; $arity] {
+                #[inline]
+                fn call_through(
+                    self,
+                    guards: Option<&Guards>,
+                    function: &JsFunction,
+                    result: bool,
+                ) -> Result<f64, JsValue> {
+                    let [$( $argument ),*] = self;
+                    match guards {
+                        Some(guards) => {
+                            let guard = guards.guard(result, $arity);
+                            guards.returned(result, guard.$guard(function, $( $argument ),*))
+                        }
+                        None => {
+                            let function: &NumericFunction = function.unchecked_ref();
+                            function.$call(&JsValue::UNDEFINED, $( $argument as f64 ),*)
+                        }
+                    }
+                }
+            }
+        )*
+    };
+}
+
+integer_arguments! {
+    1 => call1, guard1_i32(a);
+    2 => call2, guard2_i32(a, b);
+    3 => call3, guard3_i32(a, b, c);
+    4 => call4, guard4_i32(a, b, c, d);
+    5 => call5, guard5_i32(a, b, c, d, e);
+    6 => call6, guard6_i32(a, b, c, d, e, f);
+    7 => call7, guard7_i32(a, b, c, d, e, f, g);
+    8 => call8, guard8_i32(a, b, c, d, e, f, g, h);
+}
+
+impl Arguments for [i32; 0] {
+    #[inline]
+    fn call_through(
+        self,
+        guards: Option<&Guards>,
+        function: &JsFunction,
+        result: bool,
+    ) -> Result<f64, JsValue> {
+        [0.0; 0].call_through(guards, function, result)
+    }
+}
+
 arguments! {
     0 => call0, guard0();
     1 => call1, guard1(a);
@@ -631,8 +769,33 @@ pub(crate) fn call(
     (numbers, arity): &Numbers,
     result: bool,
 ) -> Result<f64, JsValue> {
-    match numbers[..*arity] {
-        [] => [].call(function, result),
+    call_with(function, &numbers[..*arity], result)
+}
+
+/// [`call`] with i32s.
+pub(crate) fn call_integers(
+    function: &JsFunction,
+    (integers, arity): &Integers,
+    result: bool,
+) -> Result<f64, JsValue> {
+    call_with(function, &integers[..*arity], result)
+}
+
+#[inline]
+fn call_with<T: Copy>(function: &JsFunction, numbers: &[T], result: bool) -> Result<f64, JsValue>
+where
+    [T; 0]: Arguments,
+    [T; 1]: Arguments,
+    [T; 2]: Arguments,
+    [T; 3]: Arguments,
+    [T; 4]: Arguments,
+    [T; 5]: Arguments,
+    [T; 6]: Arguments,
+    [T; 7]: Arguments,
+    [T; 8]: Arguments,
+{
+    match *numbers {
+        [] => <[T; 0]>::call([], function, result),
         [a] => [a].call(function, result),
         [a, b] => [a, b].call(function, result),
         [a, b, c] => [a, b, c].call(function, result),
@@ -681,7 +844,8 @@ mod tests {
     /// Through a guard, a call returns and throws what it does through the
     /// `catch` glue, whatever the function returns or throws and however
     /// many parameters it has, and a call after one that threw is not taken
-    /// for one that threw.
+    /// for one that threw. So does a call with i32s through the guard of
+    /// i32s, against the same numbers as f64s through the `catch` glue.
     #[wasm_bindgen_test]
     fn a_guard_returns_and_throws_as_the_catch_glue_does() {
         let guards = Guards::new().expect("this host makes functions from text");
@@ -724,6 +888,23 @@ mod tests {
                     let numbers = copy(&[]);
                     let next = call_through(Some(&guards), &returns_nan, &numbers, true);
                     assert_eq!(outcome(next, true), Outcome::Returned(Some(u64::MAX)));
+                }
+            }
+        }
+        let integers = [7, -1, i32::MIN, 0, i32::MAX, 1, -123_456_789, 42];
+        for function in functions.iter() {
+            let function: JsFunction = function.unchecked_into();
+            for arity in 0..=MAX_ARITY {
+                let mut list = [0; MAX_ARITY];
+                list[..arity].copy_from_slice(&integers[..arity]);
+                let numbers = integers.map(f64::from);
+                let numbers = copy(&numbers[..arity]);
+                for result in [true, false] {
+                    let guarded =
+                        call_integers_through(Some(&guards), &function, &(list, arity), result);
+                    let caught = call_through(None, &function, &numbers, result);
+                    let (guarded, caught) = (outcome(guarded, result), outcome(caught, result));
+                    assert_eq!(guarded, caught, "{function:?} of {arity} i32s");
                 }
             }
         }
@@ -783,7 +964,7 @@ mod tests {
         result: bool,
     ) -> Result<f64, JsValue> {
         match numbers[..*arity] {
-            [] => [].call_through(guards, function, result),
+            [] => [0.0; 0].call_through(guards, function, result),
             [a] => [a].call_through(guards, function, result),
             [a, b] => [a, b].call_through(guards, function, result),
             [a, b, c] => [a, b, c].call_through(guards, function, result),
@@ -794,6 +975,27 @@ mod tests {
             [a, b, c, d, e, f, g, h] => {
                 [a, b, c, d, e, f, g, h].call_through(guards, function, result)
             }
+            _ => unreachable!(),
+        }
+    }
+
+    fn call_integers_through(
+        guards: Option<&Guards>,
+        function: &JsFunction,
+        (integers, arity): &Integers,
+        result: bool,
+    ) -> Result<f64, JsValue> {
+        let (g, r) = (guards, result);
+        match integers[..*arity] {
+            [] => [0; 0].call_through(g, function, r),
+            [a] => [a].call_through(g, function, r),
+            [a, b] => [a, b].call_through(g, function, r),
+            [a, b, c] => [a, b, c].call_through(g, function, r),
+            [a, b, c, d] => [a, b, c, d].call_through(g, function, r),
+            [a, b, c, d, e] => [a, b, c, d, e].call_through(g, function, r),
+            [a, b, c, d, e, f] => [a, b, c, d, e, f].call_through(g, function, r),
+            [a, b, c, d, e, f, g_] => [a, b, c, d, e, f, g_].call_through(g, function, r),
+            [a, b, c, d, e, f, g_, h] => [a, b, c, d, e, f, g_, h].call_through(g, function, r),
             _ => unreachable!(),
         }
     }

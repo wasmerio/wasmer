@@ -550,3 +550,80 @@ mod wrong_results {
         call_returning(&signatures()[1], vec![]);
     }
 }
+
+/// `Function::call` in the `js` backend does not check the types of its
+/// arguments: the engine converts each one to its parameter's type. That is
+/// the same whether the function passes its values as plain numbers (the
+/// first signature) or not (the second).
+#[cfg(feature = "js")]
+mod arguments_of_another_type {
+    use super::*;
+
+    #[wasm_bindgen_test]
+    fn are_converted_by_the_engine() {
+        let signatures = [
+            FunctionType::new([Type::I32, Type::F64, Type::I32], [Type::I32]),
+            FunctionType::new([Type::I32, Type::F64, Type::I32, Type::I64], [Type::I32]),
+        ];
+        // The arguments for (i32, f64, i32), and what the guest receives.
+        let cases = [
+            (
+                [Value::F64(2.9), Value::I32(3), Value::F64(-2.9)],
+                (2, 3.0, -2),
+            ),
+            (
+                [
+                    Value::F64(f64::NAN),
+                    Value::F32(1.5),
+                    Value::F64(f64::INFINITY),
+                ],
+                (0, 1.5, 0),
+            ),
+            (
+                [
+                    Value::F64(4_294_967_297.0),
+                    Value::F64(-0.5),
+                    Value::F64(3e9),
+                ],
+                (1, -0.5, -1_294_967_296),
+            ),
+            (
+                [Value::F32(7.5), Value::I32(-1), Value::F32(-0.0)],
+                (7, -1.0, 0),
+            ),
+            (
+                [
+                    Value::F64(-2_147_483_649.0),
+                    Value::I32(i32::MIN),
+                    Value::F64(1e300),
+                ],
+                (i32::MAX, i32::MIN as f64, 0),
+            ),
+        ];
+        for signature in signatures {
+            let mut store = Store::default();
+            let (call, calls) = guest(&mut store, &signature, |arguments| {
+                vec![arguments[0].clone()]
+            });
+            for (arguments, (first, second, third)) in &cases {
+                let mut arguments = arguments.to_vec();
+                if signature.params().len() == 4 {
+                    arguments.push(Value::I64(4));
+                }
+                let returned = call.call(&mut store, &arguments).unwrap();
+                assert_eq!(
+                    returned[0].unwrap_i32(),
+                    *first,
+                    "{signature} {arguments:?}"
+                );
+                let received = calls.lock().unwrap().pop().unwrap();
+                let expected = [Value::I32(*first), Value::F64(*second), Value::I32(*third)];
+                assert_eq!(
+                    received[..3],
+                    all_bits(&expected),
+                    "{signature} {arguments:?}"
+                );
+            }
+        }
+    }
+}

@@ -484,18 +484,30 @@ impl Function {
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         let ty = &self.handle.ty;
-        if self.handle.numeric
-            && let Some(numbers) = numeric::numbers(ty, params)
-        {
-            // Nothing but numbers: they are passed as they are.
+        if self.handle.numeric {
+            // Nothing but numbers: they are passed as they are, i32s as i32s
+            // (see `numeric::Arguments`), other numbers as f64s.
+            let function = &self.handle.function;
+            let has_result = !ty.results().is_empty();
             let mut result = 0.0;
-            call_wrapped(store, wrapper, |_| {
-                let has_result = !ty.results().is_empty();
-                result = numeric::call(&self.handle.function, &numbers, has_result)?;
-                Ok(())
-            })?;
-            let results = ty.results().iter();
-            return Ok(results.map(|ty| numeric::value(ty, result)).collect());
+            let results = |result: f64| -> Box<[Value]> {
+                let results = ty.results().iter();
+                results.map(|ty| numeric::value(ty, result)).collect()
+            };
+            if let Some(integers) = numeric::integers(ty, params) {
+                call_wrapped(store, wrapper, |_| {
+                    result = numeric::call_integers(function, &integers, has_result)?;
+                    Ok(())
+                })?;
+                return Ok(results(result));
+            }
+            if let Some(numbers) = numeric::numbers(ty, params) {
+                call_wrapped(store, wrapper, |_| {
+                    result = numeric::call(function, &numbers, has_result)?;
+                    Ok(())
+                })?;
+                return Ok(results(result));
+            }
         }
 
         // Annotation is here to prevent spurious IDE warnings.

@@ -42,6 +42,20 @@ fn raw_numbers<const N: usize>(params: &[(Type, RawValue); N]) -> Option<[f64; N
     Some(numbers)
 }
 
+/// The raw arguments of a call as i32s, if they are all i32s. The types are
+/// constants of the call's signature, so this folds away.
+#[inline]
+fn raw_integers<const N: usize>(params: &[(Type, RawValue); N]) -> Option<[i32; N]> {
+    let mut integers = [0; N];
+    for (integer, (ty, raw)) in integers.iter_mut().zip(params) {
+        *integer = match ty {
+            Type::I32 => unsafe { raw.i32 },
+            _ => return None,
+        };
+    }
+    Some(integers)
+}
+
 /// The type of the one result of a function on the numeric lane, if it has
 /// one. `None` for results that keep a function off the lane.
 #[inline]
@@ -63,6 +77,25 @@ fn number_to_raw(ty: Type, number: f64) -> RawValue {
     }
 }
 
+/// The results of a call on the numeric lane that returned `result`.
+///
+/// # Safety
+///
+/// `result_ty` is the type of the one result of `Rets`, or `None` if it has
+/// none.
+#[inline]
+unsafe fn numeric_rets<Rets: WasmTypeList>(
+    store: &mut impl AsStoreMut,
+    result_ty: Option<Type>,
+    result: f64,
+) -> Rets {
+    let mut rets_list_array = Rets::empty_array();
+    if let Some(ty) = result_ty {
+        rets_list_array.as_mut()[0] = number_to_raw(ty, result);
+    }
+    unsafe { Rets::from_array(store, rets_list_array) }
+}
+
 /// The numeric lane of a typed call of the parameters `$x`: returns from the
 /// call if it takes the lane. The number of parameters is known here, so the
 /// call goes straight to the glue of that many, with no array of eight
@@ -75,20 +108,26 @@ macro_rules! numeric_lane {
         $( $more:ident ),+
     ) => {};
     ($self:ident, $store:ident, $wrapper:ident, $params:ident; $( $x:ident ),*) => {
-        if let (Some(numbers), Some(result_ty)) =
-            (raw_numbers(&$params), numeric_result(Rets::wasm_types()))
-        {
+        if let Some(result_ty) = numeric_result(Rets::wasm_types()) {
             let function = &$self.func.as_js().handle.function;
+            let has_result = result_ty.is_some();
             let mut result = 0.0;
-            call_wrapped($store, $wrapper, |_| {
-                result = numeric::Arguments::call(numbers, function, result_ty.is_some())?;
-                Ok(())
-            })?;
-            let mut rets_list_array = Rets::empty_array();
-            if let Some(ty) = result_ty {
-                rets_list_array.as_mut()[0] = number_to_raw(ty, result);
+            // i32s pass as i32s (see `numeric::Arguments`), other numbers as
+            // f64s.
+            if let Some(integers) = raw_integers(&$params) {
+                call_wrapped($store, $wrapper, |_| {
+                    result = numeric::Arguments::call(integers, function, has_result)?;
+                    Ok(())
+                })?;
+                return Ok(unsafe { numeric_rets::<Rets>($store, result_ty, result) });
             }
-            return Ok(unsafe { Rets::from_array($store, rets_list_array) });
+            if let Some(numbers) = raw_numbers(&$params) {
+                call_wrapped($store, $wrapper, |_| {
+                    result = numeric::Arguments::call(numbers, function, has_result)?;
+                    Ok(())
+                })?;
+                return Ok(unsafe { numeric_rets::<Rets>($store, result_ty, result) });
+            }
         }
     };
 }
