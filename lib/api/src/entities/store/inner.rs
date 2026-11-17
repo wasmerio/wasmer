@@ -16,6 +16,10 @@ use wasmer_vm::TrapHandlerFn;
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     pub(crate) store: BackendStore,
+    /// How a call into this store hands the store to its host functions:
+    /// see [`SlotRef`](super::SlotRef).
+    #[cfg(feature = "sys")]
+    pub(crate) context_mode: u8,
 }
 
 impl std::fmt::Debug for StoreInner {

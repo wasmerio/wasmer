@@ -80,6 +80,8 @@ impl Store {
             inner: Box::new(StoreInner {
                 objects: StoreObjects::from_store_ref(&store),
                 store,
+                #[cfg(feature = "sys")]
+                context_mode: 0,
             }),
         }
     }
@@ -197,7 +199,13 @@ impl Store {
     #[cfg(feature = "experimental-async")]
     /// Transforms this store into a [`StoreAsync`] which can be used
     /// to invoke [`Function::call_async`](crate::Function::call_async).
-    pub fn into_async(self) -> StoreAsync {
+    pub fn into_async(mut self) -> StoreAsync {
+        // Its calls go through the thread's context stack from now on, which
+        // follows the coroutines of `call_async` as they suspend and resume.
+        #[cfg(feature = "sys")]
+        {
+            self.inner.context_mode |= context_mode::ASYNC;
+        }
         StoreAsync {
             id: self.id(),
             inner: LocalRwLock::new(self.inner),

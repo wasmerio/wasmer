@@ -83,7 +83,7 @@ macro_rules! impl_native_traits {
                     // Installed only while Wasm runs: the wrapper holds the
                     // store between entries, so it must not be lendable then.
                     let store_install_guard = unsafe {
-                        StoreContext::install(store.as_store_mut().inner as *mut _)
+                        StoreContext::enter(store.as_store_mut().inner as *mut _)
                     };
                     let storeref = store.as_store_ref();
                     let config = storeref.engine().tunables().vmconfig();
@@ -205,7 +205,7 @@ macro_rules! impl_native_traits {
 
                 // Install the store into the store context
                 let store_install_guard = unsafe {
-                    StoreContext::install(store.as_store_mut().inner as *mut _)
+                    StoreContext::enter(store.as_store_mut().inner as *mut _)
                 };
 
                 let r = call_wrapped(store, None, |store| {

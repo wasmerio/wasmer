@@ -5,16 +5,19 @@ pub(crate) mod typed;
 
 #[cfg(feature = "experimental-async")]
 use crate::{
-    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync,
+    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync, StoreInstallGuard,
     entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
     sys::{
-        async_runtime::{AsyncRuntimeError, HostFuture, block_on_host_future, call_function_async},
+        async_runtime::{
+            AsyncRuntimeError, HostFuture, block_on_host_future, call_function_async,
+            run_immediate,
+        },
         function::env::AsyncFunctionEnvMutStore,
     },
 };
 use crate::{
     BackendFunction, CallWrapper, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction,
-    RuntimeError, StoreContext, StoreInner, StorePtrWrapper, Value, WithEnv, WithoutEnv,
+    RuntimeError, SlotRef, StoreContext, StoreInner, StorePtrWrapper, Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
     entities::function::call_wrapper::call_wrapped,
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
@@ -74,9 +77,10 @@ impl Function {
         let func_ty = function_type.clone();
         let func_env = env.clone().into_sys();
         let store_id = store.objects_mut().id();
+        let slot = SlotRef::of(store.objects_mut());
         let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
             unsafe {
-                let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                let mut store_wrapper = unsafe { StoreContext::get_current_in(slot, store_id) };
                 let mut store_mut = store_wrapper.as_mut();
                 let mut args = Values::new();
                 for (i, ty) in func_ty.params().iter().enumerate() {
@@ -100,6 +104,7 @@ impl Function {
             ctx: DynamicFunction {
                 func: wrapper,
                 store_id,
+                slot,
                 func_ty: function_type.clone(),
             },
         });
@@ -183,8 +188,17 @@ impl Function {
         let func_ty = function_type.clone();
         let func_env = env.clone().into_sys();
         let store_id = store.objects_mut().id();
+        let slot = SlotRef::of(store.objects_mut());
         let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
             unsafe {
+                // The environment of an async host function can be cloned
+                // and kept anywhere, so its borrow of a plain store is counted
+                // in an entry of the context stack, which checks that the
+                // borrow was given back when it is removed: once the future
+                // is done with.
+                let plain_store_entry = slot
+                    .get()
+                    .map(|store_ptr| StoreContext::install(store_ptr.as_ptr()));
                 let mut context = StoreContext::try_get_current_async(store_id);
                 let mut store_mut = match &mut context {
                     crate::GetStoreAsyncGuardResult::Ok(wrapper) => StoreMut {
@@ -224,7 +238,7 @@ impl Function {
                         func_env: func_env.clone(),
                     },
                 ));
-                HostCallOutcome::Future(func(env, &args))
+                HostCallOutcome::Future(func(env, &args), plain_store_entry)
             }
         };
         let mut host_data = Box::new(VMDynamicFunctionContext {
@@ -232,6 +246,7 @@ impl Function {
             ctx: DynamicFunction {
                 func: wrapper,
                 store_id,
+                slot,
                 func_ty: function_type.clone(),
             },
         });
@@ -277,6 +292,7 @@ impl Function {
         let func_ptr = func.function_callback_sys().unwrap_sys();
         let host_data = Box::new(StaticFunction {
             store_id: store.objects_mut().id(),
+            slot: SlotRef::of(store.objects_mut()),
             env,
             func,
         });
@@ -431,6 +447,7 @@ impl Function {
         let func_ptr = func.function_callback_sys().unwrap_sys();
         let host_data = Box::new(StaticFunction {
             store_id: store.objects_mut().id(),
+            slot: SlotRef::of(store.objects_mut()),
             env: env.as_sys().clone().into(),
             func,
         });
@@ -504,7 +521,7 @@ impl Function {
                 // installed only while Wasm runs: the wrapper holds the store
                 // between entries, so it must not be lendable then.
                 let store_install_guard =
-                    unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
+                    unsafe { StoreContext::enter(store.as_store_mut().inner as *mut _) };
                 let storeref = store.as_store_ref();
                 let vm_function = self.handle.get(storeref.objects().as_sys());
                 let config = storeref.engine().tunables().vmconfig();
@@ -816,14 +833,18 @@ pub(crate) enum HostCallOutcome {
     /// The host function's results, and the borrow of the store it ran with,
     /// which writing the results back reuses.
     Ready(Result<Vec<Value>, RuntimeError>, StorePtrWrapper),
+    /// The host function's future, and the entry it borrows a plain store
+    /// through, which is removed once the future is done with.
     #[cfg(feature = "experimental-async")]
-    Future(HostFuture),
+    Future(HostFuture, Option<StoreInstallGuard>),
 }
 
 /// Host state for a dynamic function.
 pub(crate) struct DynamicFunction<F> {
     func: F,
     store_id: StoreId,
+    /// The store's slot, where a call into a plain store leaves it.
+    slot: SlotRef,
     /// The function's type, which its results are checked against.
     func_ty: FunctionType,
 }
@@ -856,8 +877,15 @@ where
                 // was polled, which may lend the store out: it is borrowed
                 // again once the future is done.
                 #[cfg(feature = "experimental-async")]
-                HostCallOutcome::Future(future) => {
-                    let awaited = block_on_host_future(future);
+                HostCallOutcome::Future(future, plain_store_entry) => {
+                    // A call into a plain store never suspends: its caller
+                    // holds the store across the call. Only a call through
+                    // the context stack may be a `call_async` coroutine's.
+                    let awaited = if plain_store_entry.is_some() {
+                        run_immediate(future)
+                    } else {
+                        block_on_host_future(future)
+                    };
                     let result = match awaited {
                         Ok(value) => Ok(value),
                         Err(AsyncRuntimeError::RuntimeError(e)) => Err(e),
@@ -866,8 +894,9 @@ where
                         }
                     };
                     let result = result.and_then(|values| {
-                        let mut store_wrapper =
-                            unsafe { StoreContext::get_current(this.ctx.store_id) };
+                        let mut store_wrapper = unsafe {
+                            StoreContext::get_current_in(this.ctx.slot, this.ctx.store_id)
+                        };
                         write_dynamic_results(
                             &mut store_wrapper,
                             &this.ctx.func_ty,
@@ -875,9 +904,11 @@ where
                             values_vec,
                         )
                     });
-                    to_invocation_result(result, || unsafe {
-                        StoreContext::get_current_transient(this.ctx.store_id)
-                    })
+                    let result = to_invocation_result(result, || unsafe {
+                        StoreContext::get_current_transient_in(this.ctx.slot, this.ctx.store_id)
+                    });
+                    drop(plain_store_entry);
+                    result
                 }
             }))
         });
@@ -947,6 +978,8 @@ where
 /// [`crate::Function::new_typed_with_env`] to learn more.
 pub(crate) struct StaticFunction<F, T> {
     pub(crate) store_id: StoreId,
+    /// The store's slot, where a call into a plain store leaves it.
+    pub(crate) slot: SlotRef,
     pub(crate) env: FunctionEnv<T>,
     pub(crate) func: F,
 }
@@ -996,7 +1029,7 @@ macro_rules! impl_host_function {
             {
                 let result = on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
-                        let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
+                        let mut store_wrapper = unsafe { StoreContext::get_current_in(env.slot, env.store_id) };
                         let store_ptr = store_wrapper.as_ptr();
                         let mut store = store_wrapper.as_mut();
                         $(
@@ -1095,7 +1128,7 @@ macro_rules! impl_host_function {
             {
                 let result = wasmer_vm::on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
-                        let mut store_wrapper = unsafe { StoreContext::get_current(env.store_id) };
+                        let mut store_wrapper = unsafe { StoreContext::get_current_in(env.slot, env.store_id) };
                         let store_ptr = store_wrapper.as_ptr();
                         let mut store = store_wrapper.as_mut();
                         $(

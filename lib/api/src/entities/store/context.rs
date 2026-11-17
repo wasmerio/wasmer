@@ -40,10 +40,17 @@
 //! "paused", i.e. not the top entry. This should be impossible
 //! due to how the function call code is structured, but we
 //! guard against it anyway.
+//!
+//! On the `sys` backend, a plain store (one not used from
+//! coroutines) skips the stack: a call into it leaves its pointer
+//! in the slot of its objects (see [`SlotRef`]), where its host
+//! functions find it without consulting any thread-local state. The stack
+//! is still what [`StoreMut::parked`] and
+//! [`Store::with_current`](crate::Store::with_current) use.
 
 use std::{
     borrow::BorrowMut,
-    cell::{RefCell, UnsafeCell},
+    cell::{Cell, RefCell, UnsafeCell},
     mem::MaybeUninit,
     ptr::NonNull,
 };
@@ -109,6 +116,10 @@ pub(crate) struct StorePtrWrapper {
     /// The store's id, kept so that giving the borrow back does not have to
     /// read it through the pointer.
     id: StoreId,
+    /// Whether the borrow is counted in an entry of the context stack, which
+    /// dropping the wrapper gives it back to. A borrow taken from a store's
+    /// slot is not counted: see [`SlotRef`].
+    counted: bool,
 }
 
 #[cfg(feature = "experimental-async")]
@@ -147,6 +158,153 @@ pub(crate) enum StoreInstallGuard {
 
 thread_local! {
     static STORE_CONTEXT_STACK: RefCell<Vec<StoreContext>> = const { RefCell::new(Vec::new()) };
+
+    /// Whether the innermost call running on this thread is a call into a
+    /// plain store (see [`SlotRef`]), which has no entry on the context
+    /// stack: [`StoreContext::try_get_current_unborrowed`] must not lend out
+    /// the entry below it, as the call's host functions hold the borrow of
+    /// their own store. [`StoreMut::parked`] clears it for its closure.
+    static INSIDE_PLAIN_CALL: Cell<bool> = const { Cell::new(false) };
+}
+
+/// The bits of `StoreInner::context_mode`. A store with none of them set is
+/// a plain store, whose calls go through its slot (see [`SlotRef`]).
+#[cfg(feature = "sys")]
+pub(crate) mod context_mode {
+    /// The store lives in a `StoreAsync`, where `call_async` coroutines that
+    /// suspend and resume in any order share it.
+    pub(crate) const ASYNC: u8 = 1;
+    /// A `CoroutineStoreGuard` was made for the store, whose calls are then
+    /// switched between coroutines by hand. Never cleared.
+    pub(crate) const COTHREAD: u8 = 2;
+}
+
+/// Where the host functions of a plain store find the store while a call into
+/// it runs: a pointer to the slot of the [`StoreObjects`](crate::StoreObjects)
+/// they live in (see `wasmer_vm::StoreObjects::slot`).
+///
+/// A call into a plain store writes the pointer it derived from its caller's
+/// borrow into the slot of the store's objects and puts the previous value
+/// back when it returns, so the slot always holds the pointer of the innermost
+/// call into the store (null outside of any): a host function's borrow is a
+/// child of the borrow that called into the guest, as nested calls need (see
+/// [`StoreContext::install`] for why that matters). A store that is entered
+/// through the thread's context stack instead, because it is used from
+/// coroutines (see [`context_mode`]), leaves its slot null, and its host
+/// functions fall back to the stack.
+///
+/// The slot is a separate allocation that host functions keep a pointer to.
+/// Inside `StoreInner` it would be covered by the caller's borrow of the
+/// store, and reading it through a pointer kept elsewhere would be a foreign
+/// access to that borrow. It belongs to the objects, not to the store around
+/// them, because the objects, and the host functions in them, can be moved to
+/// another store (`objects_mut` hands them out): wherever they go, the slot
+/// goes with them, and a call into that store writes the slot its host
+/// functions read. The objects free it after the host functions, so it
+/// outlives them.
+#[cfg(feature = "sys")]
+#[derive(Clone, Copy)]
+pub(crate) struct SlotRef(NonNull<Cell<*mut StoreInner>>);
+
+#[cfg(feature = "sys")]
+impl SlotRef {
+    /// The slot of `objects`, which host functions made among them keep.
+    #[inline]
+    pub(crate) fn of(objects: &crate::StoreObjects) -> Self {
+        Self(objects.as_sys().slot().cast())
+    }
+
+    #[inline]
+    fn cell(&self) -> &Cell<*mut StoreInner> {
+        // SAFETY: valid for as long as the objects that own it, and with them
+        // the host functions that keep it, live; only `Cell`'s shared access
+        // is used.
+        unsafe { self.0.as_ref() }
+    }
+
+    /// The store of the innermost call into it, if one is running.
+    #[inline]
+    pub(crate) fn get(&self) -> Option<NonNull<StoreInner>> {
+        NonNull::new(self.cell().get())
+    }
+}
+
+/// What a call into a store undoes when it returns: see
+/// [`StoreContext::enter`].
+#[cfg(feature = "sys")]
+pub(crate) enum StoreEntryGuard {
+    /// The call wrote its pointer into the store's slot.
+    Slot {
+        slot: SlotRef,
+        /// The slot's value before the call.
+        saved: *mut StoreInner,
+        /// This thread's `INSIDE_PLAIN_CALL`, and its value before the call.
+        inside_plain_call: *const Cell<bool>,
+        saved_inside_plain_call: bool,
+    },
+    /// The call went through the context stack.
+    Stack(StoreInstallGuard),
+}
+
+#[cfg(feature = "sys")]
+impl StoreEntryGuard {
+    /// See [`StoreInstallGuard::pause`]. A call through the slot has no
+    /// borrow to pause: it is the slot's alone, and nobody counts it.
+    ///
+    /// # Safety
+    /// See [`StoreContext::pause`].
+    #[inline]
+    pub(crate) unsafe fn pause(&self) -> Option<StorePtrPauseGuard> {
+        match self {
+            Self::Slot { .. } => None,
+            Self::Stack(guard) => unsafe { guard.pause() },
+        }
+    }
+}
+
+#[cfg(feature = "sys")]
+impl Drop for StoreEntryGuard {
+    #[inline]
+    fn drop(&mut self) {
+        match self {
+            // Nothing here can panic: this runs while unwinding too, and puts
+            // the slot back for a host function further up that catches the
+            // panic.
+            Self::Slot {
+                slot,
+                saved,
+                inside_plain_call,
+                saved_inside_plain_call,
+            } => {
+                slot.cell().set(*saved);
+                // SAFETY: a thread-local of this thread (the guard is not
+                // `Send`), which has no destructor and so lives as long as it.
+                unsafe { (**inside_plain_call).set(*saved_inside_plain_call) };
+            }
+            // Dropped by its own `Drop`.
+            Self::Stack(_) => {}
+        }
+    }
+}
+
+/// Lifts `INSIDE_PLAIN_CALL` while a borrow is parked: the frames inside see
+/// the parked entry, which they may borrow.
+pub(crate) struct LendGuard {
+    saved: bool,
+}
+
+impl LendGuard {
+    pub(crate) fn new() -> Self {
+        Self {
+            saved: INSIDE_PLAIN_CALL.with(|cell| cell.replace(false)),
+        }
+    }
+}
+
+impl Drop for LendGuard {
+    fn drop(&mut self) {
+        let _ = INSIDE_PLAIN_CALL.try_with(|cell| cell.set(self.saved));
+    }
 }
 
 impl StoreContext {
@@ -206,12 +364,15 @@ impl StoreContext {
         });
     }
 
-    /// Returns true if there are no active store context entries.
+    /// Returns true if no call into a store is running on this thread: there
+    /// are no active store context entries, and no call into a plain store
+    /// (which has none) is innermost.
     pub(crate) fn is_empty() -> bool {
-        STORE_CONTEXT_STACK.with(|cell| {
-            let stack = cell.borrow();
-            stack.is_empty()
-        })
+        !INSIDE_PLAIN_CALL.with(Cell::get)
+            && STORE_CONTEXT_STACK.with(|cell| {
+                let stack = cell.borrow();
+                stack.is_empty()
+            })
     }
 
     /// The write guard ensures this is the only reference to the store,
@@ -279,6 +440,78 @@ impl StoreContext {
         };
         Self::push(guard.objects.id(), StoreContextEntry::new_async(guard));
         true
+    }
+
+    /// Makes `store_ptr` the store its host functions use until the returned
+    /// guard is dropped: what a call does before it enters the guest.
+    ///
+    /// A plain store gets the pointer in its slot (see [`SlotRef`]); a store
+    /// used from coroutines gets an entry on the context stack, as
+    /// [`Self::install`] describes.
+    ///
+    /// # Safety
+    /// See [`Self::install`].
+    #[cfg(feature = "sys")]
+    #[inline]
+    pub(crate) unsafe fn enter(store_ptr: *mut StoreInner) -> StoreEntryGuard {
+        // Read through the pointer without making a mutable reference of it:
+        // the host functions' borrows are derived from this very pointer.
+        if unsafe { (*store_ptr).context_mode } != 0 {
+            return StoreEntryGuard::Stack(unsafe { Self::install(store_ptr) });
+        }
+        // The slot of the objects the store holds now, where the host
+        // functions among them look.
+        let slot = SlotRef::of(unsafe { &(*store_ptr).objects });
+        let saved = slot.cell().replace(store_ptr);
+        let inside_plain_call = INSIDE_PLAIN_CALL.with(std::ptr::from_ref);
+        // SAFETY: this thread's, see `StoreEntryGuard::drop`.
+        let saved_inside_plain_call = unsafe { (*inside_plain_call).replace(true) };
+        StoreEntryGuard::Slot {
+            slot,
+            saved,
+            inside_plain_call,
+            saved_inside_plain_call,
+        }
+    }
+
+    /// The borrow a host function of the store `id` takes, whose slot is
+    /// `slot`: from the slot if a call into the store is running through it,
+    /// and from the context stack otherwise, as [`Self::get_current`] does.
+    ///
+    /// # Safety
+    /// See [`Self::get_current`].
+    #[cfg(feature = "sys")]
+    #[inline]
+    pub(crate) unsafe fn get_current_in(slot: SlotRef, id: StoreId) -> StorePtrWrapper {
+        match slot.get() {
+            Some(store_ptr) => {
+                debug_assert_eq!(
+                    unsafe { store_ptr.as_ref() }.objects.id(),
+                    id,
+                    "a store's slot holds another store"
+                );
+                StorePtrWrapper {
+                    store_ptr: store_ptr.as_ptr(),
+                    id,
+                    counted: false,
+                }
+            }
+            None => unsafe { Self::get_current(id) },
+        }
+    }
+
+    /// [`Self::get_current_transient`] for a host function of the store `id`,
+    /// whose slot is `slot`: see [`Self::get_current_in`].
+    ///
+    /// # Safety
+    /// See [`Self::get_current_transient`].
+    #[cfg(feature = "sys")]
+    #[inline]
+    pub(crate) unsafe fn get_current_transient_in(slot: SlotRef, id: StoreId) -> *mut StoreInner {
+        match slot.get() {
+            Some(store_ptr) => store_ptr.as_ptr(),
+            None => unsafe { Self::get_current_transient(id) },
+        }
     }
 
     /// Install `store_ptr` as this thread's executing store until the returned
@@ -391,7 +624,13 @@ impl StoreContext {
     /// ([`StoreMut::parked`]) installed an entry of its own, whose count is
     /// zero until somebody takes it — which is how an imported function lends
     /// its store to code it calls into.
+    ///
+    /// A call into a plain store has no entry: while it is the innermost call,
+    /// its host functions hold the borrow, and the answer is `None` too.
     pub(crate) fn try_get_current_unborrowed() -> Option<StorePtrWrapper> {
+        if INSIDE_PLAIN_CALL.with(Cell::get) {
+            return None;
+        }
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack.last_mut()?;
@@ -402,6 +641,7 @@ impl StoreContext {
             Some(StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
                 id: top.id,
+                counted: true,
             })
         })
     }
@@ -425,6 +665,7 @@ impl StoreContext {
             StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
                 id,
+                counted: true,
             }
         })
     }
@@ -457,6 +698,7 @@ impl StoreContext {
             Some(StorePtrWrapper {
                 store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
                 id: top.id,
+                counted: true,
             })
         })
     }
@@ -484,6 +726,7 @@ impl StoreContext {
                     GetStoreAsyncGuardResult::NotAsync(StorePtrWrapper {
                         store_ptr: *ptr,
                         id,
+                        counted: true,
                     })
                 }
             }
@@ -511,9 +754,16 @@ impl<'a> CoroutineStoreGuard<'a> {
     pub(crate) unsafe fn new(store: &'a mut StoreInner) -> Self {
         let store_id = store.objects.id();
         assert!(
-            !StoreContext::is_active(store_id) && !StoreContext::is_suspended(store_id),
+            !StoreContext::is_active(store_id)
+                && !StoreContext::is_suspended(store_id)
+                && SlotRef::of(&store.objects).get().is_none(),
             "store is already on the current thread's context stack (active or suspended)"
         );
+        // Calls into the store keep to the context stack from now on: the
+        // coroutines that run them are suspended and resumed in any order,
+        // which these guards follow by adding and removing entries, while
+        // calls through the slot would put back each other's values.
+        store.context_mode |= context_mode::COTHREAD;
         StoreContext::push_cothread(store_id, NonNull::from(store));
         Self {
             store_id,
@@ -534,18 +784,21 @@ impl Drop for CoroutineStoreGuard<'_> {
 
 impl StorePtrWrapper {
     /// The pointer this wrapper borrows the store through, which stays valid
-    /// after the wrapper is dropped for as long as the entry it came from is
-    /// the active one.
+    /// after the wrapper is dropped for as long as the entry, or the call
+    /// through the store's slot, it came from is the innermost one.
+    #[inline]
     pub(crate) fn as_ptr(&self) -> *mut StoreInner {
         self.store_ptr
     }
 
+    #[inline]
     pub(crate) fn as_ref(&self) -> StoreRef<'_> {
         // Safety: the store_mut is always initialized unless the StoreMutWrapper
         // is dropped, at which point it's impossible to call this function
         unsafe { self.store_ptr.as_ref().unwrap().as_store_ref() }
     }
 
+    #[inline]
     pub(crate) fn as_mut(&mut self) -> StoreMut<'_> {
         // Safety: the store_mut is always initialized unless the StoreMutWrapper
         // is dropped, at which point it's impossible to call this function
@@ -555,6 +808,9 @@ impl StorePtrWrapper {
 
 impl Clone for StorePtrWrapper {
     fn clone(&self) -> Self {
+        if !self.counted {
+            return Self { ..*self };
+        }
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack
@@ -568,6 +824,7 @@ impl Clone for StorePtrWrapper {
             Self {
                 store_ptr: self.store_ptr,
                 id: self.id,
+                counted: true,
             }
         })
     }
@@ -586,7 +843,17 @@ fn with_active_while_unwinding(f: impl FnOnce(&mut StoreContext)) {
 }
 
 impl Drop for StorePtrWrapper {
+    #[inline]
     fn drop(&mut self) {
+        if !self.counted {
+            return;
+        }
+        self.give_back();
+    }
+}
+
+impl StorePtrWrapper {
+    fn give_back(&mut self) {
         if std::thread::panicking() {
             // The borrow is given back while unwinding too, if its entry is
             // still the active one, because a paused borrow is restored then
@@ -774,6 +1041,24 @@ impl Drop for StorePtrPauseGuard {
     }
 }
 
+/// Writes through a borrow of a store, as a host function does. Tree Borrows
+/// reports the use of a borrow that another one invalidated only where the two
+/// conflict, which takes a write, so the tests below write through each borrow
+/// they hold rather than only read through it.
+#[cfg(test)]
+fn touch(store: &mut impl AsStoreMut) {
+    let objects = store.objects_mut();
+    let id = objects.id();
+    match objects {
+        #[cfg(feature = "sys")]
+        crate::StoreObjects::Sys(objects) => objects.set_id(id),
+        #[cfg(feature = "v8")]
+        crate::StoreObjects::V8(objects) => objects.set_id(id),
+        #[cfg(feature = "js")]
+        crate::StoreObjects::Js(objects) => objects.set_id(id),
+    }
+}
+
 #[cfg(test)]
 mod borrow_provenance {
     use super::*;
@@ -819,7 +1104,7 @@ mod borrow_provenance {
         // --- the import trampoline, handing the shim its store
         let mut wrapper = unsafe { StoreContext::get_current(id) };
         let mut shim = wrapper.as_mut();
-        let _ = shim.objects_mut().id();
+        touch(&mut shim);
 
         {
             // --- the shim calls back into the guest
@@ -831,7 +1116,7 @@ mod borrow_provenance {
             // --- the inner import trampoline
             let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
             let mut inner_shim = inner_wrapper.as_mut();
-            let _ = inner_shim.objects_mut().id();
+            touch(&mut inner_shim);
             drop(inner_wrapper);
 
             drop(pause);
@@ -839,7 +1124,7 @@ mod borrow_provenance {
         }
 
         // --- and goes on using the borrow it held throughout
-        let _ = shim.objects_mut().id();
+        touch(&mut shim);
 
         drop(wrapper);
         drop(install);
@@ -860,14 +1145,14 @@ mod borrow_provenance {
         let store_ptr = {
             let mut wrapper = unsafe { StoreContext::get_current(id) };
             let store_ptr = wrapper.as_ptr();
-            let _ = wrapper.as_mut().objects_mut().id();
+            touch(&mut wrapper.as_mut());
             store_ptr
         };
         // --- back on the Wasm stack
-        let _ = unsafe { store_ptr.as_mut().unwrap() }.objects_mut().id();
+        touch(unsafe { store_ptr.as_mut().unwrap() });
 
         drop(install);
-        let _ = caller.objects_mut().id();
+        touch(&mut caller);
     }
 
     /// The lending path, which is the nesting above with the inner entry
@@ -884,17 +1169,17 @@ mod borrow_provenance {
 
         let mut wrapper = unsafe { StoreContext::get_current(id) };
         let mut shim = wrapper.as_mut();
-        let _ = shim.objects_mut().id();
+        touch(&mut shim);
 
         shim.parked(|| {
             crate::Store::with_current(|lent| {
-                let _ = lent.objects_mut().id();
+                touch(lent);
             })
             .expect("a parked store is lendable");
         });
 
         // The lender goes back to the borrow it held throughout.
-        let _ = shim.objects_mut().id();
+        touch(&mut shim);
 
         drop(wrapper);
         drop(install);
@@ -914,22 +1199,411 @@ mod borrow_provenance {
 
         let mut wrapper = unsafe { StoreContext::get_current(id) };
         let mut shim = wrapper.as_mut();
-        let _ = shim.objects_mut().id();
+        touch(&mut shim);
 
         let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let inner_install =
                 unsafe { StoreContext::install(shim.as_store_mut().inner as *mut _) };
             let _pause = unsafe { inner_install.pause() };
             let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
-            let _ = inner_wrapper.as_mut().objects_mut().id();
+            touch(&mut inner_wrapper.as_mut());
             panic!("host function panicked");
         }));
         assert!(caught.is_err());
 
-        let _ = shim.objects_mut().id();
+        touch(&mut shim);
 
         drop(wrapper);
         drop(install);
+    }
+}
+
+/// The tests of [`borrow_provenance`], for a plain store, whose calls go
+/// through its slot (see [`SlotRef`]) rather than the context stack. Each
+/// replays what `Function::call` ([`StoreContext::enter`]) and an import
+/// trampoline ([`StoreContext::get_current_in`]) do, in the order they do it,
+/// and writes through every borrow it holds, so that both Stacked and Tree
+/// Borrows report a nested call that does not write its own pointer:
+///
+/// ```text
+/// cargo +nightly miri test -p wasmer --lib --no-default-features \
+///     --features sys,headless,experimental-async -- borrow_provenance
+/// ```
+#[cfg(all(test, feature = "sys"))]
+mod borrow_provenance_slot {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    use super::*;
+    use crate::{AsStoreMut, Function, Store};
+
+    fn slot_of(store: &Store) -> SlotRef {
+        SlotRef::of(&store.inner.objects)
+    }
+
+    fn enter(store: &mut StoreMut<'_>) -> StoreEntryGuard {
+        let guard = unsafe { StoreContext::enter(store.as_store_mut().inner as *mut _) };
+        assert!(
+            matches!(guard, StoreEntryGuard::Slot { .. }),
+            "a plain store is entered through its slot"
+        );
+        guard
+    }
+
+    /// `Function::call(&mut store)` -> import -> the host function calls the
+    /// guest again with its own borrow -> import; then the host function goes
+    /// on with the borrow it held throughout. If the nested call did not write
+    /// its own pointer into the slot, the inner import's borrow would be a
+    /// sibling of the host function's, and Miri would report its last use.
+    #[test]
+    fn nested_call_keeps_the_outer_borrow_usable() {
+        let mut store = Store::default();
+        let id = store.id();
+        let slot = slot_of(&store);
+
+        let mut caller = store.as_store_mut();
+        let entry = enter(&mut caller);
+        assert!(!StoreContext::is_empty(), "a call is running");
+        assert!(unsafe { entry.pause() }.is_none(), "nothing to pause");
+
+        // --- the import trampoline, handing the host function its store
+        let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+        let mut shim = wrapper.as_mut();
+        touch(&mut shim);
+
+        {
+            // --- the host function calls back into the guest
+            let inner_entry = enter(&mut shim);
+
+            // --- the inner import trampoline
+            let mut inner_wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+            touch(&mut inner_wrapper.as_mut());
+            drop(inner_wrapper);
+
+            drop(inner_entry);
+        }
+
+        // --- and goes on using the borrow it held throughout
+        touch(&mut shim);
+        assert_eq!(
+            slot.get().map(NonNull::as_ptr),
+            Some(wrapper.as_ptr()),
+            "the nested call put the outer pointer back"
+        );
+
+        drop(wrapper);
+        drop(entry);
+        assert!(slot.get().is_none(), "no call is running");
+        assert!(StoreContext::is_empty());
+        touch(&mut caller);
+    }
+
+    /// An import trampoline finishes on the Wasm stack with the pointer it
+    /// borrowed the store through; then the caller goes on with its own
+    /// borrow.
+    #[test]
+    fn an_import_finishes_with_the_pointer_it_borrowed_through() {
+        let mut store = Store::default();
+        let id = store.id();
+        let slot = slot_of(&store);
+
+        let mut caller = store.as_store_mut();
+        let entry = enter(&mut caller);
+
+        // --- the import trampoline, on the host stack
+        let store_ptr = {
+            let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+            let store_ptr = wrapper.as_ptr();
+            touch(&mut wrapper.as_mut());
+            store_ptr
+        };
+        // --- back on the Wasm stack
+        touch(unsafe { store_ptr.as_mut().unwrap() });
+        assert_eq!(
+            unsafe { StoreContext::get_current_transient_in(slot, id) },
+            store_ptr
+        );
+
+        drop(entry);
+        touch(&mut caller);
+    }
+
+    /// Lending inside a call through the slot: the store is not lendable
+    /// while the host function holds it, even with an outer park on the
+    /// stack; parked, it is, and a call made with the lent store nests under
+    /// the lender's borrow.
+    #[test]
+    fn a_lend_keeps_the_lending_borrow_usable() {
+        let mut other = Store::default();
+        let mut store = Store::default();
+        let id = store.id();
+        let slot = slot_of(&store);
+
+        // An outer park of another store, which a call into this one hides.
+        other.as_store_mut().parked(|| {
+            assert!(crate::Store::with_current(|_| ()).is_some());
+
+            let mut caller = store.as_store_mut();
+            let entry = enter(&mut caller);
+
+            let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+            let mut shim = wrapper.as_mut();
+            touch(&mut shim);
+            assert!(
+                crate::Store::with_current(|_| ()).is_none(),
+                "the host function holds its store; the outer park is hidden"
+            );
+
+            shim.parked(|| {
+                crate::Store::with_current(|lent| {
+                    assert_eq!(lent.objects_mut().id(), id, "the parked store is lent");
+                    // --- the lent store calls into the guest
+                    let inner_entry = enter(lent);
+                    let mut inner_wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+                    touch(&mut inner_wrapper.as_mut());
+                    assert!(crate::Store::with_current(|_| ()).is_none());
+                    drop(inner_wrapper);
+                    drop(inner_entry);
+                    touch(lent);
+                })
+                .expect("a parked store is lendable");
+            });
+
+            // The lender goes back to the borrow it held throughout.
+            touch(&mut shim);
+            assert!(crate::Store::with_current(|_| ()).is_none());
+
+            drop(wrapper);
+            drop(entry);
+            touch(&mut caller);
+            assert!(
+                crate::Store::with_current(|_| ()).is_some(),
+                "the outer park is visible again"
+            );
+        });
+    }
+
+    /// A host function that catches a panic from the guest it called goes on
+    /// with the borrow it held throughout: the nested call's guard, dropped
+    /// while unwinding, put the slot back.
+    #[test]
+    fn a_caught_panic_keeps_the_outer_borrow_usable() {
+        let mut store = Store::default();
+        let id = store.id();
+        let slot = slot_of(&store);
+
+        let mut caller = store.as_store_mut();
+        let entry = enter(&mut caller);
+
+        let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+        let mut shim = wrapper.as_mut();
+        touch(&mut shim);
+
+        let caught = catch_unwind(AssertUnwindSafe(|| {
+            let _inner_entry = enter(&mut shim);
+            let mut inner_wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+            touch(&mut inner_wrapper.as_mut());
+            panic!("host function panicked");
+        }));
+        assert!(caught.is_err());
+
+        touch(&mut shim);
+        assert_eq!(slot.get().map(NonNull::as_ptr), Some(wrapper.as_ptr()));
+        assert!(crate::Store::with_current(|_| ()).is_none());
+
+        drop(wrapper);
+        drop(entry);
+        assert!(slot.get().is_none());
+        assert!(StoreContext::is_empty());
+    }
+
+    /// A host function of one store calls into another: each store's slot
+    /// holds its own call's pointer, and the first host function's borrow
+    /// stays usable.
+    #[test]
+    fn a_second_store_entered_from_an_import() {
+        let mut first = Store::default();
+        let mut second = Store::default();
+        let (first_id, second_id) = (first.id(), second.id());
+        let (first_slot, second_slot) = (slot_of(&first), slot_of(&second));
+
+        let mut caller = first.as_store_mut();
+        let entry = enter(&mut caller);
+        let mut wrapper = unsafe { StoreContext::get_current_in(first_slot, first_id) };
+        let mut shim = wrapper.as_mut();
+        touch(&mut shim);
+
+        {
+            // --- the host function calls into the second store
+            let mut second_caller = second.as_store_mut();
+            let second_entry = enter(&mut second_caller);
+            let mut second_wrapper =
+                unsafe { StoreContext::get_current_in(second_slot, second_id) };
+            touch(&mut second_wrapper.as_mut());
+            // --- whose host function calls back into the first, nested
+            let inner_entry = enter(&mut shim);
+            let mut inner_wrapper = unsafe { StoreContext::get_current_in(first_slot, first_id) };
+            touch(&mut inner_wrapper.as_mut());
+            drop(inner_wrapper);
+            drop(inner_entry);
+            touch(&mut second_wrapper.as_mut());
+            drop(second_wrapper);
+            drop(second_entry);
+            assert!(second_slot.get().is_none());
+            touch(&mut second_caller);
+        }
+
+        touch(&mut shim);
+        drop(wrapper);
+        drop(entry);
+        assert!(first_slot.get().is_none());
+        touch(&mut caller);
+    }
+
+    /// A store's slot lives and dies with it: host functions keep a pointer
+    /// to it, which a store made later, possibly at the same address, does
+    /// not share.
+    #[test]
+    fn a_store_made_again_has_a_slot_of_its_own() {
+        let mut store = Store::default();
+        let _host = Function::new_typed(&mut store, || {});
+        {
+            let mut caller = store.as_store_mut();
+            let _entry = enter(&mut caller);
+        }
+        drop(store);
+
+        for _ in 0..4 {
+            let mut store = Store::default();
+            let id = store.id();
+            let slot = slot_of(&store);
+            // The old store's slot was freed with it, after its host
+            // function; Miri reports a use of it, or a leak.
+            let _host = Function::new_typed(&mut store, || {});
+            let mut caller = store.as_store_mut();
+            let entry = enter(&mut caller);
+            let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+            touch(&mut wrapper.as_mut());
+            drop(wrapper);
+            drop(entry);
+            assert!(slot.get().is_none());
+        }
+    }
+
+    /// The objects of a store, and the host functions among them, can be
+    /// moved to another store; their slot goes with them, so that a call into
+    /// the other store writes the slot its host functions read, and the store
+    /// they were made in can be dropped.
+    #[test]
+    fn objects_moved_to_another_store_take_their_slot() {
+        let mut first = Store::default();
+        let mut second = Store::default();
+        let _host = Function::new_typed(&mut first, || {});
+        let id = first.id();
+        let slot = slot_of(&first);
+        std::mem::swap(first.objects_mut(), second.objects_mut());
+        assert_eq!(slot_of(&second).0, slot.0);
+        drop(first);
+
+        let mut caller = second.as_store_mut();
+        let entry = enter(&mut caller);
+        let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+        assert_eq!(wrapper.as_ptr(), caller.inner as *mut StoreInner);
+        touch(&mut wrapper.as_mut());
+        drop(wrapper);
+        drop(entry);
+        assert!(slot.get().is_none());
+        touch(&mut caller);
+    }
+
+    /// `Module::instantiate` builds the instance through a borrow of the
+    /// store's objects, then runs the start function, whose imports borrow
+    /// the store through the pointer the call entered with, and on a trap
+    /// borrows the objects again to keep the instance. The pointer is taken
+    /// after the first borrow of the objects ends: taken before it, as it once
+    /// was, it is invalidated by that borrow, and Miri reports the import.
+    #[test]
+    fn instantiation_enters_after_it_built_the_instance() {
+        let mut store = Store::default();
+        let id = store.id();
+        let slot = slot_of(&store);
+        let mut store_mut = store.as_store_mut();
+
+        // --- the instance is built
+        let (_engine, objects) = store_mut.engine_and_objects_mut();
+        let id_of_objects = objects.id();
+        objects.as_sys_mut().set_id(id_of_objects);
+
+        // --- the start function runs
+        let store_ptr = store_mut.inner as *mut StoreInner;
+        let entry = unsafe { StoreContext::enter(store_ptr) };
+        let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+        touch(&mut wrapper.as_mut());
+        drop(wrapper);
+
+        // --- and traps: the instance is kept
+        drop(entry);
+        touch(&mut store_mut);
+    }
+
+    /// A store used from coroutines keeps to the context stack, and its host
+    /// functions find it there.
+    #[cfg(feature = "experimental-async")]
+    #[test]
+    fn an_async_store_is_entered_through_the_stack() {
+        let store = Store::default().into_async();
+        let id = store.id;
+        let mut write = store.inner.try_write().unwrap();
+        let slot = SlotRef::of(&write.objects);
+        let entry = unsafe { StoreContext::enter(&raw mut **write) };
+        assert!(matches!(entry, StoreEntryGuard::Stack(_)));
+        assert!(slot.get().is_none());
+        let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+        assert!(wrapper.counted);
+        touch(&mut wrapper.as_mut());
+        drop(wrapper);
+        drop(entry);
+        drop(write);
+        let mut store = store.into_store().unwrap();
+        let mut caller = store.as_store_mut();
+        drop(enter(&mut caller));
+    }
+}
+
+/// A store switched between coroutines by hand keeps to the context stack.
+#[cfg(all(test, feature = "unsafe-cothread"))]
+mod cothread {
+    use super::*;
+    use crate::Store;
+
+    #[test]
+    fn a_store_with_a_coroutine_guard_is_entered_through_the_stack() {
+        let mut store = Store::default();
+        let id = store.id();
+        let slot = SlotRef::of(&store.inner.objects);
+        drop(unsafe { store.coroutine_store_guard() });
+
+        let mut caller = store.as_store_mut();
+        let entry = unsafe { StoreContext::enter(caller.as_store_mut().inner as *mut _) };
+        assert!(matches!(entry, StoreEntryGuard::Stack(_)));
+        assert!(slot.get().is_none());
+        let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+        assert!(wrapper.counted);
+        let _ = wrapper.as_mut().objects_mut().id();
+        drop(wrapper);
+        drop(entry);
+        assert!(StoreContext::is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "already on the current thread's context stack")]
+    fn a_coroutine_guard_is_refused_while_a_call_runs_through_the_slot() {
+        let mut store = Store::default();
+        let id = store.id();
+        let slot = SlotRef::of(&store.inner.objects);
+        let mut caller = store.as_store_mut();
+        let _entry = unsafe { StoreContext::enter(caller.as_store_mut().inner as *mut _) };
+        let mut wrapper = unsafe { StoreContext::get_current_in(slot, id) };
+        let _guard = unsafe { CoroutineStoreGuard::new(wrapper.as_mut().inner) };
     }
 }
 

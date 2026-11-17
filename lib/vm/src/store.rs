@@ -3,8 +3,37 @@ use crate::{
     VMTable, VMTag,
 };
 use core::slice::Iter;
-use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
+use std::{
+    cell::{Cell, UnsafeCell},
+    fmt,
+    marker::PhantomData,
+    num::NonZeroUsize,
+    ptr::NonNull,
+};
 use wasmer_types::StoreId;
+
+/// The cell behind [`StoreObjects::slot`].
+struct StoreSlot(NonNull<Cell<*mut u8>>);
+
+impl Default for StoreSlot {
+    fn default() -> Self {
+        let cell: &mut Cell<*mut u8> = Box::leak(Box::new(Cell::new(std::ptr::null_mut())));
+        Self(NonNull::from(cell))
+    }
+}
+
+impl Drop for StoreSlot {
+    fn drop(&mut self) {
+        // SAFETY: leaked from a box by `default`, and freed only here.
+        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+    }
+}
+
+impl fmt::Debug for StoreSlot {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("StoreSlot").field(&self.0).finish()
+    }
+}
 
 /// Trait to represent an object managed by a context. This is implemented on
 /// the VM types managed by the context.
@@ -56,6 +85,8 @@ pub struct StoreObjects {
     exceptions: Vec<VMExceptionObj>,
     tags: Vec<VMTag>,
     function_environments: Vec<VMFunctionEnvironment>,
+    /// Last, so that it outlives every object above.
+    slot: StoreSlot,
 }
 
 impl StoreObjects {
@@ -84,7 +115,22 @@ impl StoreObjects {
             function_environments,
             exceptions,
             tags,
+            slot: StoreSlot::default(),
         }
+    }
+
+    /// A pointer-sized cell in a heap allocation of its own, owned by these
+    /// objects and freed with them, after every object in them.
+    ///
+    /// The embedder uses it to hand its store to the host functions among the
+    /// objects while a call into the store runs. It belongs to the objects
+    /// rather than to the store around them, so that it goes wherever the
+    /// objects go, together with the host functions that keep a pointer to
+    /// it. Being a separate allocation, it is not covered by borrows of the
+    /// objects.
+    #[inline]
+    pub fn slot(&self) -> NonNull<Cell<*mut u8>> {
+        self.slot.0
     }
 
     /// Returns the ID of this context.

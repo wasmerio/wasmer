@@ -10,7 +10,7 @@ use wasmer_types::{
 };
 #[cfg(feature = "experimental-host-interrupt")]
 use wasmer_vm::interrupt_registry;
-use wasmer_vm::{Trap, TrapCode};
+use wasmer_vm::{Trap, TrapCode, VMConfig};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendModule, IntoBytes, StoreContext,
@@ -185,9 +185,10 @@ impl Module {
         }
         let signal_handler = store.as_store_ref().signal_handler();
         let mut store_mut = store.as_store_mut();
-        let store_ptr = store_mut.inner as *mut _;
         let (engine, objects) = store_mut.engine_and_objects_mut();
-        let config = engine.tunables().vmconfig();
+        let config = VMConfig {
+            wasm_stack_size: engine.tunables().vmconfig().wasm_stack_size,
+        };
         unsafe {
             let mut instance_handle = self.artifact.instantiate(
                 engine.tunables(),
@@ -197,8 +198,12 @@ impl Module {
                     .collect::<Vec<_>>(),
                 objects.as_sys_mut(),
             )?;
-
             let store_id = objects.id();
+            // The pointer the start function's imports borrow the store
+            // through is taken only now that the borrow of the objects above
+            // has ended: a pointer taken before it would not survive that
+            // borrow's uses.
+            let store_ptr = store_mut.inner as *mut _;
             #[cfg(feature = "experimental-host-interrupt")]
             let interrupt_guard = match interrupt_registry::install(store_id) {
                 Ok(x) => x,
@@ -209,7 +214,7 @@ impl Module {
                 }
             };
 
-            let store_install_guard = StoreContext::install(store_ptr);
+            let store_install_guard = StoreContext::enter(store_ptr);
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
@@ -218,11 +223,12 @@ impl Module {
             // instance tables.
             if let Err(err) =
                 self.artifact
-                    .finish_instantiation(config, signal_handler, &mut instance_handle)
+                    .finish_instantiation(&config, signal_handler, &mut instance_handle)
             {
+                drop(store_install_guard);
                 // Keep the partially initialized instance alive: its funcrefs may already
                 // have been written into imported tables.
-                let _ = StoreHandle::new(objects.as_sys_mut(), instance_handle);
+                let _ = StoreHandle::new(store_mut.objects_mut().as_sys_mut(), instance_handle);
                 return Err(err.into());
             }
 

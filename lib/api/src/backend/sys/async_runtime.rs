@@ -672,7 +672,9 @@ impl CoroutineContext {
     }
 }
 
-fn run_immediate(mut future: HostFuture) -> Result<Vec<Value>, AsyncRuntimeError> {
+/// Runs a host future that must not suspend: polls it once, and fails if it
+/// is pending.
+pub(crate) fn run_immediate(mut future: HostFuture) -> Result<Vec<Value>, AsyncRuntimeError> {
     let waker = futures::task::noop_waker();
     let mut cx = Context::from_waker(&waker);
     match future.as_mut().poll(&mut cx) {
