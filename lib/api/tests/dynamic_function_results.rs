@@ -40,6 +40,25 @@ fn a_dynamic_function_returns_what_its_type_says() {
     }
 }
 
+#[test]
+fn a_dynamic_function_can_return_many_function_references() {
+    let mut store = Store::default();
+    let target = Function::new_typed(&mut store, || 42i32);
+    let args = [Value::FuncRef(Some(target))];
+    for count in [2, 9] {
+        let signature = FunctionType::new([Type::FuncRef], vec![Type::FuncRef; count]);
+        let repeat = Function::new(&mut store, signature, move |args| {
+            Ok(vec![args[0].clone(); count])
+        });
+        let results = repeat.call(&mut store, &args).unwrap();
+        assert_eq!(results.len(), count);
+        for result in &results {
+            let f = result.unwrap_funcref().as_ref().unwrap();
+            assert_eq!(f.call(&mut store, &[]).unwrap()[0], Value::I32(42));
+        }
+    }
+}
+
 #[cfg(feature = "experimental-async")]
 #[test]
 fn an_async_dynamic_function_returns_what_its_type_says() {

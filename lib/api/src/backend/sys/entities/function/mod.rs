@@ -460,141 +460,14 @@ impl Function {
     }
 
     pub(crate) fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
-        self.handle
+        self.signature(store).clone()
+    }
+
+    fn signature<'a>(&self, store: &'a impl AsStoreRef) -> &'a FunctionType {
+        &self
+            .handle
             .get(store.as_store_ref().objects().as_sys())
             .signature
-            .clone()
-    }
-
-    fn call_wasm(
-        &self,
-        store: &mut impl AsStoreMut,
-        wrapper: Option<&mut dyn CallWrapper>,
-        trampoline: VMTrampoline,
-        params: &[Value],
-        results: &mut [Value],
-    ) -> Result<(), RuntimeError> {
-        let format_types_for_error_message = |items: &[Value]| {
-            items
-                .iter()
-                .map(|param| param.ty().to_string())
-                .collect::<Vec<String>>()
-                .join(", ")
-        };
-        // TODO: Avoid cloning the signature here, it's expensive.
-        let signature = self.ty(store);
-        if signature.params().len() != params.len() {
-            return Err(RuntimeError::new(format!(
-                "Parameters of type [{}] did not match signature {}",
-                format_types_for_error_message(params),
-                signature
-            )));
-        }
-        if signature.results().len() != results.len() {
-            return Err(RuntimeError::new(format!(
-                "Results of type [{}] did not match signature {}",
-                format_types_for_error_message(results),
-                signature,
-            )));
-        }
-
-        let mut values_vec = vec![RawValue { i32: 0 }; max(params.len(), results.len())];
-
-        // Store the argument values into `values_vec`.
-        let param_tys = signature.params().iter();
-        for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
-            if arg.ty() != *ty {
-                let param_types = format_types_for_error_message(params);
-                return Err(RuntimeError::new(format!(
-                    "Parameters of type [{param_types}] did not match signature {signature}",
-                )));
-            }
-            if !arg.is_from_store(store) {
-                return Err(RuntimeError::new("cross-`Store` values are not supported"));
-            }
-            *slot = arg.as_raw(store);
-        }
-
-        // Invoke the call
-        self.call_wasm_raw(store, wrapper, trampoline, values_vec, results)?;
-        Ok(())
-    }
-
-    fn call_wasm_raw(
-        &self,
-        store: &mut impl AsStoreMut,
-        wrapper: Option<&mut dyn CallWrapper>,
-        trampoline: VMTrampoline,
-        mut params: Vec<RawValue>,
-        results: &mut [Value],
-    ) -> Result<(), RuntimeError> {
-        // Call the trampoline.
-        let result = {
-            let store_id = store.objects_mut().id();
-
-            #[cfg(feature = "experimental-host-interrupt")]
-            let interrupt_guard = match interrupt_registry::install(store_id) {
-                Ok(x) => x,
-                Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                    return Err(Trap::lib(TrapCode::HostInterrupt).into());
-                }
-            };
-
-            // The trampoline writes the results over the arguments, so a
-            // wrapper that enters again gets them restored first.
-            let original_params = wrapper.is_some().then(|| params.clone());
-
-            let r = call_wrapped(store, wrapper, |store| {
-                if let Some(original_params) = &original_params {
-                    params.copy_from_slice(original_params);
-                }
-                // Safety: the store context is uninstalled before this entry
-                // returns, and the store mut is valid for its duration. It is
-                // installed only while Wasm runs: the wrapper holds the store
-                // between entries, so it must not be lendable then.
-                let _store_install_guard =
-                    unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
-                let storeref = store.as_store_ref();
-                let vm_function = self.handle.get(storeref.objects().as_sys());
-                let config = storeref.engine().tunables().vmconfig();
-                let signal_handler = storeref.signal_handler();
-                unsafe {
-                    // Safety: This is the intended use-case for StoreContext::pause, as
-                    // documented in the function's doc comments.
-                    let _pause_guard = StoreContext::pause(store_id);
-                    wasmer_call_trampoline(
-                        signal_handler,
-                        config,
-                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
-                        trampoline,
-                        vm_function.anyfunc.as_ptr().as_ref().func_ptr,
-                        params.as_mut_ptr() as *mut u8,
-                    )
-                }
-                .map_err(RuntimeError::from)
-            });
-
-            #[cfg(feature = "experimental-host-interrupt")]
-            drop(interrupt_guard);
-
-            r
-        };
-
-        result?;
-
-        // Load the return values out of `values_vec`.
-        let signature = self.ty(store);
-        for (index, &value_type) in signature.results().iter().enumerate() {
-            unsafe {
-                results[index] = Value::from_raw(store, value_type, params[index]);
-            }
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn result_arity(&self, store: &impl AsStoreRef) -> usize {
-        self.ty(store).results().len()
     }
 
     pub(crate) fn call(
@@ -611,17 +484,133 @@ impl Function {
         wrapper: Option<&mut dyn CallWrapper>,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
-        let trampoline = unsafe {
-            self.handle
-                .get(store.objects_mut().as_sys())
-                .anyfunc
-                .as_ptr()
-                .as_ref()
-                .call_trampoline
+        let store_ref = store.as_store_ref();
+        let signature = self.signature(&store_ref);
+        let wrong_params = || {
+            let types = params
+                .iter()
+                .map(|param| param.ty().to_string())
+                .collect::<Vec<String>>()
+                .join(", ");
+            RuntimeError::new(format!(
+                "Parameters of type [{types}] did not match signature {signature}"
+            ))
         };
-        let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm(store, wrapper, trampoline, params, &mut results)?;
-        Ok(results.into_boxed_slice())
+        if signature.params().len() != params.len() {
+            return Err(wrong_params());
+        }
+
+        let num_results = signature.results().len();
+        let num_slots = max(params.len(), num_results);
+        let mut inline = [RawValue { i32: 0 }; 8];
+        let mut heap;
+        let slots = if let Some(slots) = inline.get_mut(..num_slots) {
+            slots
+        } else {
+            heap = vec![RawValue { i32: 0 }; num_slots];
+            &mut heap
+        };
+        for ((arg, ty), slot) in params.iter().zip(signature.params()).zip(slots.iter_mut()) {
+            if arg.ty() != *ty {
+                return Err(wrong_params());
+            }
+            if !arg.is_from_store(&store_ref) {
+                return Err(RuntimeError::new("cross-`Store` values are not supported"));
+            }
+            *slot = arg.as_raw(&store_ref);
+        }
+
+        self.call_wasm_raw(store, wrapper, slots, num_results)
+    }
+
+    fn call_wasm_raw(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
+        params: &mut [RawValue],
+        num_results: usize,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        self.invoke_wasm(store, wrapper, params)?;
+
+        let mut store = store.as_store_mut();
+        Ok(params[..num_results]
+            .iter()
+            .enumerate()
+            .map(|(i, &raw)| {
+                // A funcref result can add a function to the store and move its functions.
+                let ty = self.signature(&store).results()[i];
+                unsafe { Value::from_raw(&mut store, ty, raw) }
+            })
+            .collect())
+    }
+
+    #[inline]
+    fn invoke_wasm(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
+        params: &mut [RawValue],
+    ) -> Result<(), RuntimeError> {
+        #[cfg(feature = "experimental-host-interrupt")]
+        let interrupt_guard = match interrupt_registry::install(store.objects_mut().id()) {
+            Ok(x) => x,
+            Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
+                return Err(Trap::lib(TrapCode::HostInterrupt).into());
+            }
+        };
+
+        let result = if let Some(wrapper) = wrapper {
+            // A wrapper can invoke again after the trampoline overwrites its arguments.
+            let original = params.to_vec();
+            call_wrapped(store, Some(wrapper), |store| {
+                params.copy_from_slice(&original);
+                self.invoke_trampoline(store, params)
+            })
+        } else {
+            self.invoke_trampoline(store, params)
+        };
+
+        #[cfg(feature = "experimental-host-interrupt")]
+        drop(interrupt_guard);
+
+        result
+    }
+
+    #[inline]
+    fn invoke_trampoline(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &mut [RawValue],
+    ) -> Result<(), RuntimeError> {
+        // Tunables are supplied by the embedder. Finish reading them before lending
+        // the store to the guest, and take a fresh snapshot on every wrapper entry.
+        let config = wasmer_vm::VMConfig {
+            wasm_stack_size: store
+                .as_store_ref()
+                .engine()
+                .tunables()
+                .vmconfig()
+                .wasm_stack_size,
+        };
+        let store = store.as_store_mut();
+        let store_ref = store.as_store_ref();
+        let signal_handler = store_ref.signal_handler();
+        let vm_function = self.handle.get(store_ref.objects().as_sys());
+        let anyfunc = unsafe { *vm_function.anyfunc.as_ptr().as_ref() };
+
+        // The trampoline is the only code that runs while this borrow is lent.
+        unsafe {
+            let _context = StoreContext::enter_guest(store.inner as *mut _);
+            wasmer_call_trampoline(
+                signal_handler,
+                &config,
+                anyfunc.vmctx,
+                anyfunc.call_trampoline,
+                anyfunc.func_ptr,
+                params.as_mut_ptr().cast(),
+            )
+        }
+        .map_err(RuntimeError::from)
     }
 
     #[cfg(feature = "experimental-async")]
@@ -641,19 +630,12 @@ impl Function {
     pub(crate) fn call_raw(
         &self,
         store: &mut impl AsStoreMut,
-        params: Vec<RawValue>,
+        mut params: Vec<RawValue>,
     ) -> Result<Box<[Value]>, RuntimeError> {
-        let trampoline = unsafe {
-            self.handle
-                .get(store.objects_mut().as_sys())
-                .anyfunc
-                .as_ptr()
-                .as_ref()
-                .call_trampoline
-        };
-        let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm_raw(store, None, trampoline, params, &mut results)?;
-        Ok(results.into_boxed_slice())
+        let signature = self.signature(store);
+        let num_results = signature.results().len();
+        let num_slots = max(signature.params().len(), num_results);
+        self.call_wasm_raw(store, None, &mut params[..num_slots], num_results)
     }
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {

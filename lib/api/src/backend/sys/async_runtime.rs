@@ -1,8 +1,3 @@
-#[cfg(feature = "experimental-host-interrupt")]
-use std::{
-    collections::HashMap,
-    sync::{LazyLock, atomic::AtomicU64},
-};
 use std::{
     cell::{Cell, RefCell},
     future::Future,
@@ -11,6 +6,11 @@ use std::{
     ptr,
     rc::Rc,
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+};
+#[cfg(feature = "experimental-host-interrupt")]
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, atomic::AtomicU64},
 };
 
 use corosensei::{Coroutine, CoroutineResult, Yielder, stack::DefaultStack};
@@ -28,14 +28,14 @@ use wasmer_vm::ActivationState;
 
 pub(crate) type HostFuture =
     Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + 'static>>;
-type CallResult = Result<Box<[Value]>, RuntimeError>;
+type CallResult<T = Box<[Value]>> = Result<T, RuntimeError>;
 
 pub(crate) fn call_function_async(
     function: SysFunction,
     store: StoreAsync,
     params: Vec<Value>,
-) -> AsyncCallFuture {
-    AsyncCallFuture::new(function, store, params)
+) -> AsyncCallFuture<Box<[Value]>> {
+    AsyncCallFuture::new(store, move |store| function.call(store, &params))
 }
 
 /// Why a coroutine suspended. See [`CoroutineContext::block_on_future`].
@@ -71,15 +71,15 @@ static ASYNC_CALL_FUTURE_WAKERS: LazyLock<DashMap<StoreId, HashMap<AsyncCallFutu
     LazyLock::new(DashMap::new);
 
 #[allow(clippy::type_complexity)]
-pub(crate) struct AsyncCallFuture {
+pub(crate) struct AsyncCallFuture<T> {
     #[cfg(feature = "experimental-host-interrupt")]
     id: AsyncCallFutureId,
 
-    coroutine: Option<Coroutine<AsyncResume, AsyncYield, CallResult>>,
+    coroutine: Option<Coroutine<AsyncResume, AsyncYield, CallResult<T>>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
-    result: Option<CallResult>,
+    result: Option<CallResult<T>>,
 
     // Store handle we can use to lock the store down
     store: StoreAsync,
@@ -172,7 +172,7 @@ impl Activation {
 // through the store context. HOWEVER, references returned from this struct
 // CAN NOT BE HELD ACROSS A YIELD POINT. We don't do this anywhere in the
 // `Function::call` code.
-struct AsyncCallStoreMut {
+pub(crate) struct AsyncCallStoreMut {
     store_id: StoreId,
 }
 
@@ -218,8 +218,14 @@ impl AsStoreMut for AsyncCallStoreMut {
     }
 }
 
-impl AsyncCallFuture {
-    pub(crate) fn new(function: SysFunction, store: StoreAsync, params: Vec<Value>) -> Self {
+impl<T> AsyncCallFuture<T> {
+    pub(crate) fn new(
+        store: StoreAsync,
+        call: impl FnOnce(&mut AsyncCallStoreMut) -> CallResult<T> + 'static,
+    ) -> Self
+    where
+        T: 'static,
+    {
         let store_id = store.id;
         let coroutine = Coroutine::with_stack(
             take_stack(),
@@ -229,7 +235,7 @@ impl AsyncCallFuture {
                 let ctx_state = CoroutineContext { yielder, store_id };
                 CURRENT_COROUTINE.with(|cell| cell.set(&ctx_state));
                 let mut store_mut = AsyncCallStoreMut { store_id };
-                function.call(&mut store_mut, &params)
+                call(&mut store_mut)
             },
         );
 
@@ -260,7 +266,7 @@ impl AsyncCallFuture {
     fn switch_to_coroutine(
         &mut self,
         resume: Option<(AsyncResume, &mut Context<'_>)>,
-    ) -> Option<CoroutineResult<AsyncYield, CallResult>> {
+    ) -> Option<CoroutineResult<AsyncYield, CallResult<T>>> {
         struct SwitchBack<'a> {
             activation: &'a mut Activation,
             /// [`POLL_CONTEXT`] of the stack the thread switched from.
@@ -326,8 +332,8 @@ impl AsyncCallFuture {
     }
 }
 
-impl Future for AsyncCallFuture {
-    type Output = Result<Box<[Value]>, RuntimeError>;
+impl<T: Unpin> Future for AsyncCallFuture<T> {
+    type Output = CallResult<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Whether the coroutine polled the pending host future itself, in
@@ -450,7 +456,7 @@ impl Future for AsyncCallFuture {
     }
 }
 
-impl Drop for AsyncCallFuture {
+impl<T> Drop for AsyncCallFuture<T> {
     fn drop(&mut self) {
         self.remove_from_wakers_list();
         // A call dropped while suspended is cancelled by unwinding its
@@ -770,7 +776,10 @@ mod stack_pool {
     fn a_finished_call_leaves_its_stack_to_the_next_one() {
         let host = Host::new();
         host.gate.set(true);
-        assert!(matches!(poll(&mut host.call(&host.wait)), Poll::Ready(Ok(_))));
+        assert!(matches!(
+            poll(&mut host.call(&host.wait)),
+            Poll::Ready(Ok(_))
+        ));
         let first = pooled();
         assert_eq!(first.len(), 1, "the stack of the finished call is kept");
         assert!(first[0].contains(&host.ran_at.get()));
@@ -832,7 +841,10 @@ mod stack_pool {
 
         // The same with a stack that had been pooled: it is not put back.
         host.gate.set(true);
-        assert!(matches!(poll(&mut host.call(&host.wait)), Poll::Ready(Ok(_))));
+        assert!(matches!(
+            poll(&mut host.call(&host.wait)),
+            Poll::Ready(Ok(_))
+        ));
         assert_eq!(pooled().len(), 1);
         host.gate.set(false);
         let mut call = host.call(&host.wait);
@@ -845,7 +857,10 @@ mod stack_pool {
 
         // And calls keep working.
         host.gate.set(true);
-        assert!(matches!(poll(&mut host.call(&host.wait)), Poll::Ready(Ok(_))));
+        assert!(matches!(
+            poll(&mut host.call(&host.wait)),
+            Poll::Ready(Ok(_))
+        ));
         assert_eq!(pooled().len(), 1);
     }
 }

@@ -1,19 +1,11 @@
-#[cfg(feature = "experimental-host-interrupt")]
-use crate::backend::sys::vm::interrupt_registry;
-use crate::backend::sys::{
-    engine::NativeEngineExt,
-    vm::{Trap, TrapCode},
-};
-use crate::{
-    CallWrapper, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, StoreContext,
-    TypedFunction, Value, WasmTypeList,
-    entities::function::call_wrapper::call_wrapped,
-    store::{AsStoreMut, AsStoreRef},
-};
 #[cfg(feature = "experimental-async")]
-use crate::{StoreAsync, store::AsStoreAsync};
+use crate::{AsStoreAsync, StoreAsync, Value, backend::sys::async_runtime::AsyncCallFuture};
+use crate::{
+    AsStoreMut, CallWrapper, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError,
+    TypedFunction, WasmTypeList,
+};
 use std::future::Future;
-use wasmer_types::{FunctionType, RawValue, Type};
+use wasmer_types::RawValue;
 
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
@@ -30,110 +22,22 @@ macro_rules! impl_native_traits {
             }
 
             /// Call the typed func through `wrapper` and return results.
-            #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
             pub(crate) fn call_wrapped_sys(&self, store: &mut impl AsStoreMut, wrapper: Option<&mut dyn CallWrapper>, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
-                let anyfunc = unsafe {
-                    *self.func.as_sys()
-                        .handle
-                        .get(store.as_store_ref().objects().as_sys())
-                        .anyfunc
-                        .as_ptr()
-                        .as_ref()
-                };
-                // Ensure all parameters come from the same context.
+                let mut params = Self::sys_arguments(store, $( $x, )*)?;
+                let mut results = Rets::empty_array();
+                invoke(&self.func, store, wrapper, params.as_mut(), results.as_mut())?;
+                Ok(unsafe { Rets::from_array(store, results) })
+            }
+
+            #[allow(clippy::too_many_arguments)]
+            fn sys_arguments(
+                store: &mut impl AsStoreMut, $( $x: $x, )*
+            ) -> Result<<($( $x ),*) as WasmTypeList>::Array, RuntimeError> {
                 if $(!FromToNativeWasmType::is_from_store(&$x, store) ||)* false {
-                    return Err(RuntimeError::new(
-                        "cross-`Store` values are not supported",
-                    ));
+                    return Err(RuntimeError::new("cross-`Store` values are not supported"));
                 }
-                // TODO: when `const fn` related features mature more, we can declare a single array
-                // of the correct size here.
-                let mut params_list = [ $( $x.to_native().into_raw(store) ),* ];
-                let mut rets_list_array = Rets::empty_array();
-                let rets_list: &mut [RawValue] = rets_list_array.as_mut();
-                let using_rets_array;
-                let args_rets: &mut [RawValue] = if params_list.len() > rets_list.len() {
-                    using_rets_array = false;
-                    params_list.as_mut()
-                } else {
-                    using_rets_array = true;
-                    for (i, &arg) in params_list.iter().enumerate() {
-                        rets_list[i] = arg;
-                    }
-                    rets_list.as_mut()
-                };
-
-                let store_id = store.objects_mut().id();
-
-                #[cfg(feature = "experimental-host-interrupt")]
-                let interrupt_guard = match interrupt_registry::install(store_id) {
-                    Ok(x) => x,
-                    Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                        return Err(Trap::lib(TrapCode::HostInterrupt).into());
-                    }
-                };
-
-                // The trampoline writes the results over the arguments, so a
-                // wrapper that enters again gets them restored first.
-                let original_args = wrapper.is_some().then(|| args_rets.to_vec());
-
-                let r = call_wrapped(store, wrapper, |store| {
-                    if let Some(original_args) = &original_args {
-                        args_rets.copy_from_slice(original_args);
-                    }
-                    // Installed only while Wasm runs: the wrapper holds the
-                    // store between entries, so it must not be lendable then.
-                    let _store_install_guard = unsafe {
-                        StoreContext::install(store.as_store_mut().inner as *mut _)
-                    };
-                    let storeref = store.as_store_ref();
-                    let config = storeref.engine().tunables().vmconfig();
-                    unsafe {
-                        // Safety: This is the intended use-case for StoreContext::pause, as
-                        // documented in the function's doc comments.
-                        let _pause_guard = StoreContext::pause(store_id);
-                        wasmer_vm::wasmer_call_trampoline(
-                            storeref.signal_handler(),
-                            config,
-                            anyfunc.vmctx,
-                            anyfunc.call_trampoline,
-                            anyfunc.func_ptr,
-                            args_rets.as_mut_ptr() as *mut u8,
-                        )
-                    }
-                    .map_err(RuntimeError::from)
-                });
-
-                #[cfg(feature = "experimental-host-interrupt")]
-                drop(interrupt_guard);
-
-                r?;
-
-                let num_rets = rets_list.len();
-                if !using_rets_array && num_rets > 0 {
-                    let src_pointer = params_list.as_ptr();
-                    let rets_list = &mut rets_list_array.as_mut()[0] as *mut RawValue;
-                    unsafe {
-                        // TODO: we can probably remove this copy by doing some clever `transmute`s.
-                        // we know it's not overlapping because `using_rets_array` is false
-                        std::ptr::copy_nonoverlapping(src_pointer,
-                                                        rets_list,
-                                                        num_rets);
-                    }
-                }
-                Ok(unsafe { Rets::from_array(store, rets_list_array) })
-                // TODO: When the Host ABI and Wasm ABI are the same, we could do this instead:
-                // but we can't currently detect whether that's safe.
-                //
-                // let results = unsafe {
-                //     wasmer_vm::catch_traps_with_result(self.vmctx, || {
-                //         let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address());
-                //         // We always pass the vmctx
-                //         f( self.vmctx, $( $x, )* )
-                //     }).map_err(RuntimeError::from_trap)?
-                // };
-                // Ok(Rets::from_c_struct(results))
+                Ok([$( $x.to_native().into_raw(store) ),*])
             }
 
             /// Call the typed func asynchronously.
@@ -149,22 +53,31 @@ macro_rules! impl_native_traits {
                 $( $x: FromToNativeWasmType + 'static, )*
             {
                 async move {
-                    let mut write = store.write_lock().await;
-                    let func_ty = func.ty(&mut write);
-                    let mut params_raw = [ $( $x.to_native().into_raw(&mut write) ),* ];
-                    let mut params_values = Vec::with_capacity(params_raw.len());
-                    {
-                        for (raw, ty) in params_raw.iter().zip(func_ty.params()) {
-                            unsafe {
-                                params_values.push(Value::from_raw(&mut write, *ty, *raw));
-                            }
+                    let (mut params, mut results) = {
+                        let mut write = store.write_lock().await;
+                        let mut params = Self::sys_arguments(&mut write, $( $x, )*)?;
+                        let signature = func.as_sys().signature(&write);
+                        let num_results = signature.results().len();
+                        if signature.params().iter().chain(signature.results()).any(|ty| ty.is_ref()) {
+                            // Converting a funcref can grow the store's function table.
+                            let types = signature.params().to_vec();
+                            let values = params.as_mut().iter().zip(types).map(|(&raw, ty)| {
+                                unsafe { Value::from_raw(&mut write, ty, raw) }
+                            }).collect();
+                            drop(write);
+                            return call_with_references::<Rets>(func, &store, values).await;
                         }
-                    }
-                    drop(write);
-
-                    let results = func.call_async(&store, params_values).await?;
+                        (params, AsyncResults::new(num_results))
+                    };
+                    let mut results = AsyncCallFuture::new(store.store(), move |store| {
+                        invoke(&func, store, None, params.as_mut(), results.slots())?;
+                        Ok(results)
+                    }).await?;
                     let mut write = store.write_lock().await;
-                    convert_results::<Rets>(&mut write, func_ty, &results)
+                    let mut array = Rets::empty_array();
+                    array.as_mut().copy_from_slice(results.slots());
+                    // These slots were written by this typed function's trampoline.
+                    Ok(unsafe { Rets::from_array(&mut write, array) })
                 }
             }
 
@@ -173,97 +86,55 @@ macro_rules! impl_native_traits {
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
             pub fn call_raw_sys(&self, store: &mut impl AsStoreMut, mut params_list: Vec<RawValue> ) -> Result<Rets, RuntimeError> {
-                let anyfunc = unsafe {
-                    *self.func.as_sys()
-                        .handle
-                        .get(store.as_store_ref().objects().as_sys())
-                        .anyfunc
-                        .as_ptr()
-                        .as_ref()
-                };
-                // TODO: when `const fn` related features mature more, we can declare a single array
-                // of the correct size here.
-                let mut rets_list_array = Rets::empty_array();
-                let rets_list: &mut [RawValue] = rets_list_array.as_mut();
-                let using_rets_array;
-                let args_rets: &mut [RawValue] = if params_list.len() > rets_list.len() {
-                    using_rets_array = false;
-                    params_list.as_mut()
-                } else {
-                    using_rets_array = true;
-                    for (i, &arg) in params_list.iter().enumerate() {
-                        rets_list[i] = arg;
-                    }
-                    rets_list.as_mut()
-                };
-
-                let store_id = store.objects_mut().id();
-
-                #[cfg(feature = "experimental-host-interrupt")]
-                let interrupt_guard = match interrupt_registry::install(store_id) {
-                    Ok(x) => x,
-                    Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                        return Err(Trap::lib(TrapCode::HostInterrupt).into());
-                    }
-                };
-
-                // Install the store into the store context
-                let store_install_guard = unsafe {
-                    StoreContext::install(store.as_store_mut().inner as *mut _)
-                };
-
-                let r = call_wrapped(store, None, |store| {
-                    let storeref = store.as_store_ref();
-                    let config = storeref.engine().tunables().vmconfig();
-                    unsafe {
-                        // Safety: This is the intended use-case for StoreContext::pause, as
-                        // documented in the function's doc comments.
-                        let _pause_guard = StoreContext::pause(store_id);
-                        wasmer_vm::wasmer_call_trampoline(
-                            storeref.signal_handler(),
-                            config,
-                            anyfunc.vmctx,
-                            anyfunc.call_trampoline,
-                            anyfunc.func_ptr,
-                            args_rets.as_mut_ptr() as *mut u8,
-                        )
-                    }
-                    .map_err(RuntimeError::from)
-                });
-
-                drop(store_install_guard);
-                #[cfg(feature = "experimental-host-interrupt")]
-                drop(interrupt_guard);
-
-                r?;
-
-                let num_rets = rets_list.len();
-                if !using_rets_array && num_rets > 0 {
-                    let src_pointer = params_list.as_ptr();
-                    let rets_list = &mut rets_list_array.as_mut()[0] as *mut RawValue;
-                    unsafe {
-                        // TODO: we can probably remove this copy by doing some clever `transmute`s.
-                        // we know it's not overlapping because `using_rets_array` is false
-                        std::ptr::copy_nonoverlapping(src_pointer,
-                                                        rets_list,
-                                                        num_rets);
-                    }
-                }
-                Ok(unsafe { Rets::from_array(store, rets_list_array) })
-                // TODO: When the Host ABI and Wasm ABI are the same, we could do this instead:
-                // but we can't currently detect whether that's safe.
-                //
-                // let results = unsafe {
-                //     wasmer_vm::catch_traps_with_result(self.vmctx, || {
-                //         let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address());
-                //         // We always pass the vmctx
-                //         f( self.vmctx, $( $x, )* )
-                //     }).map_err(RuntimeError::from_trap)?
-                // };
-                // Ok(Rets::from_c_struct(results))
+                let mut results = Rets::empty_array();
+                invoke(&self.func, store, None, &mut params_list, results.as_mut())?;
+                Ok(unsafe { Rets::from_array(store, results) })
             }
         }
     };
+}
+
+// Store-owned references cross an await as handles. Raw references are valid
+// only while the owning store is locked.
+#[cfg(feature = "experimental-async")]
+async fn call_with_references<Rets: WasmTypeList>(
+    func: Function,
+    store: &StoreAsync,
+    params: Vec<Value>,
+) -> Result<Rets, RuntimeError> {
+    let values = func.call_async(store, params).await?;
+    let mut write = store.write_lock().await;
+    let mut results = Rets::empty_array();
+    let slots = results.as_mut();
+    if slots.len() != values.len() {
+        return Err(RuntimeError::new("result arity mismatch"));
+    }
+    for (slot, value) in slots.iter_mut().zip(values.iter()) {
+        if !value.is_from_store(&write) {
+            return Err(RuntimeError::new("cross-`Store` values are not supported"));
+        }
+        *slot = value.as_raw(&write);
+    }
+    Ok(unsafe { Rets::from_array(&mut write, results) })
+}
+
+/// The trampoline overwrites the arguments with the results.
+#[inline]
+fn invoke(
+    func: &Function,
+    store: &mut impl AsStoreMut,
+    wrapper: Option<&mut dyn CallWrapper>,
+    params: &mut [RawValue],
+    results: &mut [RawValue],
+) -> Result<(), RuntimeError> {
+    if params.len() > results.len() {
+        func.as_sys().invoke_wasm(store, wrapper, params)?;
+        results.copy_from_slice(&params[..results.len()]);
+    } else {
+        results[..params.len()].copy_from_slice(params);
+        func.as_sys().invoke_wasm(store, wrapper, results)?;
+    }
+    Ok(())
 }
 
 impl_native_traits!();
@@ -300,26 +171,28 @@ impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
 );
 
-fn convert_results<Rets>(
-    store: &mut impl AsStoreMut,
-    ty: FunctionType,
-    results: &[Value],
-) -> Result<Rets, RuntimeError>
-where
-    Rets: WasmTypeList,
-{
-    if results.len() != ty.results().len() {
-        return Err(RuntimeError::new("result arity mismatch"));
+// A coroutine owns its output, whereas the public result type need not be
+// 'static. Keep the ABI values until the completing poll converts them.
+#[cfg(feature = "experimental-async")]
+enum AsyncResults {
+    Single(RawValue),
+    Other(Box<[RawValue]>),
+}
+
+#[cfg(feature = "experimental-async")]
+impl AsyncResults {
+    fn new(len: usize) -> Self {
+        let zero = RawValue { i32: 0 };
+        match len {
+            1 => Self::Single(zero),
+            _ => Self::Other(vec![zero; len].into_boxed_slice()),
+        }
     }
-    let mut raw_array = Rets::empty_array();
-    for ((slot, value_ty), value) in raw_array
-        .as_mut()
-        .iter_mut()
-        .zip(ty.results().iter())
-        .zip(results.iter())
-    {
-        debug_assert_eq!(value.ty(), *value_ty);
-        *slot = value.as_raw(store);
+
+    fn slots(&mut self) -> &mut [RawValue] {
+        match self {
+            Self::Single(one) => std::slice::from_mut(one),
+            Self::Other(other) => other,
+        }
     }
-    unsafe { Ok(Rets::from_array(store, raw_array)) }
 }
