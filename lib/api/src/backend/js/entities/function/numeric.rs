@@ -203,10 +203,15 @@ impl Hosts {
                 .map(|index| format!("a{index}"))
                 .collect::<Vec<_>>();
             let arguments = [vec!["body".to_owned()], parameters.clone()].concat();
+            // `address | 0`: the body's address goes to the trampoline's
+            // `usize` parameter, an i32, which JavaScriptCore takes fast only
+            // as an int32 value, and the address crossed as an f64 (see
+            // `with_leading_arguments`).
             format!(
-                "(trampoline, body) => ({}) => {{ const result = trampoline({}); \
+                "(trampoline, address) => {{ const body = address | 0; \
+                 return ({}) => {{ const result = trampoline({}); \
                  if (thrown !== undefined) {{ const error = thrown[0]; thrown = undefined; throw error; }} \
-                 return result; }}",
+                 return result; }}; }}",
                 parameters.join(", "),
                 arguments.join(", "),
             )

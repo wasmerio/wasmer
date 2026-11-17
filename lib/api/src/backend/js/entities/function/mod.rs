@@ -695,9 +695,29 @@ fn arrow_with_leading_arguments(
                 (0..count).map(|index| format!("{prefix}{index}")).collect()
             };
             let (leading, arguments) = (names("l", leading.len()), names("a", arity));
+            let integers = names("k", leading.len());
             let parameters = [vec!["f".to_owned()], leading.clone()].concat().join(", ");
-            let all = [leading, arguments.clone()].concat().join(", ");
-            let body = format!("return ({}) => f({all});", arguments.join(", "));
+            // The leading arguments are `usize` parameters, i32 in WebAssembly,
+            // and arrive here as numbers that crossed as f64. JavaScriptCore
+            // calls a WebAssembly function fast only with int32 values for
+            // its i32 parameters, and a number from an f64 is not one there
+            // even when it is whole: the arrow would take its slow path on
+            // every call. `| 0` makes them int32 once, and is the conversion
+            // the parameter makes anyway.
+            let constants = integers
+                .iter()
+                .zip(&leading)
+                .map(|(integer, leading)| format!("{integer} = {leading} | 0"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let all = [integers, arguments.clone()].concat().join(", ");
+            let body = match constants.is_empty() {
+                true => format!("return ({}) => f({all});", arguments.join(", ")),
+                false => format!(
+                    "const {constants}; return ({}) => f({all});",
+                    arguments.join(", ")
+                ),
+            };
             Some(
                 EvaluatedFunction::new(&parameters, &body)
                     .ok()?
@@ -727,12 +747,15 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test;
 
     /// The arrow that stands in for a bound function passes the same
-    /// arguments in the same order, whatever their number and kind.
+    /// arguments in the same order, whatever their number and kind. Its
+    /// leading arguments go to i32 parameters, so it passes them as the
+    /// int32 those make of them, the address of a slot above 2 GiB too.
     #[wasm_bindgen_test]
     fn an_arrow_with_leading_arguments_calls_as_a_bound_function_does() {
         let join = JsFunction::new_with_args("...all", "return all.map(String).join(' ');");
-        let leading = [JsValue::from(-1), JsValue::from(2.5)];
-        for leading in [&leading[..1], &leading[..]] {
+        let leading = [JsValue::from_f64(-1.0), JsValue::from_f64(3_000_000_000.0)];
+        let as_i32 = [JsValue::from(-1), JsValue::from(3_000_000_000_u32 as i32)];
+        for (leading, as_i32) in [(&leading[..1], &as_i32[..1]), (&leading[..], &as_i32[..])] {
             for arity in [0, 1, 3, 26] {
                 let arguments = Array::new();
                 for index in 0..arity {
@@ -748,7 +771,7 @@ mod tests {
                 };
                 let arrow = arrow_with_leading_arguments(&join, leading, arity);
                 let arrow = call(&arrow.expect("this host makes functions from text"));
-                assert_eq!(arrow, call(&bound_with_leading_arguments(&join, leading)));
+                assert_eq!(arrow, call(&bound_with_leading_arguments(&join, as_i32)));
                 assert_eq!(arrow.split(' ').count(), leading.len() + arity);
                 assert!(arrow.starts_with("-1"), "{arrow}");
             }
