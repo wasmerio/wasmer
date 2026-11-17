@@ -80,7 +80,9 @@ const WAT: &str = r#"
     (loop $again
       (local.set $n (local.get $stretch))
       (loop $l
-        (local.set $n (i32.sub (local.get $n) (i32.const 1)))
+        ;; The zero-filled memory keeps the countdown dependent on guest work.
+        (local.set $n (i32.sub (local.get $n)
+          (i32.add (i32.const 1) (i32.load8_u (i32.and (local.get $n) (i32.const 255))))))
         (br_if $l (local.get $n)))
       (if (local.get $ask)
         (then (br_if $again (call $keep_spinning)))))
