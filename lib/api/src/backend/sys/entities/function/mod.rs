@@ -8,7 +8,10 @@ use crate::{
     AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync,
     entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
     sys::{
-        async_runtime::{AsyncRuntimeError, HostFuture, block_on_host_future, call_function_async},
+        async_runtime::{
+            AsyncRuntimeError, HostFuture, block_on_host_future, block_on_typed_host_future,
+            call_function_async,
+        },
         function::env::AsyncFunctionEnvMutStore,
     },
 };
@@ -26,7 +29,7 @@ use std::{
     cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, marker::PhantomData,
     pin::Pin, sync::Arc,
 };
-use wasmer_types::{NativeWasmType, RawValue, StoreId};
+use wasmer_types::{NativeWasmType, RawValue, StoreId, Type};
 #[cfg(feature = "experimental-host-interrupt")]
 use wasmer_vm::interrupt_registry;
 use wasmer_vm::{
@@ -71,7 +74,8 @@ impl Function {
             unsafe {
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
                 let mut store_mut = store_wrapper.as_mut();
-                let mut args = Vec::with_capacity(func_ty.params().len());
+                let mut args =
+                    smallvec::SmallVec::<[Value; 4]>::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
@@ -88,6 +92,15 @@ impl Function {
                 HostCallOutcome::Ready(func(env, &args))
             }
         };
+        Self::new_raw(store, function_type, wrapper)
+    }
+
+    fn new_raw(
+        store: &mut impl AsStoreMut,
+        function_type: FunctionType,
+        wrapper: impl Fn(*mut RawValue) -> HostCallOutcome + 'static,
+    ) -> Self {
+        let store_id = store.objects_mut().id();
         let mut host_data = Box::new(VMDynamicFunctionContext {
             address: std::ptr::null(),
             ctx: DynamicFunction {
@@ -188,8 +201,8 @@ impl Function {
                         panic!("No store context installed on this thread")
                     }
                 };
-                let id = store_mut.as_store_ref().objects().id();
-                let mut args = Vec::with_capacity(func_ty.params().len());
+                let mut args =
+                    smallvec::SmallVec::<[Value; 4]>::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
@@ -198,66 +211,11 @@ impl Function {
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
-                let store_async = match context {
-                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
-                        AsyncFunctionEnvMutStore::Async(StoreAsync {
-                            id,
-                            inner: crate::LocalRwLockWriteGuard::lock_handle(
-                                wrapper.guard.as_mut().unwrap(),
-                            ),
-                        })
-                    }
-                    crate::GetStoreAsyncGuardResult::NotAsync(ptr) => {
-                        AsyncFunctionEnvMutStore::Sync(ptr)
-                    }
-                    crate::GetStoreAsyncGuardResult::NotInstalled => unreachable!(),
-                };
-                let env = crate::AsyncFunctionEnvMut(crate::BackendAsyncFunctionEnvMut::Sys(
-                    env::AsyncFunctionEnvMut {
-                        store: store_async,
-                        func_env: func_env.clone(),
-                    },
-                ));
+                let env = async_host_env(store_id, &func_env, context);
                 HostCallOutcome::Future(func(env, &args))
             }
         };
-        let mut host_data = Box::new(VMDynamicFunctionContext {
-            address: std::ptr::null(),
-            ctx: DynamicFunction {
-                func: wrapper,
-                store_id,
-                func_ty: function_type.clone(),
-            },
-        });
-        host_data.address = host_data.ctx.func_body_ptr();
-
-        let func_ptr = std::ptr::null() as VMFunctionCallback;
-        let type_signature_hash = store
-            .as_store_ref()
-            .engine()
-            .as_sys()
-            .register_signature(&function_type);
-        let vmctx = VMFunctionContext {
-            host_env: host_data.as_ref() as *const _ as *mut c_void,
-        };
-        let call_trampoline = host_data.ctx.call_trampoline_address();
-        let anyfunc = VMCallerCheckedAnyfunc {
-            include_m0_param: false,
-            func_ptr,
-            type_signature_hash,
-            vmctx,
-            call_trampoline,
-        };
-
-        let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
-            kind: VMFunctionKind::Dynamic,
-            signature: function_type,
-            host_data,
-        };
-        Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
-        }
+        Self::new_raw(store, function_type, wrapper)
     }
 
     /// Creates a new host `Function` from a native function.
@@ -312,8 +270,14 @@ impl Function {
         Rets: WasmTypeList + 'static,
         F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
     {
-        let env = FunctionEnv::new(store, ());
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        if Args::IS_STORE_INDEPENDENT && Rets::IS_STORE_INDEPENDENT && numeric_signature(&signature)
+        {
+            return Self::new_numeric_async(store, signature, move |args| {
+                func.call_async(AsyncFunctionEnv::new(), args)
+            });
+        }
+        let env = FunctionEnv::new(store, ());
         let args_sig = Arc::new(signature.clone());
         let results_sig = Arc::new(signature.clone());
         let func = Arc::new(func);
@@ -368,6 +332,19 @@ impl Function {
         Rets: WasmTypeList + 'static,
     {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        if Args::IS_STORE_INDEPENDENT && Rets::IS_STORE_INDEPENDENT && numeric_signature(&signature)
+        {
+            let id = store.objects_mut().id();
+            let env = env.as_sys().clone();
+            return Self::new_numeric_async(store, signature, move |args| {
+                // The environment keeps the lock handle on an async call.
+                let context = unsafe { StoreContext::try_get_current_async(id) };
+                func.call_async(
+                    AsyncFunctionEnv::with_env(async_host_env(id, &env, context)),
+                    args,
+                )
+            });
+        }
         let args_sig = Arc::new(signature.clone());
         let results_sig = Arc::new(signature.clone());
         let func = Arc::new(func);
@@ -410,6 +387,53 @@ impl Function {
                 })
             },
         )
+    }
+
+    #[cfg(feature = "experimental-async")]
+    fn new_numeric_async<Args: WasmTypeList + 'static, Rets: WasmTypeList + 'static>(
+        store: &mut impl AsStoreMut,
+        signature: FunctionType,
+        call: impl Fn(Args) -> HostFuture<Rets> + 'static,
+    ) -> Self {
+        let id = store.objects_mut().id();
+        let num_params = signature.params().len();
+        let num_results = signature.results().len();
+        Self::new_raw(store, signature, move |values| {
+            // A synchronous async import holds its store through construction and
+            // polling, even when the user's function does not take an environment.
+            let _sync_borrow = if StoreContext::top_is_async() {
+                // Validate which store entered this import before running host code.
+                unsafe { StoreContext::get_current_transient(id) };
+                None
+            } else {
+                Some(unsafe { StoreContext::get_current(id) })
+            };
+            // These codecs opt in to store-independent conversion. An incorrect
+            // implementation gets a panic without ever acquiring a store reference.
+            let mut codec_store = std::cell::LazyCell::new(|| -> &mut StoreInner {
+                panic!("store-independent numeric codec requested its store")
+            });
+            let args = {
+                let mut args = Args::empty_array();
+                for (index, slot) in args.as_mut().iter_mut().take(num_params).enumerate() {
+                    *slot = unsafe { values.add(index).read_unaligned() };
+                }
+                unsafe { Args::from_array(&mut codec_store, args) }
+            };
+            let result = block_on_typed_host_future(call(args)).and_then(|rets| {
+                let mut rets = unsafe { rets.into_array(&mut codec_store) };
+                let slots = rets.as_mut().get(..num_results).ok_or_else(|| {
+                    AsyncRuntimeError::RuntimeError(RuntimeError::new(
+                        "typed host function returned too few results",
+                    ))
+                })?;
+                for (index, slot) in slots.iter().enumerate() {
+                    unsafe { values.add(index).write_unaligned(*slot) };
+                }
+                Ok(())
+            });
+            HostCallOutcome::Written(result)
+        })
     }
 
     pub(crate) fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
@@ -460,141 +484,14 @@ impl Function {
     }
 
     pub(crate) fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
-        self.handle
+        self.signature(store).clone()
+    }
+
+    fn signature<'a>(&self, store: &'a impl AsStoreRef) -> &'a FunctionType {
+        &self
+            .handle
             .get(store.as_store_ref().objects().as_sys())
             .signature
-            .clone()
-    }
-
-    fn call_wasm(
-        &self,
-        store: &mut impl AsStoreMut,
-        wrapper: Option<&mut dyn CallWrapper>,
-        trampoline: VMTrampoline,
-        params: &[Value],
-        results: &mut [Value],
-    ) -> Result<(), RuntimeError> {
-        let format_types_for_error_message = |items: &[Value]| {
-            items
-                .iter()
-                .map(|param| param.ty().to_string())
-                .collect::<Vec<String>>()
-                .join(", ")
-        };
-        // TODO: Avoid cloning the signature here, it's expensive.
-        let signature = self.ty(store);
-        if signature.params().len() != params.len() {
-            return Err(RuntimeError::new(format!(
-                "Parameters of type [{}] did not match signature {}",
-                format_types_for_error_message(params),
-                signature
-            )));
-        }
-        if signature.results().len() != results.len() {
-            return Err(RuntimeError::new(format!(
-                "Results of type [{}] did not match signature {}",
-                format_types_for_error_message(results),
-                signature,
-            )));
-        }
-
-        let mut values_vec = vec![RawValue { i32: 0 }; max(params.len(), results.len())];
-
-        // Store the argument values into `values_vec`.
-        let param_tys = signature.params().iter();
-        for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
-            if arg.ty() != *ty {
-                let param_types = format_types_for_error_message(params);
-                return Err(RuntimeError::new(format!(
-                    "Parameters of type [{param_types}] did not match signature {signature}",
-                )));
-            }
-            if !arg.is_from_store(store) {
-                return Err(RuntimeError::new("cross-`Store` values are not supported"));
-            }
-            *slot = arg.as_raw(store);
-        }
-
-        // Invoke the call
-        self.call_wasm_raw(store, wrapper, trampoline, values_vec, results)?;
-        Ok(())
-    }
-
-    fn call_wasm_raw(
-        &self,
-        store: &mut impl AsStoreMut,
-        wrapper: Option<&mut dyn CallWrapper>,
-        trampoline: VMTrampoline,
-        mut params: Vec<RawValue>,
-        results: &mut [Value],
-    ) -> Result<(), RuntimeError> {
-        // Call the trampoline.
-        let result = {
-            let store_id = store.objects_mut().id();
-
-            #[cfg(feature = "experimental-host-interrupt")]
-            let interrupt_guard = match interrupt_registry::install(store_id) {
-                Ok(x) => x,
-                Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                    return Err(Trap::lib(TrapCode::HostInterrupt).into());
-                }
-            };
-
-            // The trampoline writes the results over the arguments, so a
-            // wrapper that enters again gets them restored first.
-            let original_params = wrapper.is_some().then(|| params.clone());
-
-            let r = call_wrapped(store, wrapper, |store| {
-                if let Some(original_params) = &original_params {
-                    params.copy_from_slice(original_params);
-                }
-                // Safety: the store context is uninstalled before this entry
-                // returns, and the store mut is valid for its duration. It is
-                // installed only while Wasm runs: the wrapper holds the store
-                // between entries, so it must not be lendable then.
-                let _store_install_guard =
-                    unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
-                let storeref = store.as_store_ref();
-                let vm_function = self.handle.get(storeref.objects().as_sys());
-                let config = storeref.engine().tunables().vmconfig();
-                let signal_handler = storeref.signal_handler();
-                unsafe {
-                    // Safety: This is the intended use-case for StoreContext::pause, as
-                    // documented in the function's doc comments.
-                    let _pause_guard = StoreContext::pause(store_id);
-                    wasmer_call_trampoline(
-                        signal_handler,
-                        config,
-                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
-                        trampoline,
-                        vm_function.anyfunc.as_ptr().as_ref().func_ptr,
-                        params.as_mut_ptr() as *mut u8,
-                    )
-                }
-                .map_err(RuntimeError::from)
-            });
-
-            #[cfg(feature = "experimental-host-interrupt")]
-            drop(interrupt_guard);
-
-            r
-        };
-
-        result?;
-
-        // Load the return values out of `values_vec`.
-        let signature = self.ty(store);
-        for (index, &value_type) in signature.results().iter().enumerate() {
-            unsafe {
-                results[index] = Value::from_raw(store, value_type, params[index]);
-            }
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn result_arity(&self, store: &impl AsStoreRef) -> usize {
-        self.ty(store).results().len()
     }
 
     pub(crate) fn call(
@@ -611,17 +508,142 @@ impl Function {
         wrapper: Option<&mut dyn CallWrapper>,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
-        let trampoline = unsafe {
-            self.handle
-                .get(store.objects_mut().as_sys())
-                .anyfunc
-                .as_ptr()
-                .as_ref()
-                .call_trampoline
+        let store_ref = store.as_store_ref();
+        let signature = self.signature(&store_ref);
+        let wrong_params = || {
+            let types = params
+                .iter()
+                .map(|param| param.ty().to_string())
+                .collect::<Vec<String>>()
+                .join(", ");
+            RuntimeError::new(format!(
+                "Parameters of type [{types}] did not match signature {signature}"
+            ))
         };
-        let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm(store, wrapper, trampoline, params, &mut results)?;
-        Ok(results.into_boxed_slice())
+        if signature.params().len() != params.len() {
+            return Err(wrong_params());
+        }
+
+        let num_results = signature.results().len();
+        let single_result = (num_results == 1).then(|| signature.results()[0]);
+        let num_slots = max(params.len(), num_results);
+        let mut inline = [RawValue { i32: 0 }; 8];
+        let mut heap;
+        let slots = if let Some(slots) = inline.get_mut(..num_slots) {
+            slots
+        } else {
+            heap = vec![RawValue { i32: 0 }; num_slots];
+            &mut heap
+        };
+        for ((arg, ty), slot) in params.iter().zip(signature.params()).zip(slots.iter_mut()) {
+            if arg.ty() != *ty {
+                return Err(wrong_params());
+            }
+            if !arg.is_from_store(&store_ref) {
+                return Err(RuntimeError::new("cross-`Store` values are not supported"));
+            }
+            *slot = arg.as_raw(&store_ref);
+        }
+
+        self.call_wasm_raw(store, wrapper, slots, num_results, single_result)
+    }
+
+    fn call_wasm_raw(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
+        params: &mut [RawValue],
+        num_results: usize,
+        single_result: Option<Type>,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        self.invoke_wasm(store, wrapper, params)?;
+
+        let mut store = store.as_store_mut();
+        if let Some(ty) = single_result {
+            // A wrapper can replace the store objects after its final invocation.
+            // Validate the handle before interpreting raw reference bits.
+            self.handle.get(store.as_store_ref().objects().as_sys());
+            let value = unsafe { Value::from_raw(&mut store, ty, params[0]) };
+            return Ok(Box::new([value]));
+        }
+        Ok(params[..num_results]
+            .iter()
+            .enumerate()
+            .map(|(i, &raw)| {
+                // A funcref result can add a function to the store and move its functions.
+                let ty = self.signature(&store).results()[i];
+                unsafe { Value::from_raw(&mut store, ty, raw) }
+            })
+            .collect())
+    }
+
+    #[inline]
+    fn invoke_wasm(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
+        params: &mut [RawValue],
+    ) -> Result<(), RuntimeError> {
+        #[cfg(feature = "experimental-host-interrupt")]
+        let interrupt_guard = match interrupt_registry::install(store.objects_mut().id()) {
+            Ok(x) => x,
+            Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
+                return Err(Trap::lib(TrapCode::HostInterrupt).into());
+            }
+        };
+
+        let result = if let Some(wrapper) = wrapper {
+            // A wrapper can invoke again after the trampoline overwrites its arguments.
+            let original = params.to_vec();
+            call_wrapped(store, Some(wrapper), |store| {
+                params.copy_from_slice(&original);
+                self.invoke_trampoline(store, params)
+            })
+        } else {
+            self.invoke_trampoline(store, params)
+        };
+
+        #[cfg(feature = "experimental-host-interrupt")]
+        drop(interrupt_guard);
+
+        result
+    }
+
+    #[inline]
+    fn invoke_trampoline(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &mut [RawValue],
+    ) -> Result<(), RuntimeError> {
+        // Tunables are supplied by the embedder. Finish reading them before lending
+        // the store to the guest, and take a fresh snapshot on every wrapper entry.
+        let config = wasmer_vm::VMConfig {
+            wasm_stack_size: store
+                .as_store_ref()
+                .engine()
+                .tunables()
+                .vmconfig()
+                .wasm_stack_size,
+        };
+        let store = store.as_store_mut();
+        let store_ref = store.as_store_ref();
+        let signal_handler = store_ref.signal_handler();
+        let vm_function = self.handle.get(store_ref.objects().as_sys());
+        let anyfunc = unsafe { *vm_function.anyfunc.as_ptr().as_ref() };
+
+        // The trampoline is the only code that runs while this borrow is lent.
+        unsafe {
+            let _context = StoreContext::enter_guest(store.inner as *mut _);
+            wasmer_call_trampoline(
+                signal_handler,
+                &config,
+                anyfunc.vmctx,
+                anyfunc.call_trampoline,
+                anyfunc.func_ptr,
+                params.as_mut_ptr().cast(),
+            )
+        }
+        .map_err(RuntimeError::from)
     }
 
     #[cfg(feature = "experimental-async")]
@@ -641,19 +663,19 @@ impl Function {
     pub(crate) fn call_raw(
         &self,
         store: &mut impl AsStoreMut,
-        params: Vec<RawValue>,
+        mut params: Vec<RawValue>,
     ) -> Result<Box<[Value]>, RuntimeError> {
-        let trampoline = unsafe {
-            self.handle
-                .get(store.objects_mut().as_sys())
-                .anyfunc
-                .as_ptr()
-                .as_ref()
-                .call_trampoline
-        };
-        let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm_raw(store, None, trampoline, params, &mut results)?;
-        Ok(results.into_boxed_slice())
+        let signature = self.signature(store);
+        let num_results = signature.results().len();
+        let single_result = (num_results == 1).then(|| signature.results()[0]);
+        let num_slots = max(signature.params().len(), num_results);
+        self.call_wasm_raw(
+            store,
+            None,
+            &mut params[..num_slots],
+            num_results,
+            single_result,
+        )
     }
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
@@ -771,6 +793,41 @@ fn finalize_dynamic_call(
     }
 }
 
+#[cfg(feature = "experimental-async")]
+fn numeric_signature(signature: &FunctionType) -> bool {
+    signature
+        .params()
+        .iter()
+        .chain(signature.results())
+        .all(|ty| ty.is_num())
+}
+
+#[cfg(feature = "experimental-async")]
+fn async_host_env<T: 'static>(
+    id: StoreId,
+    env: &env::FunctionEnv<T>,
+    context: crate::GetStoreAsyncGuardResult,
+) -> AsyncFunctionEnvMut<T> {
+    let store = match context {
+        crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
+            AsyncFunctionEnvMutStore::Async(StoreAsync {
+                id,
+                inner: crate::LocalRwLockWriteGuard::lock_handle(unsafe {
+                    wrapper.guard.as_ref().unwrap()
+                }),
+            })
+        }
+        crate::GetStoreAsyncGuardResult::NotAsync(ptr) => AsyncFunctionEnvMutStore::Sync(ptr),
+        crate::GetStoreAsyncGuardResult::NotInstalled => {
+            panic!("No store context installed on this thread")
+        }
+    };
+    AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Sys(env::AsyncFunctionEnvMut {
+        store,
+        func_env: env.clone(),
+    }))
+}
+
 fn typed_args_from_values<Args>(
     store: &mut StoreMut,
     func_ty: &FunctionType,
@@ -823,6 +880,8 @@ pub(crate) enum HostCallOutcome {
     Ready(Result<Vec<Value>, RuntimeError>),
     #[cfg(feature = "experimental-async")]
     Future(HostFuture),
+    #[cfg(feature = "experimental-async")]
+    Written(Result<(), AsyncRuntimeError>),
 }
 
 /// Host state for a dynamic function.
@@ -840,7 +899,7 @@ where
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
     unsafe extern "C-unwind" fn func_wrapper(
-        this: &mut VMDynamicFunctionContext<Self>,
+        this: &VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
     ) {
         let result = on_host_stack(|| {
@@ -851,6 +910,14 @@ where
                     values_vec,
                     result,
                 )),
+                #[cfg(feature = "experimental-async")]
+                HostCallOutcome::Written(result) => match result {
+                    Ok(()) => InvocationResult::Success(()),
+                    Err(AsyncRuntimeError::RuntimeError(err)) => to_invocation_result(Err(err)),
+                    Err(AsyncRuntimeError::YieldOutsideAsyncContext) => {
+                        InvocationResult::YieldOutsideAsyncContext
+                    }
+                },
                 #[cfg(feature = "experimental-async")]
                 HostCallOutcome::Future(future) => {
                     let awaited = block_on_host_future(future);
@@ -927,7 +994,7 @@ where
         // The VMFunctionCallback is null here: it is only filled in later
         // by the engine linker.
         unsafe {
-            let dynamic_function = &mut *(vmctx as *mut VMDynamicFunctionContext<Self>);
+            let dynamic_function = &*(vmctx as *const VMDynamicFunctionContext<Self>);
             Self::func_wrapper(dynamic_function, args);
         }
     }
@@ -968,6 +1035,25 @@ impl crate::Function {
     }
 }
 
+/// Converts a successful typed host return on the Wasm stack. The callback
+/// already checked the active store and has released its counted borrow.
+#[inline]
+unsafe fn typed_host_return<Rets: WasmTypeList>(store_id: StoreId, result: Rets) -> Rets::CStruct {
+    #[cfg(feature = "experimental-host-interrupt")]
+    if interrupt_registry::is_interrupted(store_id) {
+        unsafe { raise_lib_trap(Trap::lib(TrapCode::HostInterrupt)) }
+    }
+
+    // Scalar ABI conversions ignore their store. Other conversions look up
+    // the active store once, scoped to the conversion on this stack.
+    let mut store = std::cell::LazyCell::new(|| unsafe {
+        StoreContext::get_current_transient(store_id)
+            .as_mut()
+            .unwrap()
+    });
+    unsafe { result.into_c_struct(&mut store) }
+}
+
 macro_rules! impl_host_function {
     ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
         paste::paste! {
@@ -1003,17 +1089,7 @@ macro_rules! impl_host_function {
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(InvocationResult::Success(result)) => unsafe {
-                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                        // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to
-                        // `into_c_struct` and `get_current_transient`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
-                        return result.into_c_struct(store);
+                        return typed_host_return(env.store_id, result);
                     },
                     Ok(InvocationResult::Exception(exception)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
@@ -1107,17 +1183,7 @@ macro_rules! impl_host_function {
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(InvocationResult::Success(result)) => unsafe {
-                        // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                        // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to
-                        // `into_c_struct` and `get_current_transient`.
-                        let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
-                        let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
-                        return result.into_c_struct(store);
+                        return typed_host_return(env.store_id, result);
                     },
                     Ok(InvocationResult::Exception(exception)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch

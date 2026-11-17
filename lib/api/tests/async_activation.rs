@@ -34,8 +34,8 @@ use std::{
 };
 
 use wasmer::{
-    AsStoreAsync, Function, FunctionType, Instance, Module, RuntimeError, Store, StoreAsync,
-    StoreAsyncWriteLock, Type, TypedFunction, Value, imports,
+    AsStoreAsync, ExternRef, Function, FunctionType, Instance, Module, RuntimeError, Store,
+    StoreAsync, StoreAsyncWriteLock, Type, TypedFunction, Value, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -63,6 +63,9 @@ const WAT: &str = r#"
     (global.set $after (i32.add (global.get $after) (i32.const 1)))
     (call $trap (local.get $how))
     (i32.const 42))
+  (func (export "wait_ref") (param externref) (result externref)
+    (call $wait (i32.const 0))
+    (local.get 0))
   ;; Calls back into the host, then traps as asked or returns 7.
   (func (export "via_host") (param $how i32) (result i32)
     (call $host)
@@ -77,7 +80,9 @@ const WAT: &str = r#"
     (loop $again
       (local.set $n (local.get $stretch))
       (loop $l
-        (local.set $n (i32.sub (local.get $n) (i32.const 1)))
+        ;; The zero-filled memory keeps the countdown dependent on guest work.
+        (local.set $n (i32.sub (local.get $n)
+          (i32.add (i32.const 1) (i32.load8_u (i32.and (local.get $n) (i32.const 255))))))
         (br_if $l (local.get $n)))
       (if (local.get $ask)
         (then (br_if $again (call $keep_spinning)))))
@@ -729,6 +734,56 @@ fn every_waiter_for_the_store_is_woken() {
     guest.into_store();
 }
 
+#[test]
+fn typed_call_returns_multiple_numeric_results() {
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+        (func (export "pair") (param i32) (result i64 i32)
+          (i64.extend_i32_s (local.get 0))
+          (i32.add (local.get 0) (i32.const 1))))"#,
+    )
+    .unwrap();
+    let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    let function: TypedFunction<i32, (i64, i32)> =
+        instance.exports.get_typed_function(&store, "pair").unwrap();
+    let store = store.into_async();
+    let result = futures::executor::block_on(function.call_async(&store, -7)).unwrap();
+    assert_eq!(result, (-7, -6));
+}
+
+#[test]
+fn typed_call_keeps_reference_arguments_across_suspension() {
+    let gates = gates();
+    let guest = Guest::new(&gates);
+    let (f, reference) = {
+        let mut store = guest.try_write().unwrap();
+        let f = guest
+            .instance
+            .exports
+            .get_typed_function::<Option<ExternRef>, Option<ExternRef>>(&store, "wait_ref")
+            .unwrap();
+        (f, ExternRef::new(&mut store, 42_u32))
+    };
+    let mut other = Store::default();
+    let foreign = ExternRef::new(&mut other, 0_u32);
+    let mut cx = Context::from_waker(Waker::noop());
+    let failure = Box::pin(f.call_async(&guest.store, Some(foreign)))
+        .as_mut()
+        .poll(&mut cx);
+    assert!(matches!(failure, Poll::Ready(Err(e)) if e.message().contains("cross-`Store`")));
+
+    let mut call = Box::pin(f.call_async(&guest.store, Some(reference)));
+    assert!(call.as_mut().poll(&mut cx).is_pending());
+    assert!(guest.try_write().is_some());
+    gates[0].set(true);
+    let Poll::Ready(Ok(Some(result))) = call.as_mut().poll(&mut cx) else {
+        panic!("expected the guest to return the reference");
+    };
+    assert_eq!(result.downcast::<u32>(&guest.store.read()), Some(&42));
+}
+
 /// A typed `call_async` waits for the store as a reader, `Function::call_async`
 /// as a writer. Releasing the store wakes only the writer; when that call is
 /// dropped before it is polled again, the typed call is woken in its place.
@@ -1344,6 +1399,10 @@ mod caught_panics {
             });
             let drop_sync = Function::new(&mut store, unit, |_| {
                 drop(TO_DROP_SYNC.take());
+                assert!(
+                    Store::with_current(|_| ()).is_none(),
+                    "the import owns its store"
+                );
                 Ok(vec![])
             });
             let instance = Instance::new(
@@ -1428,6 +1487,25 @@ mod caught_panics {
             other => panic!("the call that drops it: {other:?}"),
         }
         assert!(to_drop.borrow().is_none());
+        assert!(store.into_store().is_ok());
+    }
+
+    #[test]
+    fn a_typed_call_can_be_cancelled_by_another_call_on_its_store() {
+        let guest = Guest::new();
+        let wait = guest.export("wait").typed::<(), ()>(&guest.store).unwrap();
+        let drop_sync = guest.export("drop_sync");
+        let store = guest.store.into_async();
+        let call = wait.call_async(&store);
+        let mut suspended: CallFuture =
+            Box::pin(async move { call.await.map(|()| Box::default()) });
+        expect_pending("typed call", &mut suspended);
+        TO_DROP_SYNC.set(Some(suspended));
+        assert!(matches!(
+            poll_once(&mut self::call(&store, &drop_sync, &[])),
+            Poll::Ready(Ok(_))
+        ));
+        assert!(TO_DROP_SYNC.with_borrow(Option::is_none));
         assert!(store.into_store().is_ok());
     }
 

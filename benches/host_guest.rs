@@ -3,7 +3,10 @@ use std::hint::black_box;
 use criterion::{
     BenchmarkGroup, Criterion, Throughput, criterion_group, criterion_main, measurement::WallTime,
 };
-use wasmer::{Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, imports};
+use wasmer::{
+    Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module, Store, Type, Value,
+    imports,
+};
 
 const HOST_CALLS_PER_INVOCATION: u32 = 10_000;
 
@@ -254,6 +257,86 @@ fn bench_wasmtime_identity(wasm: &[u8], group: &mut BenchmarkGroup<'_, WallTime>
     });
 }
 
+/// One typed entry drives every import in the batch. Each import's return
+/// becomes the next import's argument, so the final value checks the whole loop.
+fn bench_wasmer_imports(wasm: &[u8], group: &mut BenchmarkGroup<'_, WallTime>) {
+    const COUNT: i32 = 4096;
+    let mut store = Store::new(wasmer_compiler_llvm::LLVM::new());
+    let module = Module::new(&store, wasm).unwrap();
+    let signature = FunctionType::new([Type::I32], [Type::I32]);
+    let typed = Function::new_typed(&mut store, |v: i32| v + 1);
+    let dynamic = Function::new(&mut store, signature.clone(), |args| {
+        Ok(vec![Value::I32(args[0].unwrap_i32() + 1)])
+    });
+    let bind = |store: &mut Store, import: Function| {
+        Instance::new(
+            store,
+            &module,
+            &imports! { "wasmbench" => { "identity" => import } },
+        )
+        .unwrap()
+        .exports
+        .get_typed_function::<(i32, i32), i32>(store, "benchmark")
+        .unwrap()
+    };
+    group.throughput(Throughput::Elements(COUNT as u64));
+    for (name, import) in [("typed", typed), ("dynamic", dynamic)] {
+        let run = bind(&mut store, import);
+        assert_eq!(run.call(&mut store, 7, COUNT).unwrap(), 7 + COUNT);
+        group.bench_function(format!("imports/llvm/{name}"), |b| {
+            b.iter(|| black_box(run.call(&mut store, black_box(7), COUNT).unwrap()))
+        });
+    }
+
+    #[cfg(feature = "experimental-async")]
+    {
+        let runs = [false, true].map(|suspend| {
+            let typed = Function::new_typed_async(&mut store, move |v: i32| step(v, suspend));
+            let dynamic = Function::new_async(&mut store, signature.clone(), move |args| {
+                let value = args[0].unwrap_i32();
+                async move { Ok(vec![Value::I32(step(value, suspend).await)]) }
+            });
+            [
+                ("typed", suspend, bind(&mut store, typed)),
+                ("dynamic", suspend, bind(&mut store, dynamic)),
+            ]
+        });
+        let async_store = store.into_async();
+        for (name, suspend, run) in runs.into_iter().flatten() {
+            let batch = || {
+                use std::task::{Context, Poll, Waker};
+                let mut future = std::pin::pin!(run.call_async(&async_store, black_box(7), COUNT));
+                let mut cx = Context::from_waker(Waker::noop());
+                let mut pending = 0;
+                loop {
+                    match future.as_mut().poll(&mut cx) {
+                        Poll::Ready(value) => break (value.unwrap(), pending),
+                        Poll::Pending => pending += 1,
+                    }
+                }
+            };
+            assert_eq!(batch(), (7 + COUNT, if suspend { COUNT } else { 0 }));
+            let mode = if suspend { "suspend_once" } else { "ready" };
+            group.bench_function(format!("imports/llvm/{name}_{mode}"), |b| {
+                b.iter(|| black_box(batch()))
+            });
+        }
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+async fn step(value: i32, mut suspend: bool) -> i32 {
+    std::future::poll_fn(|cx| {
+        if std::mem::take(&mut suspend) {
+            cx.waker().wake_by_ref();
+            std::task::Poll::Pending
+        } else {
+            std::task::Poll::Ready(value + 1)
+        }
+    })
+    .await
+}
+
 fn run_benchmarks(c: &mut Criterion) {
     let wasm = module_wasm();
     let mut group = c.benchmark_group("host_guest");
@@ -282,6 +365,7 @@ fn run_benchmarks(c: &mut Criterion) {
         &mut group,
     );
     bench_wasmtime_identity(&identity_wasm, &mut group);
+    bench_wasmer_imports(&identity_wasm, &mut group);
     group.finish();
 }
 

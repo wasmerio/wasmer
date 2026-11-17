@@ -319,3 +319,187 @@ fn nested_async_in_sync() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn typed_results_wait_for_the_store_to_be_reinstalled() -> Result<()> {
+    use std::{future::Future, rc::Rc, task::Context};
+
+    let mut store = Store::default();
+    let env = FunctionEnv::new(&mut store, ());
+    let held = Rc::new(RefCell::new(None));
+    let host = Function::new_typed_with_env_async(&mut store, &env, {
+        let held = Rc::clone(&held);
+        move |env: AsyncFunctionEnvMut<()>, x: i64, y: f32| {
+            let held = Rc::clone(&held);
+            async move {
+                held.replace(Some(env.write().await));
+                (x + 1, y)
+            }
+        }
+    });
+    let host = host.typed::<(i64, f32), (i64, f32)>(&store)?;
+    let store = store.into_async();
+    let nan = f32::from_bits(0x7fc01234);
+    let mut call = Box::pin(host.call_async(&store, i64::MAX - 1, nan));
+    let mut cx = Context::from_waker(futures::task::noop_waker_ref());
+    assert!(call.as_mut().poll(&mut cx).is_pending());
+    drop(held.take().expect("host retained the store's write lock"));
+    let (integer, float) = futures::executor::block_on(call)?;
+    assert_eq!(integer, i64::MAX);
+    assert_eq!(float.to_bits(), nan.to_bits());
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn cancelled_typed_import_drops_its_pending_future() -> Result<()> {
+    use std::{future::Future, rc::Rc, task::Context};
+
+    let mut store = Store::default();
+    let owner = Rc::new(());
+    let host = Function::new_typed_async(&mut store, {
+        let owner = Rc::clone(&owner);
+        move |x: i32| {
+            let owner = Rc::clone(&owner);
+            async move {
+                future::pending::<()>().await;
+                drop(owner);
+                x
+            }
+        }
+    });
+    let host = host.typed::<i32, i32>(&store)?;
+    let store = store.into_async();
+    let mut call = Box::pin(host.call_async(&store, 42));
+    assert!(
+        call.as_mut()
+            .poll(&mut Context::from_waker(futures::task::noop_waker_ref()))
+            .is_pending()
+    );
+    assert_eq!(Rc::strong_count(&owner), 3);
+    drop(call);
+    assert_eq!(Rc::strong_count(&owner), 2);
+    assert!(store.into_store().is_ok());
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn sync_guest_can_call_ready_numeric_imports_but_cannot_suspend() -> Result<()> {
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        wat::parse_str(
+            r#"(module
+        (import "h" "ready" (func $ready (result i32)))
+        (import "h" "pending" (func $pending (result i32)))
+        (import "h" "lock" (func $lock (result i32)))
+        (func (export "ready") (result i32) call $ready)
+        (func (export "pending") (result i32) call $pending)
+        (func (export "lock") (result i32) call $lock))"#,
+        )?,
+    )?;
+    let env = FunctionEnv::new(&mut store, 42);
+    let ready = Function::new_typed_async(&mut store, || future::ready(42));
+    let pending = Function::new_typed_async(&mut store, future::pending::<i32>);
+    let lock = Function::new_typed_with_env_async(
+        &mut store,
+        &env,
+        async |env: AsyncFunctionEnvMut<i32>| *env.write().await.data_mut(),
+    );
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! {
+            "h" => { "ready" => ready, "pending" => pending, "lock" => lock }
+        },
+    )?;
+    for name in ["pending", "lock"] {
+        let f = instance
+            .exports
+            .get_typed_function::<(), i32>(&store, name)?;
+        assert_eq!(
+            f.call(&mut store).unwrap_err().to_trap(),
+            Some(TrapCode::YieldOutsideAsyncContext)
+        );
+    }
+    let f = instance
+        .exports
+        .get_typed_function::<(), i32>(&store, "ready")?;
+    assert_eq!(f.call(&mut store)?, 42);
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn typed_reference_import_keeps_its_argument_across_suspension() -> Result<()> {
+    use wasmer::ExternRef;
+
+    let mut store = Store::default();
+    let original = ExternRef::new(&mut store, 42u32);
+    let host = Function::new_typed_async(&mut store, async |x: Option<ExternRef>| {
+        tokio::task::yield_now().await;
+        x
+    });
+    let typed = host.typed::<Option<ExternRef>, Option<ExternRef>>(&store)?;
+    let store = store.into_async();
+    let result = futures::executor::block_on(typed.call_async(&store, Some(original)))?.unwrap();
+    assert_eq!(
+        result.downcast::<u32>(&store.into_store().unwrap()),
+        Some(&42)
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn synchronous_typed_import_holds_the_store_while_constructing_and_polling() -> Result<()> {
+    fn ready() -> impl Future<Output = i32> {
+        assert!(Store::with_current(|_| ()).is_none());
+        async {
+            assert!(Store::with_current(|_| ()).is_none());
+            42
+        }
+    }
+    let mut store = Store::default();
+    let first = Function::new_typed_async(&mut store, ready);
+    let env = FunctionEnv::new(&mut store, ());
+    let second =
+        Function::new_typed_with_env_async(&mut store, &env, |env: AsyncFunctionEnvMut<()>| {
+            drop(env);
+            ready()
+        });
+    for host in [first, second] {
+        assert_eq!(host.call(&mut store, &[])?[0], Value::I32(42));
+    }
+    Ok(())
+}
+
+#[test]
+#[cfg_attr(feature = "v8-default", ignore = "sys async import adapter")]
+fn custom_numeric_codec_keeps_its_store_conversion_context() -> Result<()> {
+    struct Checked(i32);
+    unsafe impl wasmer::FromToNativeWasmType for Checked {
+        type Native = i32;
+
+        fn from_native(x: i32) -> Self {
+            assert!(Store::with_current(|_| ()).is_none());
+            Self(x)
+        }
+        fn to_native(self) -> i32 {
+            self.0
+        }
+    }
+    let mut store = Store::default();
+    let host = Function::new_typed_async(&mut store, async |x: Checked| Checked(x.0 + 1));
+    let args = [Value::I32(41)];
+    // Custom results still acquire the environment's write lock for conversion.
+    assert_eq!(
+        host.call(&mut store, &args).unwrap_err().to_trap(),
+        Some(TrapCode::YieldOutsideAsyncContext)
+    );
+    let result = futures::executor::block_on(host.call_async(&store.into_async(), args.to_vec()))?;
+    assert_eq!(result[0], Value::I32(42));
+    Ok(())
+}

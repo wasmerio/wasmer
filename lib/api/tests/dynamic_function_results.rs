@@ -8,7 +8,7 @@
 //! What a dynamic host function returns is checked against the type the
 //! function was created with, on every call.
 
-use wasmer::{Function, FunctionType, RuntimeError, Store, Type, Value};
+use wasmer::{AsStoreMut, Function, FunctionType, RuntimeError, Store, Type, Value, WasmCall};
 
 fn i32_to_i32() -> FunctionType {
     FunctionType::new(vec![Type::I32], vec![Type::I32])
@@ -37,6 +37,40 @@ fn a_dynamic_function_returns_what_its_type_says() {
         assert_wrong_signature("wrong type", wrong_type.call(&mut store, &args));
         assert_wrong_signature("too few", too_few.call(&mut store, &args));
         assert_wrong_signature("too many", too_many.call(&mut store, &args));
+    }
+}
+
+#[test]
+#[should_panic(expected = "object used with the wrong context")]
+fn a_single_result_still_checks_the_store_after_the_wrapper_returns() {
+    let mut store = Store::default();
+    let mut other = Store::default();
+    let function = Function::new_typed(&mut store, || 42i32);
+    let mut switch_after_call = |entry: &mut WasmCall<'_>| {
+        entry.invoke()?;
+        std::mem::swap(entry.objects_mut(), other.objects_mut());
+        Ok(())
+    };
+
+    let _ = function.call_wrapped(&mut store, &mut switch_after_call, &[]);
+}
+
+#[test]
+fn a_dynamic_function_can_return_function_references() {
+    let mut store = Store::default();
+    let target = Function::new_typed(&mut store, || 42i32);
+    let args = [Value::FuncRef(Some(target))];
+    for count in [1, 2, 9] {
+        let signature = FunctionType::new([Type::FuncRef], vec![Type::FuncRef; count]);
+        let repeat = Function::new(&mut store, signature, move |args| {
+            Ok(vec![args[0].clone(); count])
+        });
+        let results = repeat.call(&mut store, &args).unwrap();
+        assert_eq!(results.len(), count);
+        for result in &results {
+            let f = result.unwrap_funcref().as_ref().unwrap();
+            assert_eq!(f.call(&mut store, &[]).unwrap()[0], Value::I32(42));
+        }
     }
 }
 

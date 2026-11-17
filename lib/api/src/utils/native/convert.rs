@@ -329,6 +329,10 @@ pub unsafe trait FromToNativeWasmType
 where
     Self: Sized,
 {
+    /// Whether this numeric codec can run without a store or an installed store context.
+    #[doc(hidden)]
+    const IS_STORE_INDEPENDENT: bool = false;
+
     /// Native Wasm type.
     type Native: NativeWasmTypeInto;
 
@@ -362,6 +366,7 @@ macro_rules! from_to_native_wasm_type {
         $(
             #[allow(clippy::use_self)]
             unsafe impl FromToNativeWasmType for $type {
+                const IS_STORE_INDEPENDENT: bool = true;
                 type Native = $native_type;
 
                 #[inline]
@@ -383,6 +388,7 @@ macro_rules! from_to_native_wasm_type_same_size {
         $(
             #[allow(clippy::use_self)]
             unsafe impl FromToNativeWasmType for $type {
+                const IS_STORE_INDEPENDENT: bool = true;
                 type Native = $native_type;
 
                 #[inline]
@@ -474,6 +480,11 @@ pub trait WasmTypeList
 where
     Self: Sized,
 {
+    /// Whether the numeric ABI conversions can run without a store or an installed
+    /// store context. The runtime can supply a store whose accessors panic.
+    #[doc(hidden)]
+    const IS_STORE_INDEPENDENT: bool = false;
+
     /// The C type (a struct) that can hold/represent all the
     /// represented values.
     type CStruct;
@@ -689,6 +700,7 @@ macro_rules! impl_wasmtypelist {
         where
             $( $x: FromToNativeWasmType ),*
         {
+            const IS_STORE_INDEPENDENT: bool = true $(&& <$x as FromToNativeWasmType>::IS_STORE_INDEPENDENT)*;
             type CStruct = $c_struct_name< $( $x ),* >;
 
             type Array = [RawValue; count_idents!( $( $x ),* )];
