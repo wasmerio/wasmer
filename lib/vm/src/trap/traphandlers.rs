@@ -135,7 +135,7 @@ struct ThreadState {
     /// The call an entry coroutine runs when it is next resumed. It is set
     /// right before each resume and passed here rather than as the resume
     /// value, which then stays a word (see `EntryYielder`).
-    job: Cell<*const EntryJob>,
+    job: Cell<EntryJob>,
     /// A single ready-to-use coroutine stack, for making entry coroutines
     /// without touching the global `STACK_POOL`'s atomics. An entry coroutine
     /// that is not kept (after a trap, or one made for a nested call) gives
@@ -263,7 +263,7 @@ thread_local! {
             yielder: Cell::new(None),
             entries: ManuallyDrop::new([UnsafeCell::new(None), UnsafeCell::new(None)]),
             entry_busy: Cell::new(0),
-            job: Cell::new(ptr::null()),
+            job: Cell::new(EntryJob::NONE),
             stack: ManuallyDrop::new(Cell::new(None)),
             flags: Cell::new(0),
         }
@@ -1309,8 +1309,8 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
 /// The function runs as one resume of an entry coroutine of the thread (see
 /// `ThreadState::entries`).
 //
-// Always inlined, so that the closure reaches the `CallData` below without
-// being copied (see there).
+// Always inlined, so that the closure is reached where its caller wrote it
+// (see `EntryJob`).
 #[inline(always)]
 fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     state: &ThreadState,
@@ -1318,95 +1318,67 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
-    // The call and the place for its result stay on this frame; the entry
-    // coroutine reaches them through a type-erased pointer. The closure is
-    // not copied: its caller has just written it field by field, and a bulk
-    // copy would read bytes from several of those stores at once, which waits
-    // for the stores to reach the cache instead of taking their values.
-    struct CallData<F, T> {
-        f: *const F,
-        result: MaybeUninit<T>,
-    }
-    unsafe fn run<F: FnOnce() -> T, T>(data: *mut u8) {
-        unsafe {
-            let data = &mut *(data as *mut CallData<F, T>);
-            let f = ptr::read(data.f);
-            data.result.write(f());
-        }
+    unsafe fn run<F: FnOnce() -> T, T>(f: *const u8, result: *mut u8) {
+        unsafe { result.cast::<T>().write(ptr::read(f.cast::<F>())()) }
     }
     // `run` moves the closure out. It is never dropped here: if the call
     // traps, it is abandoned with the rest of the Wasm stack.
     let f = ManuallyDrop::new(f);
-    let mut data = CallData {
-        f: &*f as *const F,
-        result: MaybeUninit::uninit(),
-    };
-    let job = EntryJob {
+    let mut result = MaybeUninit::<T>::uninit();
+    // `entry_body` reads the call right after the resume, before any nested
+    // call can set another one.
+    state.job.set(EntryJob {
         run: run::<F, T>,
-        data: &mut data as *mut CallData<F, T> as *mut u8,
-    };
+        f: ptr::from_ref(&*f).cast(),
+        result: result.as_mut_ptr().cast(),
+    });
 
     // Use the first entry coroutine of the thread that no running call uses,
     // in place, or make one for this call if they are all in use.
-    let mut own: Option<EntryCoroutine> = None;
     let busy = state.entry_busy.get();
-    let slot_index = busy.trailing_ones() as usize;
-    let cached = slot_index < ENTRY_SLOTS;
-    let entry: *mut EntryCoroutine = if cached {
-        // SAFETY: no running call uses the slot, so nothing refers into it.
-        let slot = unsafe { &mut *state.entries[slot_index].get() };
-        match slot {
-            Some(entry) if entry.stack_size >= stack_size => {}
-            _ => refill_entry(state, slot, stack_size),
-        }
-        state.entry_busy.set(busy | (1 << slot_index));
-        match slot {
-            Some(entry) => entry,
-            // SAFETY: `refill_entry` filled the slot.
-            None => unsafe { std::hint::unreachable_unchecked() },
-        }
+    let index = busy.trailing_ones() as usize;
+    let outcome = if index < ENTRY_SLOTS && slot_ready(state, index, stack_size) {
+        state.entry_busy.set(busy | (1 << index));
+        let _release = SlotRelease { state, index };
+        // SAFETY: the slot is this call's until `_release` releases it, and
+        // `slot_ready` made sure it holds a coroutine.
+        let entry = unsafe { (*state.entries[index].get()).as_mut().unwrap_unchecked() };
+        unsafe { resume_entry(state, entry, trap_handler) }
     } else {
-        own.insert(new_entry(state, stack_size))
+        unsafe { run_on_new_entry(state, stack_size, trap_handler) }
     };
-    let own: *mut Option<EntryCoroutine> = &mut own;
-    defer! {
-        // SAFETY: `own` outlives this guard, and the call no longer runs.
-        unsafe { finish_entry(state, cached.then_some(slot_index), own) };
-    }
-    // SAFETY: the slot is this call's until `finish_entry` releases it, and
-    // `own` lives on this frame.
-    let entry = unsafe { &mut *entry };
+    // SAFETY: `run` wrote the result if the call returned.
+    outcome.map(|()| unsafe { result.assume_init() })
+}
 
-    // Ensure that the yielder is reset on exit even if the coroutine panics.
-    defer! {
-        state.yielder.set(None);
-    }
-
-    // `entry_body` reads the call right after the resume below, before any
-    // nested call can set another one.
-    state.job.set(&job);
-
-    // Point the signal handler at the coroutine's trap handler context for the
-    // duration of the call, and restore the previous one afterwards.
+/// Runs the call set in `state.job` as one resume of `entry`, with the thread
+/// state pointing at the coroutine's trap handler context.
+///
+/// # Safety
+///
+/// The call must be set, and nothing else may use `entry` until this returns.
+#[inline(always)]
+unsafe fn resume_entry(
+    state: &ThreadState,
+    entry: &mut EntryCoroutine,
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+) -> Result<(), UnwindReason> {
     entry.trap_ctx.custom_trap = trap_handler;
     compiler_fence(Ordering::Release);
     let prev = state.trap_handler.load(Ordering::Relaxed);
     state
         .trap_handler
         .store(ptr::from_mut(&mut entry.trap_ctx), Ordering::Relaxed);
-    let result = {
-        defer! {
-            state.trap_handler.store(prev, Ordering::Relaxed);
-            compiler_fence(Ordering::Acquire);
-        }
-        entry.coro.resume(())
-    };
-    match result {
+    // However the call ends, even if the coroutine panics: the thread is back
+    // on the host stack, under the previous context.
+    defer! {
+        state.yielder.set(None);
+        state.trap_handler.store(prev, Ordering::Relaxed);
+        compiler_fence(Ordering::Acquire);
+    }
+    match entry.coro.resume(()) {
         // The call returned, and the coroutine waits for the next one.
-        CoroutineResult::Yield(reason) if reason.is_null() => {
-            // SAFETY: `run` wrote the result before suspending.
-            Ok(unsafe { data.result.assume_init() })
-        }
+        CoroutineResult::Yield(reason) if reason.is_null() => Ok(()),
         // This came from unwind_with, which requires that there be only Wasm
         // code on the stack: take the reason off it, then discard it.
         CoroutineResult::Yield(reason) => unsafe {
@@ -1416,6 +1388,38 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
         },
         // A trap handler made the coroutine return.
         CoroutineResult::Return(reason) => Err(reason),
+    }
+}
+
+/// Whether entry slot `index`, which no running call uses, holds a coroutine
+/// whose stack is at least `stack_size`, after filling it if it did not.
+#[inline(always)]
+fn slot_ready(state: &ThreadState, index: usize, stack_size: usize) -> bool {
+    // SAFETY: no running call uses the slot, so nothing refers into it.
+    let slot = unsafe { &mut *state.entries[index].get() };
+    matches!(slot, Some(entry) if entry.stack_size >= stack_size)
+        || fill_slot(state, slot, stack_size)
+}
+
+/// Releases the entry slot of a call when the call ends, and retires the
+/// slot's coroutine if it finished (after a trap or a panic).
+struct SlotRelease<'a> {
+    state: &'a ThreadState,
+    index: usize,
+}
+
+impl Drop for SlotRelease<'_> {
+    #[inline(always)]
+    fn drop(&mut self) {
+        let state = self.state;
+        state
+            .entry_busy
+            .set(state.entry_busy.get() & !(1 << self.index));
+        // SAFETY: the slot was the call's, which no longer runs.
+        let slot = unsafe { &mut *state.entries[self.index].get() };
+        if slot.as_ref().is_some_and(|entry| entry.coro.done()) {
+            retire_slot(state, slot);
+        }
     }
 }
 
@@ -1429,10 +1433,33 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
 /// itself.
 type EntryYielder = Yielder<(), *mut UnwindReason>;
 
-/// One call for an entry coroutine: `run(data)` on its stack.
+/// One call for an entry coroutine: `run(f, result)` on its stack, which calls
+/// the closure at `f` and writes what it returns to `result`.
+///
+/// The closure and the place for its result stay on the frame of
+/// `on_wasm_stack`, reached through type-erased pointers. The closure is not
+/// copied: its caller has just written it field by field, and a bulk copy
+/// would read bytes from several of those stores at once, which waits for the
+/// stores to reach the cache instead of taking their values.
+#[derive(Clone, Copy)]
 struct EntryJob {
-    run: unsafe fn(*mut u8),
-    data: *mut u8,
+    run: unsafe fn(*const u8, *mut u8),
+    f: *const u8,
+    result: *mut u8,
+}
+
+impl EntryJob {
+    /// What `ThreadState::job` holds before the first call.
+    const NONE: Self = {
+        unsafe fn none(_: *const u8, _: *mut u8) {
+            unreachable!("an entry coroutine resumed without a call");
+        }
+        Self {
+            run: none,
+            f: ptr::null(),
+            result: ptr::null_mut(),
+        }
+    };
 }
 
 /// A coroutine that runs calls on a Wasm stack, one per resume (see
@@ -1458,8 +1485,8 @@ fn entry_body(state: *const ThreadState, yielder: &EntryYielder) -> UnwindReason
             let state = &*state;
             // Save the yielder to TLS so that it can be used later.
             state.yielder.set(Some(NonNull::from(yielder)));
-            let job = &*state.job.get();
-            (job.run)(job.data);
+            let job = state.job.get();
+            (job.run)(job.f, job.result);
         }
         yielder.suspend(ptr::null_mut());
     }
@@ -1467,13 +1494,52 @@ fn entry_body(state: *const ThreadState, yielder: &EntryYielder) -> UnwindReason
 
 /// Fills an empty entry slot, or replaces a coroutine whose stack is smaller
 /// than a call asks for (discarded, as `acquire_stack` does with stacks).
+///
+/// A coroutine may only be kept once something will return its stack when
+/// the thread exits: if the thread is past the point where `ThreadExit` can
+/// be registered, the slot stays as it is and this returns false.
 #[cold]
 #[inline(never)]
-fn refill_entry(state: &ThreadState, slot: &mut Option<EntryCoroutine>, stack_size: usize) {
+fn fill_slot(state: &ThreadState, slot: &mut Option<EntryCoroutine>, stack_size: usize) -> bool {
+    if state.flags.get() & EXIT_HOOK_REGISTERED == 0 && !state.register_exit_hook() {
+        return false;
+    }
     if let Some(undersized) = slot.take() {
         drop(retire_entry(undersized));
     }
     *slot = Some(new_entry(state, stack_size));
+    true
+}
+
+/// Gives the stack of a slot's coroutine that finished back to the stack
+/// cache, emptying the slot.
+#[cold]
+#[inline(never)]
+fn retire_slot(state: &ThreadState, slot: &mut Option<EntryCoroutine>) {
+    if let Some(entry) = slot.take() {
+        release_stack(state, retire_entry(entry));
+    }
+}
+
+/// Runs the call set in `state.job` on a coroutine of its own, when every
+/// entry slot is in use (calls nested deeper, or activations of `call_async`
+/// suspended in Wasm) or the thread is exiting. Its stack goes back to the
+/// stack cache afterwards.
+///
+/// # Safety
+///
+/// The call must be set.
+#[cold]
+#[inline(never)]
+unsafe fn run_on_new_entry(
+    state: &ThreadState,
+    stack_size: usize,
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+) -> Result<(), UnwindReason> {
+    let mut entry = scopeguard::guard(new_entry(state, stack_size), |entry| {
+        release_stack(state, retire_entry(entry))
+    });
+    unsafe { resume_entry(state, &mut entry, trap_handler) }
 }
 
 /// Makes an entry coroutine on a stack from `acquire_stack`.
@@ -1492,36 +1558,6 @@ fn new_entry(state: &ThreadState, stack_size: usize) -> EntryCoroutine {
         coro,
         stack_size,
         trap_ctx,
-    }
-}
-
-/// Runs after a call: releases its slot, and gives the stack of a coroutine
-/// that is not kept back to the stack cache: one that finished (after a trap
-/// or a panic), any one if the thread is exiting, and one made for a nested
-/// call.
-///
-/// # Safety
-///
-/// The call must have stopped running, and `own` must be valid.
-#[inline]
-unsafe fn finish_entry(
-    state: &ThreadState,
-    slot_index: Option<usize>,
-    own: *mut Option<EntryCoroutine>,
-) {
-    if let Some(i) = slot_index {
-        state.entry_busy.set(state.entry_busy.get() & !(1 << i));
-        // SAFETY: the slot was this call's, and the call no longer runs.
-        let slot = unsafe { &mut *state.entries[i].get() };
-        // A coroutine may only be kept once something will return its stack
-        // when the thread exits.
-        let keep = matches!(slot, Some(entry) if !entry.coro.done())
-            && (state.flags.get() & EXIT_HOOK_REGISTERED != 0 || state.register_exit_hook());
-        if !keep && let Some(entry) = slot.take() {
-            release_stack(state, retire_entry(entry));
-        }
-    } else if let Some(entry) = unsafe { (*own).take() } {
-        release_stack(state, retire_entry(entry));
     }
 }
 
@@ -2083,14 +2119,10 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         let size = get_stack_size();
         std::thread::spawn(move || {
-            // Registered inside the first call, before the release at its
-            // end registers `ThreadExit`.
-            assert!(
-                on_wasm_stack(size, None, move || {
-                    LATE.with(|late| *late.borrow_mut() = Some(Late(tx)));
-                })
-                .is_ok()
-            );
+            // Registered before the first call, which registers `ThreadExit`
+            // when it fills its entry slot.
+            LATE.with(|late| *late.borrow_mut() = Some(Late(tx)));
+            assert!(on_wasm_stack(size, None, || ()).is_ok());
         })
         .join()
         .unwrap();
