@@ -90,6 +90,13 @@ impl Trap {
 
 impl From<*mut wasm_trap_t> for Trap {
     fn from(value: *mut wasm_trap_t) -> Self {
+        #[cfg(feature = "experimental-async")]
+        if unsafe { wasm_trap_is_suspend_error(value) } {
+            let code = wasmer_types::TrapCode::YieldOutsideAsyncContext;
+            unsafe { wasm_trap_delete(value) };
+            return Self::user(Box::new(code));
+        }
+
         let message = unsafe {
             let mut message = unsafe { std::mem::zeroed() };
             unsafe { wasm_trap_message(value, &mut message) };
@@ -154,6 +161,7 @@ impl From<Trap> for crate::RuntimeError {
             return trap.downcast::<Self>().unwrap();
         }
 
-        Self::new_from_source(crate::BackendTrap::V8(trap), vec![], None)
+        let code = trap.downcast_ref::<wasmer_types::TrapCode>().copied();
+        Self::new_from_source(crate::BackendTrap::V8(trap), vec![], code)
     }
 }

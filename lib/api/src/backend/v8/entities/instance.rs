@@ -34,7 +34,11 @@ impl InstanceHandle {
 
             std::mem::forget(externs);
 
-            wasm_instance_new(
+            #[cfg(feature = "experimental-async")]
+            let instantiate = wasm_instance_new_with_jspi;
+            #[cfg(not(feature = "experimental-async"))]
+            let instantiate = wasm_instance_new;
+            instantiate(
                 store,
                 wasm_module_obtain(store, module),
                 &mut imports,
