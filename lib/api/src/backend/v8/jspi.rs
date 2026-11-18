@@ -579,7 +579,7 @@ impl Function {
                 }
                 unsafe { Args::from_array(&mut current.as_mut(), raw) }
             };
-            let async_store = StoreAsync::from_context(id);
+            let async_store = Turn::current(id).and_then(|_| StoreAsync::from_context(id));
             let future = func(env, args);
             async move {
                 let result = future.await?;

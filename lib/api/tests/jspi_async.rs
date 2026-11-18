@@ -385,3 +385,24 @@ fn v8_ready_typed_import_and_foreign_store() -> Result<()> {
     assert!(futures::executor::block_on(add.call_async(&other, vec![Value::I32(6)])).is_err());
     Ok(())
 }
+
+#[cfg(feature = "v8")]
+#[test]
+fn v8_sync_callback_can_call_ready_typed_import() -> Result<()> {
+    let mut store = Store::new(wasmer::v8::V8::new());
+    let add = Function::new_typed_async(&mut store, |n: i32| future::ready(n + 1));
+    let inner = add.typed::<i32, i32>(&store)?;
+    let env = FunctionEnv::new(&mut store, inner);
+    let callback = Function::new_typed_with_env(
+        &mut store,
+        &env,
+        |mut env: FunctionEnvMut<TypedFunction<i32, i32>>, n: i32| {
+            let (inner, mut store) = env.data_and_store_mut();
+            inner.call(&mut store, n)
+        },
+    );
+    let entry = callback.typed::<i32, i32>(&store)?;
+    let result = futures::executor::block_on(entry.call_async(&store.into_async(), 41))?;
+    assert_eq!(result, 42);
+    Ok(())
+}
