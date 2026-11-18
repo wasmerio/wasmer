@@ -1,5 +1,4 @@
-//! Drive a JSPI continuation on the store's thread. The adapters pass guest values
-//! through Wasm and use a zero-argument JS function for suspension.
+//! Drive a typed V8 continuation on the store thread.
 use crate::{
     AsStoreAsync, AsStoreMut, AsStoreRef, AsyncFunctionEnv, AsyncFunctionEnvMut, AsyncHostFunction,
     BackendAsyncFunctionEnvMut, BackendTrap, FunctionEnv, RuntimeError, StoreAsync, StoreContext,
@@ -13,7 +12,7 @@ use crate::{
 };
 use futures::FutureExt;
 use std::{
-    cell::{Cell, RefCell},
+    cell::RefCell,
     collections::HashMap,
     ffi::c_void,
     future::Future,
@@ -22,28 +21,47 @@ use std::{
     ptr,
     rc::Rc,
 };
-use wasm_encoder::{
-    BlockType, CodeSection, EntityType, ExportKind, ExportSection, FunctionSection, ImportSection,
-    Instruction, Module, TypeSection, ValType,
-};
 use wasmer_types::{FunctionType, StoreId, TrapCode, Type};
 
 type Values = Result<Vec<Value>, RuntimeError>;
 type LocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 type HostFuture = LocalFuture<Values>;
-type HostCallback = dyn Fn(&[Value]) -> Values;
+type HostCallback = dyn Fn(&[Value]) -> HostFuture;
 
 #[derive(Default)]
-pub(crate) struct Adapters {
-    exports: HashMap<*mut wasm_func_t, *mut wasm_func_t>,
+pub(crate) struct JspiFunctions {
     handles: Vec<*mut wasm_func_t>,
+    promising: HashMap<*mut wasm_func_t, *mut wasm_promising_func_t>,
     // V8 holds pointers to these callbacks until the isolate is disposed.
     #[allow(clippy::vec_box)]
     callbacks: Vec<Box<Callback>>,
 }
 
-impl Drop for Adapters {
+impl JspiFunctions {
+    fn promising(
+        &mut self,
+        func: *mut wasm_func_t,
+    ) -> Result<*mut wasm_promising_func_t, RuntimeError> {
+        use std::collections::hash_map::Entry;
+        match self.promising.entry(func) {
+            Entry::Occupied(entry) => Ok(*entry.get()),
+            Entry::Vacant(entry) => {
+                let mut trap = ptr::null_mut();
+                let handle = unsafe { wasm_func_promising(func, &mut trap) };
+                if handle.is_null() {
+                    return Err(Trap::from(trap).into());
+                }
+                Ok(*entry.insert(handle))
+            }
+        }
+    }
+}
+
+impl Drop for JspiFunctions {
     fn drop(&mut self) {
+        for (_, func) in self.promising.drain() {
+            unsafe { wasm_promising_func_delete(func) };
+        }
         for function in self.handles.drain(..) {
             unsafe { wasm_func_delete(function) }
         }
@@ -58,8 +76,6 @@ struct Callback {
 
 struct Turn {
     store: StoreId,
-    values: Cell<Vec<Value>>,
-    host_error: Cell<Option<RuntimeError>>,
     pending: RefCell<Option<HostFuture>>,
 }
 
@@ -99,190 +115,123 @@ impl Drop for Continuation {
     }
 }
 
-fn valtype(ty: Type) -> ValType {
-    match ty {
-        Type::I32 => ValType::I32,
-        Type::I64 => ValType::I64,
-        Type::F32 => ValType::F32,
-        Type::F64 => ValType::F64,
-        Type::V128 => ValType::V128,
-        Type::FuncRef => ValType::FUNCREF,
-        Type::ExternRef => ValType::EXTERNREF,
-        Type::ExceptionRef => ValType::EXNREF,
+// The C API lends reference arguments until the callback returns. Keep
+// an owned function handle in the store if Rust retains it in a future.
+unsafe fn read_value(store: StoreId, val: wasm_val_t) -> Result<Value, RuntimeError> {
+    match val.kind as wasm_valkind_enum {
+        bindings::wasm_valkind_enum_WASM_FUNCREF => {
+            let reference = unsafe { val.of.ref_ };
+            if reference.is_null() {
+                return Ok(Value::FuncRef(None));
+            }
+            let mut current = unsafe { StoreContext::get_current(store) };
+            let handle = unsafe { wasm_func_copy(wasm_ref_as_func(reference)) };
+            current
+                .as_mut()
+                .inner
+                .store
+                .as_v8_mut()
+                .jspi
+                .handles
+                .push(handle);
+            Ok(Value::FuncRef(Some(crate::Function(
+                crate::BackendFunction::V8(Function {
+                    handle,
+                    store_id: Some(store),
+                }),
+            ))))
+        }
+        bindings::wasm_valkind_enum_WASM_EXTERNREF if unsafe { val.of.ref_ }.is_null() => {
+            Ok(Value::ExternRef(None))
+        }
+        bindings::wasm_valkind_enum_WASM_EXTERNREF => Err(RuntimeError::new(
+            "V8 does not support non-null externref host values",
+        )),
+        _ => Ok(val.into_wv()),
     }
 }
 
-// Each adapter calls three imports. For a host import they start the host
-// future, optionally suspend, and read its results. For an export they load
-// the arguments, call the guest, and save the results. A missing callee reserves
-// the middle import for WebAssembly.Suspending at instantiation.
-fn adapter(
-    store: &mut StoreMut<'_>,
-    signature: &FunctionType,
-    start: (&FunctionType, *mut wasm_func_t),
-    callee: Option<(&FunctionType, *mut wasm_func_t)>,
-    finish: (&FunctionType, *mut wasm_func_t),
-) -> Result<*mut wasm_func_t, RuntimeError> {
-    let mut types = TypeSection::new();
-    let mut import_section = ImportSection::new();
-    let suspend_ty = FunctionType::new([], []);
-    let callee_ty = callee.map_or(&suspend_ty, |(ty, _)| ty);
-    for (index, ty) in [start.0, callee_ty, finish.0].iter().enumerate() {
-        types.ty().function(
-            ty.params().iter().copied().map(valtype),
-            ty.results().iter().copied().map(valtype),
-        );
-        import_section.import(
-            "",
-            ["start", "call", "finish"][index],
-            EntityType::Function(index as u32),
-        );
-    }
-    types.ty().function(
-        signature.params().iter().copied().map(valtype),
-        signature.results().iter().copied().map(valtype),
-    );
-    let mut functions = FunctionSection::new();
-    functions.function(3);
-    let mut exports = ExportSection::new();
-    exports.export("run", ExportKind::Func, 3);
-    let mut body = wasm_encoder::Function::new([]);
-    for index in 0..signature.params().len() {
-        body.instruction(&Instruction::LocalGet(index as u32));
-    }
-    body.instruction(&Instruction::Call(0));
-    if callee.is_none() {
-        body.instruction(&Instruction::If(BlockType::Empty));
-    }
-    body.instruction(&Instruction::Call(1));
-    if callee.is_none() {
-        body.instruction(&Instruction::End);
-    }
-    body.instruction(&Instruction::Call(2));
-    body.instruction(&Instruction::End);
-    let mut code = CodeSection::new();
-    code.function(&body);
-    let mut module = Module::new();
-    module
-        .section(&types)
-        .section(&import_section)
-        .section(&functions)
-        .section(&exports)
-        .section(&code);
-    let mut bytes = module.finish();
-    let backend = store.inner.store.as_v8_mut();
-    unsafe {
-        let binary = wasm_byte_vec_t {
-            size: bytes.len(),
-            data: bytes.as_mut_ptr().cast(),
-        };
-        let module = wasm_module_new(backend.inner, &binary);
-        if module.is_null() {
-            return Err(RuntimeError::new("unable to compile V8 async adapter"));
+fn write_value(store: StoreId, value: Value) -> Result<wasm_val_t, RuntimeError> {
+    match value {
+        Value::ExternRef(None) => Ok(wasm_val_t {
+            kind: wasm_valkind_enum_WASM_EXTERNREF as _,
+            of: wasm_val_t__bindgen_ty_1 {
+                ref_: ptr::null_mut(),
+            },
+        }),
+        Value::FuncRef(Some(func)) => {
+            let current = unsafe { StoreContext::get_current(store) };
+            if !func.is_from_store(&current.as_ref()) {
+                return Err(RuntimeError::new(
+                    "function reference belongs to another store",
+                ));
+            }
+            let handle = unsafe { wasm_func_as_ref(wasm_func_copy(func.as_v8().handle)) };
+            Ok(wasm_val_t {
+                kind: wasm_valkind_enum_WASM_FUNCREF as _,
+                of: wasm_val_t__bindgen_ty_1 { ref_: handle },
+            })
         }
-        let mut items = [
-            wasm_func_as_extern(start.1),
-            callee.map_or(ptr::null_mut(), |(_, func)| wasm_func_as_extern(func)),
-            wasm_func_as_extern(finish.1),
-        ];
-        let imports = wasm_extern_vec_t {
-            size: items.len(),
-            data: items.as_mut_ptr(),
-        };
-        let mut trap = ptr::null_mut();
-        let instance = if callee.is_none() {
-            wasm_jspi_instance_new(backend.inner, module, &imports, &mut trap)
-        } else {
-            wasm_instance_new(backend.inner, module, &imports, &mut trap)
-        };
-        wasm_module_delete(module);
-        if instance.is_null() {
-            return Err(Trap::from(trap).into());
+        Value::ExternRef(Some(_)) | Value::ExceptionRef(_) => {
+            Err(RuntimeError::new("unsupported V8 host reference value"))
         }
-        let mut exports = wasm_extern_vec_t::default();
-        wasm_instance_exports(instance, &mut exports);
-        let function = wasm_func_copy(wasm_extern_as_func(*exports.data));
-        wasm_extern_vec_delete(&mut exports);
-        wasm_instance_delete(instance);
-        backend.jspi.handles.push(function);
-        Ok(function)
+        value => Ok(value.into_cv()),
+    }
+}
+
+struct OwnedValues(Vec<wasm_val_t>);
+
+impl OwnedValues {
+    fn from_values(store: StoreId, values: Vec<Value>) -> Result<Self, RuntimeError> {
+        let mut owned = Self(Vec::with_capacity(values.len()));
+        for value in values {
+            owned.0.push(write_value(store, value)?);
+        }
+        Ok(owned)
+    }
+
+    fn vector(&mut self) -> wasm_val_vec_t {
+        wasm_val_vec_t {
+            size: self.0.len(),
+            data: self.0.as_mut_ptr(),
+        }
+    }
+}
+
+impl Drop for OwnedValues {
+    fn drop(&mut self) {
+        for value in &mut self.0 {
+            unsafe { wasm_val_delete(value) }
+        }
     }
 }
 
 impl Callback {
-    // The C API lends reference arguments until the callback returns. Keep
-    // an owned function handle in the store if Rust retains it in a future.
-    unsafe fn argument(&self, val: wasm_val_t) -> Result<Value, RuntimeError> {
-        match val.kind as wasm_valkind_enum {
-            bindings::wasm_valkind_enum_WASM_FUNCREF => {
-                let reference = unsafe { val.of.ref_ };
-                if reference.is_null() {
-                    return Ok(Value::FuncRef(None));
-                }
-                let mut current = unsafe { StoreContext::get_current(self.store) };
-                let handle = unsafe { wasm_func_copy(wasm_ref_as_func(reference)) };
-                current
-                    .as_mut()
-                    .inner
-                    .store
-                    .as_v8_mut()
-                    .jspi
-                    .handles
-                    .push(handle);
-                Ok(Value::FuncRef(Some(crate::Function(
-                    crate::BackendFunction::V8(Function {
-                        handle,
-                        store_id: Some(self.store),
-                    }),
-                ))))
-            }
-            bindings::wasm_valkind_enum_WASM_EXTERNREF if unsafe { val.of.ref_ }.is_null() => {
-                Ok(Value::ExternRef(None))
-            }
-            bindings::wasm_valkind_enum_WASM_EXTERNREF => Err(RuntimeError::new(
-                "V8 does not support non-null externref host values",
-            )),
-            _ => Ok(val.into_wv()),
-        }
-    }
-
-    fn result(&self, value: Value) -> Result<wasm_val_t, RuntimeError> {
-        match value {
-            Value::ExternRef(None) => Ok(wasm_val_t {
-                kind: wasm_valkind_enum_WASM_EXTERNREF as _,
-                of: wasm_val_t__bindgen_ty_1 {
-                    ref_: ptr::null_mut(),
-                },
-            }),
-            Value::FuncRef(Some(func)) => {
-                let current = unsafe { StoreContext::get_current(self.store) };
-                if !func.is_from_store(&current.as_ref()) {
-                    return Err(RuntimeError::new(
-                        "function reference belongs to another store",
-                    ));
-                }
-                let handle = unsafe { wasm_func_as_ref(wasm_func_copy(func.as_v8().handle)) };
-                Ok(wasm_val_t {
-                    kind: wasm_valkind_enum_WASM_FUNCREF as _,
-                    of: wasm_val_t__bindgen_ty_1 { ref_: handle },
-                })
-            }
-            Value::ExternRef(Some(_)) | Value::ExceptionRef(_) => {
-                Err(RuntimeError::new("unsupported V8 host reference value"))
-            }
-            value => Ok(value.into_cv()),
-        }
-    }
-
     unsafe fn invoke(
         &self,
         args: &wasm_val_vec_t,
         results: &mut wasm_val_vec_t,
+        pending: *mut bool,
     ) -> Result<(), RuntimeError> {
         let values = (0..args.size)
-            .map(|i| unsafe { self.argument(*args.data.add(i)) })
+            .map(|i| unsafe { read_value(self.store, *args.data.add(i)) })
             .collect::<Result<Vec<_>, _>>()?;
-        let returned = (self.function)(&values)?;
+        let future = (self.function)(&values);
+        if !pending.is_null() {
+            let turn = Turn::current(self.store)
+                .ok_or_else(|| RuntimeError::new("missing async store context"))?;
+            turn.pending.replace(Some(future));
+            unsafe { *pending = true };
+            return Ok(());
+        }
+        let returned = future.now_or_never().ok_or_else(|| {
+            let code = TrapCode::YieldOutsideAsyncContext;
+            RuntimeError::new_from_source(
+                BackendTrap::V8(Trap::user(Box::new(code))),
+                vec![],
+                Some(code),
+            )
+        })??;
         if !returned
             .iter()
             .map(Value::ty)
@@ -293,7 +242,7 @@ impl Callback {
             ));
         }
         for (i, value) in returned.into_iter().enumerate() {
-            unsafe { results.data.add(i).write(self.result(value)?) };
+            unsafe { results.data.add(i).write(write_value(self.store, value)?) };
         }
         Ok(())
     }
@@ -302,18 +251,19 @@ impl Callback {
 fn host(
     store: &mut StoreMut<'_>,
     ty: &FunctionType,
-    function: impl Fn(&[Value]) -> Values + 'static,
+    function: impl Fn(&[Value]) -> HostFuture + 'static,
 ) -> *mut wasm_func_t {
     unsafe extern "C" fn invoke(
         env: *mut c_void,
         args: *const wasm_val_vec_t,
         results: *mut wasm_val_vec_t,
+        pending: *mut bool,
     ) -> *mut wasm_trap_t {
         let callback = unsafe { &*env.cast::<Callback>() };
         // The store owns the callback box. The C API owns both vectors for
         // this invocation, and sizes the output to the callback signature.
         let result = catch_unwind(AssertUnwindSafe(|| unsafe {
-            callback.invoke(&*args, &mut *results)
+            callback.invoke(&*args, &mut *results, pending)
         }))
         .unwrap_or_else(|_| Err(RuntimeError::new("V8 async host callback panicked")));
         match result {
@@ -342,7 +292,7 @@ fn host(
     let backend = store.inner.store.as_v8_mut();
     unsafe {
         let ty = wasm_functype_new(&mut types(ty.params()), &mut types(ty.results()));
-        let func = wasm_func_new_with_env(
+        let func = wasm_func_new_suspending(
             backend.inner,
             ty,
             Some(invoke),
@@ -355,41 +305,6 @@ fn host(
         backend.jspi.handles.push(func);
         func
     }
-}
-
-fn export_adapter(
-    store: &mut StoreMut<'_>,
-    function: &Function,
-    ty: &FunctionType,
-) -> Result<*mut wasm_func_t, RuntimeError> {
-    let id = store.objects_mut().id();
-    if let Some(handle) = store.inner.store.as_v8().jspi.exports.get(&function.handle) {
-        return Ok(*handle);
-    }
-    let args = FunctionType::new([], ty.params().to_vec());
-    let results = FunctionType::new(ty.results().to_vec(), []);
-    let load = host(store, &args, move |_| {
-        Ok(Turn::current(id).unwrap().values.take())
-    });
-    let save = host(store, &results, move |values| {
-        Turn::current(id).unwrap().values.set(values.to_vec());
-        Ok(vec![])
-    });
-    let handle = adapter(
-        store,
-        &FunctionType::new([], []),
-        (&args, load),
-        Some((ty, function.handle)),
-        (&results, save),
-    )?;
-    store
-        .inner
-        .store
-        .as_v8_mut()
-        .jspi
-        .exports
-        .insert(function.handle, handle);
-    Ok(handle)
 }
 
 impl Function {
@@ -414,38 +329,74 @@ impl Function {
                     "V8 async call parameters do not match the function signature or store",
                 ));
             }
-            let adapter = export_adapter(&mut lock.as_store_mut(), &function, &ty)?;
+            let promising = lock
+                .as_store_mut()
+                .inner
+                .store
+                .as_v8_mut()
+                .jspi
+                .promising(function.handle)?;
             let turn = Rc::new(Turn {
                 store: store.id,
-                values: Cell::new(params),
-                host_error: Cell::new(None),
                 pending: RefCell::default(),
             });
             let mut continuation = Continuation(ptr::null_mut());
+            let mut inputs = Ok(params);
+            let mut output = OwnedValues(vec![wasm_val_t::default(); ty.results().len()]);
             loop {
                 let context = StoreContext::install_async(lock.inner);
-                let trap = turn.enter(|| unsafe {
-                    if continuation.0.is_null() {
-                        wasm_jspi_start(adapter, &mut continuation.0)
-                    } else {
-                        wasm_jspi_resume(&mut continuation.0)
+                let trap = turn.enter(|| -> Result<_, RuntimeError> {
+                    let mut values = OwnedValues(Vec::new());
+                    let error = match inputs {
+                        Ok(args) => {
+                            values = OwnedValues::from_values(store.id, args)?;
+                            ptr::null_mut()
+                        }
+                        Err(error) => {
+                            let mut current = unsafe { StoreContext::get_current(store.id) };
+                            unsafe {
+                                Trap::user(Box::new(error)).into_wasm_trap(&mut current.as_mut())
+                            }
+                        }
+                    };
+                    let trap = unsafe {
+                        if continuation.0.is_null() {
+                            wasm_promising_func_call(
+                                promising,
+                                &values.vector(),
+                                &mut output.vector(),
+                                &mut continuation.0,
+                            )
+                        } else {
+                            wasm_jspi_call_resume(
+                                &mut continuation.0,
+                                &values.vector(),
+                                error,
+                                &mut output.vector(),
+                            )
+                        }
+                    };
+                    if !error.is_null() {
+                        unsafe { wasm_trap_delete(error) };
                     }
-                });
-                drop(context);
+                    Ok(trap)
+                })?;
                 if !trap.is_null() {
                     return Err(Trap::from(trap).into());
                 }
                 if continuation.0.is_null() {
-                    return Ok(turn.values.take().into_boxed_slice());
+                    return output
+                        .0
+                        .iter()
+                        .map(|v| unsafe { read_value(store.id, *v) })
+                        .collect();
                 }
+                drop(context);
                 let future = turn
                     .pending
                     .take()
                     .ok_or_else(|| RuntimeError::new("missing suspended V8 host future"))?;
-                match future.await {
-                    Ok(values) => turn.values.set(values),
-                    Err(error) => turn.host_error.set(Some(error)),
-                }
+                inputs = future.await;
                 lock = store.write_lock().await;
             }
         })
@@ -482,51 +433,14 @@ impl Function {
         let id = store.objects_mut().id();
         let env = env.as_v8().clone();
         let ty = ty.into();
-        let start_ty = FunctionType::new(ty.params().to_vec(), [Type::I32]);
-        let finish_ty = FunctionType::new([], ty.results().to_vec());
-        let immediate = Rc::new(Cell::new(Vec::new()));
-        let immediate_result = immediate.clone();
-        let start = host(&mut store, &start_ty, move |args| {
+        let handle = host(&mut store, &ty, move |args| {
             let env =
                 AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::V8(env::AsyncFunctionEnvMut {
                     store: StoreAsync::from_context(id),
                     func_env: env.clone(),
                 }));
-            let future = func(env, args);
-            let pending = if let Some(turn) = Turn::current(id) {
-                turn.pending.replace(Some(Box::pin(future)));
-                true
-            } else {
-                let ready = future.now_or_never().ok_or_else(|| {
-                    let code = TrapCode::YieldOutsideAsyncContext;
-                    RuntimeError::new_from_source(
-                        BackendTrap::V8(Trap::user(Box::new(code))),
-                        vec![],
-                        Some(code),
-                    )
-                })??;
-                immediate_result.set(ready);
-                false
-            };
-            Ok(vec![Value::I32(i32::from(pending))])
+            Box::pin(func(env, args))
         });
-        let finish = host(&mut store, &finish_ty, move |_| {
-            let Some(turn) = Turn::current(id) else {
-                return Ok(immediate.take());
-            };
-            if let Some(error) = turn.host_error.take() {
-                return Err(error);
-            }
-            Ok(turn.values.take())
-        });
-        let handle = adapter(
-            &mut store,
-            &ty,
-            (&start_ty, start),
-            None,
-            (&finish_ty, finish),
-        )
-        .expect("valid V8 async import adapter");
         Self {
             handle,
             store_id: Some(id),

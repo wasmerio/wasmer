@@ -359,6 +359,41 @@ fn v8_suspended_calls_keep_their_own_continuations() -> Result<()> {
 
 #[cfg(feature = "v8")]
 #[test]
+fn v8_suspending_import_round_trips_simd_and_funcref() -> Result<()> {
+    let mut store = Store::new(wasmer::v8::V8::new());
+    let module = Module::new(
+        &store,
+        r#"(module
+        (import "" "echo" (func $echo (param v128 funcref) (result v128 funcref)))
+        (func (export "run") (param v128 funcref) (result v128 funcref)
+          local.get 0 local.get 1 call $echo)
+        (func (export "answer") (result i32) i32.const 42))"#,
+    )?;
+    let ty = FunctionType::new([Type::V128, Type::FuncRef], [Type::V128, Type::FuncRef]);
+    let echo = Function::new_async(&mut store, ty, |values| {
+        let values = values.to_vec();
+        async move { Ok(values) }
+    });
+    let instance = Instance::new(&mut store, &module, &imports! { "" => { "echo" => echo } })?;
+    let run = instance.exports.get_function("run")?;
+    let answer = instance.exports.get_function("answer")?.clone();
+    let store = store.into_async();
+    let bits = 0xdead_beef_0123_4567_fedc_ba98_7654_3210;
+    let results = futures::executor::block_on(run.call_async(
+        &store,
+        vec![Value::V128(bits), Value::FuncRef(Some(answer))],
+    ))?;
+    assert_eq!(results[0].unwrap_v128(), bits);
+    let Some(reference) = results[1].unwrap_funcref() else {
+        panic!("expected a function reference")
+    };
+    let result = futures::executor::block_on(reference.call_async(&store, Vec::new()))?;
+    assert_eq!(result[0].unwrap_i32(), 42);
+    Ok(())
+}
+
+#[cfg(feature = "v8")]
+#[test]
 fn v8_preserves_host_errors_after_suspension() -> Result<()> {
     let mut store = Store::new(wasmer::v8::V8::new());
     let fail = Function::new_async(&mut store, FunctionType::new([], []), |_| async {

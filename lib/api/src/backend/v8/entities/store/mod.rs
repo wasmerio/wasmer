@@ -16,7 +16,7 @@ pub struct Store {
     pub(crate) inner: *mut wasm_store_t,
     pub(crate) thread_id: ThreadId,
     #[cfg(feature = "experimental-async")]
-    pub(crate) jspi: crate::v8::jspi::Adapters,
+    pub(crate) jspi: crate::v8::jspi::JspiFunctions,
 }
 
 impl std::fmt::Debug for Store {
