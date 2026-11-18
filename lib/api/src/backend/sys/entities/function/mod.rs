@@ -519,9 +519,12 @@ impl Function {
                 // Safety: the store context is uninstalled before this entry
                 // returns, and the store mut is valid for its duration. It is
                 // installed only while Wasm runs: the wrapper holds the store
-                // between entries, so it must not be lendable then.
-                let store_install_guard =
-                    unsafe { StoreContext::enter(store.as_store_mut().inner as *mut _) };
+                // between entries, so it must not be lendable then. One lookup
+                // of the thread serves for marking the call and for entering.
+                let thread = wasmer_vm::CurrentThread::get();
+                let store_install_guard = unsafe {
+                    StoreContext::enter_on(thread, store.as_store_mut().inner as *mut _)
+                };
                 let storeref = store.as_store_ref();
                 let vm_function = self.handle.get(storeref.objects().as_sys());
                 let config = storeref.engine().tunables().vmconfig();
@@ -530,7 +533,8 @@ impl Function {
                     // Safety: This is the intended use-case for StoreContext::pause, as
                     // documented in the function's doc comments.
                     let _pause_guard = store_install_guard.pause();
-                    wasmer_call_trampoline(
+                    wasmer_vm::wasmer_call_trampoline_on(
+                        thread,
                         signal_handler,
                         config,
                         vm_function.anyfunc.as_ptr().as_ref().vmctx,

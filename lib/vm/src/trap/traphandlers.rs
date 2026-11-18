@@ -149,6 +149,10 @@ struct ThreadState {
     /// One-time per-thread work already done: `SIGNAL_STACK_READY`,
     /// `EXIT_HOOK_REGISTERED`.
     flags: Cell<u8>,
+    /// See [`CurrentThread::slot_call`]. It lives here so that an embedder
+    /// that sets it around an entry into Wasm looks up one thread-local for
+    /// both.
+    slot_call: Cell<bool>,
 }
 
 /// How many entry coroutines a thread keeps: one for calls from the host and
@@ -266,8 +270,63 @@ thread_local! {
             job: Cell::new(EntryJob::NONE),
             stack: ManuallyDrop::new(Cell::new(None)),
             flags: Cell::new(0),
+            slot_call: Cell::new(false),
         }
     };
+}
+
+/// The calling thread's state for entering Wasm, looked up once.
+///
+/// Every entry into Wasm looks up the state of its thread, a thread-local. An
+/// embedder that keeps a mark of its own on the thread around each entry (see
+/// [`Self::slot_call`]) can look the thread up once for both: it gets the
+/// thread, sets its mark, and enters with
+/// [`wasmer_call_trampoline_on`](crate::wasmer_call_trampoline_on).
+///
+/// It is not `Send`: it belongs to the thread that got it.
+#[derive(Clone, Copy)]
+pub struct CurrentThread {
+    state: NonNull<ThreadState>,
+}
+
+impl CurrentThread {
+    /// The calling thread's.
+    #[inline]
+    pub fn get() -> Self {
+        Self {
+            state: THREAD_STATE.with(|state| NonNull::from(state)),
+        }
+    }
+
+    /// The calling thread's, or `None` on targets where thread-locals are
+    /// freed when the thread exits, once its state was.
+    #[inline]
+    pub fn try_get() -> Option<Self> {
+        THREAD_STATE
+            .try_with(|state| Self {
+                state: NonNull::from(state),
+            })
+            .ok()
+    }
+
+    #[inline]
+    fn state(&self) -> &ThreadState {
+        // SAFETY: as in `with_thread_state`; a `CurrentThread` stays on its
+        // thread.
+        unsafe { self.state.as_ref() }
+    }
+
+    /// Whether the innermost call into a store running on this thread went
+    /// through the store's slot (see
+    /// [`StoreObjects::slot`](crate::StoreObjects::slot)).
+    ///
+    /// The VM only keeps it: the embedder sets it for the duration of such a
+    /// call, puts back the previous value when the call returns, and reads it
+    /// from host code.
+    #[inline]
+    pub fn slot_call(&self) -> &Cell<bool> {
+        &self.state().slot_call
+    }
 }
 
 /// Runs `f` with the calling thread's state.
@@ -1088,16 +1147,33 @@ pub unsafe fn catch_traps<F, R: 'static>(
 where
     F: FnOnce() -> R + 'static,
 {
+    unsafe { catch_traps_on(CurrentThread::get(), trap_handler, config, closure) }
+}
+
+/// [`catch_traps`] on `thread`, which must be the calling thread's.
+///
+/// # Safety
+///
+/// See [`catch_traps`].
+#[inline]
+pub(crate) unsafe fn catch_traps_on<F, R: 'static>(
+    thread: CurrentThread,
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
+    closure: F,
+) -> Result<R, Trap>
+where
+    F: FnOnce() -> R + 'static,
+{
     // One thread-local lookup for the whole entry: the call stays on this
     // thread until it returns, so the reference stays valid throughout.
-    with_thread_state(|state| {
-        // Ensure that per-thread initialization is done.
-        state.per_thread_init()?;
-        let stack_size = config
-            .wasm_stack_size
-            .unwrap_or_else(|| DEFAULT_STACK_SIZE.load(Ordering::Relaxed));
-        on_wasm_stack(state, stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
-    })
+    let state = thread.state();
+    // Ensure that per-thread initialization is done.
+    state.per_thread_init()?;
+    let stack_size = config
+        .wasm_stack_size
+        .unwrap_or_else(|| DEFAULT_STACK_SIZE.load(Ordering::Relaxed));
+    on_wasm_stack(state, stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
 }
 
 /// The thread-local state of one *activation*: a chain of Wasm entries whose

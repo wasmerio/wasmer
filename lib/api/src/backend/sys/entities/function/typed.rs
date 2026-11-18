@@ -80,10 +80,13 @@ macro_rules! impl_native_traits {
                     if let Some(original_args) = &original_args {
                         args_rets.copy_from_slice(original_args);
                     }
+                    // One lookup of the thread for marking the call and for
+                    // entering Wasm.
+                    let thread = wasmer_vm::CurrentThread::get();
                     // Installed only while Wasm runs: the wrapper holds the
                     // store between entries, so it must not be lendable then.
                     let store_install_guard = unsafe {
-                        StoreContext::enter(store.as_store_mut().inner as *mut _)
+                        StoreContext::enter_on(thread, store.as_store_mut().inner as *mut _)
                     };
                     let storeref = store.as_store_ref();
                     let config = storeref.engine().tunables().vmconfig();
@@ -91,7 +94,8 @@ macro_rules! impl_native_traits {
                         // Safety: This is the intended use-case for StoreContext::pause, as
                         // documented in the function's doc comments.
                         let _pause_guard = store_install_guard.pause();
-                        wasmer_vm::wasmer_call_trampoline(
+                        wasmer_vm::wasmer_call_trampoline_on(
+                            thread,
                             storeref.signal_handler(),
                             config,
                             anyfunc.vmctx,

@@ -124,6 +124,60 @@ where
     Ok(closure())
 }
 
+/// [`catch_traps`] on `thread`.
+///
+/// # Safety
+///
+/// See [`catch_traps`].
+pub(crate) unsafe fn catch_traps_on<F, R: 'static>(
+    _thread: CurrentThread,
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
+    closure: F,
+) -> Result<R, Trap>
+where
+    F: FnOnce() -> R + 'static,
+{
+    unsafe { catch_traps(trap_handler, config, closure) }
+}
+
+thread_local! {
+    static SLOT_CALL: Cell<bool> = const { Cell::new(false) };
+}
+
+/// The calling thread's state for entering Wasm; see the signal-based
+/// backend. Here it only holds [`Self::slot_call`].
+#[derive(Clone, Copy)]
+pub struct CurrentThread {
+    slot_call: std::ptr::NonNull<Cell<bool>>,
+}
+
+impl CurrentThread {
+    /// The calling thread's.
+    pub fn get() -> Self {
+        Self {
+            slot_call: SLOT_CALL.with(|slot_call| std::ptr::NonNull::from(slot_call)),
+        }
+    }
+
+    /// The calling thread's, or `None` once its thread-locals were freed.
+    pub fn try_get() -> Option<Self> {
+        SLOT_CALL
+            .try_with(|slot_call| Self {
+                slot_call: std::ptr::NonNull::from(slot_call),
+            })
+            .ok()
+    }
+
+    /// Whether the innermost call into a store running on this thread went
+    /// through the store's slot; see the signal-based backend.
+    pub fn slot_call(&self) -> &Cell<bool> {
+        // SAFETY: a thread-local of this thread without a destructor, and a
+        // `CurrentThread` stays on its thread.
+        unsafe { self.slot_call.as_ref() }
+    }
+}
+
 /// Registered unwinder, if any.
 static UNWINDER: Mutex<Option<Box<dyn Fn(UnwindReason) + Send>>> = Mutex::new(None);
 

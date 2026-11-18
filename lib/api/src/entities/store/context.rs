@@ -158,13 +158,27 @@ pub(crate) enum StoreInstallGuard {
 
 thread_local! {
     static STORE_CONTEXT_STACK: RefCell<Vec<StoreContext>> = const { RefCell::new(Vec::new()) };
+}
 
-    /// Whether the innermost call running on this thread is a call into a
-    /// plain store (see [`SlotRef`]), which has no entry on the context
-    /// stack: [`StoreContext::try_get_current_unborrowed`] must not lend out
-    /// the entry below it, as the call's host functions hold the borrow of
-    /// their own store. [`StoreMut::parked`] clears it for its closure.
-    static INSIDE_PLAIN_CALL: Cell<bool> = const { Cell::new(false) };
+/// Whether the innermost call running on this thread is a call into a plain
+/// store (see [`SlotRef`]), which has no entry on the context stack:
+/// [`StoreContext::try_get_current_unborrowed`] must not lend out the entry
+/// below it, as the call's host functions hold the borrow of their own store.
+/// [`StoreMut::parked`] clears it for its closure.
+///
+/// The flag is `wasmer_vm::CurrentThread::slot_call`, in the VM's thread
+/// state: a call looks the thread up once to set it and to enter Wasm. Only
+/// the `sys` backend has plain stores.
+#[inline]
+fn inside_plain_call() -> bool {
+    #[cfg(feature = "sys")]
+    {
+        wasmer_vm::CurrentThread::get().slot_call().get()
+    }
+    #[cfg(not(feature = "sys"))]
+    {
+        false
+    }
 }
 
 /// The bits of `StoreInner::context_mode`. A store with none of them set is
@@ -238,7 +252,8 @@ pub(crate) enum StoreEntryGuard {
         slot: SlotRef,
         /// The slot's value before the call.
         saved: *mut StoreInner,
-        /// This thread's `INSIDE_PLAIN_CALL`, and its value before the call.
+        /// This thread's flag of whether a plain call is innermost (see
+        /// [`inside_plain_call`]), and its value before the call.
         inside_plain_call: *const Cell<bool>,
         saved_inside_plain_call: bool,
     },
@@ -277,8 +292,8 @@ impl Drop for StoreEntryGuard {
                 saved_inside_plain_call,
             } => {
                 slot.cell().set(*saved);
-                // SAFETY: a thread-local of this thread (the guard is not
-                // `Send`), which has no destructor and so lives as long as it.
+                // SAFETY: in this thread's VM state (the guard is not
+                // `Send`), which outlives the call.
                 unsafe { (**inside_plain_call).set(*saved_inside_plain_call) };
             }
             // Dropped by its own `Drop`.
@@ -287,23 +302,28 @@ impl Drop for StoreEntryGuard {
     }
 }
 
-/// Lifts `INSIDE_PLAIN_CALL` while a borrow is parked: the frames inside see
-/// the parked entry, which they may borrow.
+/// Lifts the flag of [`inside_plain_call`] while a borrow is parked: the
+/// frames inside see the parked entry, which they may borrow.
 pub(crate) struct LendGuard {
     saved: bool,
 }
 
 impl LendGuard {
     pub(crate) fn new() -> Self {
-        Self {
-            saved: INSIDE_PLAIN_CALL.with(|cell| cell.replace(false)),
-        }
+        #[cfg(feature = "sys")]
+        let saved = wasmer_vm::CurrentThread::get().slot_call().replace(false);
+        #[cfg(not(feature = "sys"))]
+        let saved = false;
+        Self { saved }
     }
 }
 
 impl Drop for LendGuard {
     fn drop(&mut self) {
-        let _ = INSIDE_PLAIN_CALL.try_with(|cell| cell.set(self.saved));
+        #[cfg(feature = "sys")]
+        if let Some(thread) = wasmer_vm::CurrentThread::try_get() {
+            thread.slot_call().set(self.saved);
+        }
     }
 }
 
@@ -368,7 +388,7 @@ impl StoreContext {
     /// are no active store context entries, and no call into a plain store
     /// (which has none) is innermost.
     pub(crate) fn is_empty() -> bool {
-        !INSIDE_PLAIN_CALL.with(Cell::get)
+        !inside_plain_call()
             && STORE_CONTEXT_STACK.with(|cell| {
                 let stack = cell.borrow();
                 stack.is_empty()
@@ -459,11 +479,38 @@ impl StoreContext {
         if unsafe { (*store_ptr).context_mode } != 0 {
             return StoreEntryGuard::Stack(unsafe { Self::install(store_ptr) });
         }
+        unsafe { Self::enter_slot(wasmer_vm::CurrentThread::get(), store_ptr) }
+    }
+
+    /// [`Self::enter`] for a call that enters Wasm on `thread` right after,
+    /// which it looked up already: the calling thread's.
+    ///
+    /// # Safety
+    /// See [`Self::install`].
+    #[cfg(feature = "sys")]
+    #[inline]
+    pub(crate) unsafe fn enter_on(
+        thread: wasmer_vm::CurrentThread,
+        store_ptr: *mut StoreInner,
+    ) -> StoreEntryGuard {
+        if unsafe { (*store_ptr).context_mode } != 0 {
+            return StoreEntryGuard::Stack(unsafe { Self::install(store_ptr) });
+        }
+        unsafe { Self::enter_slot(thread, store_ptr) }
+    }
+
+    /// [`Self::enter`] for a plain store.
+    #[cfg(feature = "sys")]
+    #[inline]
+    unsafe fn enter_slot(
+        thread: wasmer_vm::CurrentThread,
+        store_ptr: *mut StoreInner,
+    ) -> StoreEntryGuard {
         // The slot of the objects the store holds now, where the host
         // functions among them look.
         let slot = SlotRef::of(unsafe { &(*store_ptr).objects });
         let saved = slot.cell().replace(store_ptr);
-        let inside_plain_call = INSIDE_PLAIN_CALL.with(std::ptr::from_ref);
+        let inside_plain_call = std::ptr::from_ref(thread.slot_call());
         // SAFETY: this thread's, see `StoreEntryGuard::drop`.
         let saved_inside_plain_call = unsafe { (*inside_plain_call).replace(true) };
         StoreEntryGuard::Slot {
@@ -628,7 +675,7 @@ impl StoreContext {
     /// A call into a plain store has no entry: while it is the innermost call,
     /// its host functions hold the borrow, and the answer is `None` too.
     pub(crate) fn try_get_current_unborrowed() -> Option<StorePtrWrapper> {
-        if INSIDE_PLAIN_CALL.with(Cell::get) {
+        if inside_plain_call() {
             return None;
         }
         STORE_CONTEXT_STACK.with(|cell| {
