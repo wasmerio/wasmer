@@ -21,6 +21,7 @@ use super::check_isolate;
 /// A WebAssembly `global` in the `v8` runtime.
 pub struct Global {
     pub(crate) handle: VMGlobal,
+    store_id: wasmer_types::StoreId,
 }
 
 unsafe impl Send for Global {}
@@ -61,6 +62,7 @@ impl Global {
             unsafe { wasm_globaltype_new(wasm_valtype_new(v8_type), v8_mutability) };
 
         Ok(Self {
+            store_id: store.as_store_ref().objects().id(),
             handle: unsafe { wasm_global_new(v8_store.inner, v8_global_type, &v8_value) },
         })
     }
@@ -88,7 +90,10 @@ impl Global {
         let store = store.as_store_ref();
         let mut out = unsafe { std::mem::zeroed() };
         unsafe { wasm_global_get(self.handle, &mut out) };
-        out.into_wv()
+        if out.kind == bindings::wasm_valkind_enum_WASM_EXTERNREF as bindings::wasm_valkind_t {
+            out.kind = self.ty(&store).ty.into_ct();
+        }
+        out.into_wv(self.store_id)
     }
 
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
@@ -116,12 +121,12 @@ impl Global {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
         check_isolate(store);
         Self {
+            store_id: store.as_store_ref().objects().id(),
             handle: vm_global.unwrap_v_8(),
         }
     }
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        check_isolate(store);
-        true
+        self.store_id == store.as_store_ref().objects().id()
     }
 }

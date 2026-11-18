@@ -293,11 +293,11 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
     pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(f) => f.as_store_async(),
+            Self::Sys(f) => f.async_store(),
             #[cfg(feature = "js")]
             Self::Js(f) => f.as_store_async(),
             #[cfg(feature = "v8")]
-            Self::V8(f) => f.as_store_async(),
+            Self::V8(f) => f.async_store(),
         }
     }
 }
@@ -318,14 +318,7 @@ impl<T: 'static> BackendAsyncFunctionEnvHandle<T> {
 
     /// Returns both the host state and the attached StoreRef
     pub fn data_and_store(&self) -> (&T, &impl AsStoreRef) {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.data_and_store(),
-            #[cfg(feature = "js")]
-            Self::Js(f) => f.data_and_store(),
-            #[cfg(feature = "v8")]
-            Self::V8(f) => f.data_and_store(),
-        }
+        (self.data(), self)
     }
 }
 
@@ -361,11 +354,11 @@ impl<T: 'static> BackendAsyncFunctionEnvHandleMut<T> {
     pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(f) => f.data_and_store_mut(),
+            Self::Sys(f) => f.data_and_write_lock(),
             #[cfg(feature = "js")]
             Self::Js(f) => f.data_and_store_mut(),
             #[cfg(feature = "v8")]
-            Self::V8(f) => f.data_and_store_mut(),
+            Self::V8(f) => f.data_and_write_lock(),
         }
     }
 
