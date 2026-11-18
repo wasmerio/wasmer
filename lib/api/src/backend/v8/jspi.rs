@@ -75,37 +75,16 @@ impl Drop for Continuation {
 }
 
 // The C API lends reference arguments until the callback returns. Keep
-// an owned function handle in the store if Rust retains it in a future.
+// a separate owned reference if Rust retains a function in a future.
 unsafe fn read_value(store: StoreId, val: wasm_val_t) -> Result<Value, RuntimeError> {
     match val.kind as wasm_valkind_enum {
-        bindings::wasm_valkind_enum_WASM_FUNCREF => {
-            let reference = unsafe { val.of.ref_ };
-            if reference.is_null() {
-                return Ok(Value::FuncRef(None));
-            }
-            let mut current = unsafe { StoreContext::get_current(store) };
-            let handle = unsafe { wasm_func_copy(wasm_ref_as_func(reference)) };
-            current
-                .as_mut()
-                .inner
-                .store
-                .as_v8_mut()
-                .owned_functions
-                .push(handle);
-            Ok(Value::FuncRef(Some(crate::Function(
-                crate::BackendFunction::V8(Function {
-                    handle,
-                    store_id: store,
-                }),
-            ))))
-        }
         bindings::wasm_valkind_enum_WASM_EXTERNREF if unsafe { val.of.ref_ }.is_null() => {
             Ok(Value::ExternRef(None))
         }
         bindings::wasm_valkind_enum_WASM_EXTERNREF => Err(RuntimeError::new(
             "V8 does not support non-null externref host values",
         )),
-        _ => Ok(val.into_wv(store)),
+        _ => Ok(val.borrow_wv(store)),
     }
 }
 
@@ -218,7 +197,7 @@ fn host(
         pending: *mut bool,
     ) -> *mut wasm_trap_t {
         let callback = unsafe { &*env.cast::<Callback>() };
-        // The store owns the callback box. The C API owns both vectors for
+        // V8 finalizes the callback box. The C API owns both vectors for
         // this invocation, and sizes the output to the callback signature.
         let result = catch_unwind(AssertUnwindSafe(|| unsafe {
             callback.invoke(&*args, &mut *results, pending)
@@ -289,7 +268,6 @@ fn host(
             func
         };
         wasm_functype_delete(ty);
-        backend.owned_functions.push(func);
         func
     }
 }
@@ -428,10 +406,7 @@ impl Function {
                 }));
             Box::pin(func(env, args))
         });
-        Self {
-            handle,
-            store_id: id,
-        }
+        unsafe { Self::from_owned(handle, id) }
     }
     pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where

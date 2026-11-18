@@ -135,7 +135,7 @@ ENABLE_V8=1 make build-wasmer
 
 #### Experimental asynchronous V8 calls
 
-Build or unpack the [wee8 distribution with the typed JSPI C API](https://github.com/wasmerio/v8-custom-builds/tree/codex/typed-async-c-api) for your target. Set `WASMER_WEE8_DIR` to the directory containing `include/wasm-c-api/wasm.h` and `lib/`. For a source build, this is `v8/out/dist`.
+Build or unpack the [wee8 distribution with the typed JSPI C API](https://github.com/wasmerio/v8-custom-builds/pull/24) for your target. Set `WASMER_WEE8_DIR` to the directory containing `include/wasm-c-api/wasm.h` and `lib/`. For a source build, this is `v8/out/dist`.
 
 ```sh
 WASMER_WEE8_DIR=/path/to/v8/out/dist cargo test -p wasmer --no-default-features \

@@ -38,6 +38,27 @@ type CCallback = unsafe extern "C" fn(
 pub struct Function {
     pub(crate) handle: VMFunction,
     pub(crate) store_id: wasmer_types::StoreId,
+    #[cfg(feature = "experimental-async")]
+    owner: std::sync::Arc<FunctionOwner>,
+}
+
+#[cfg(feature = "experimental-async")]
+#[derive(PartialEq, Eq)]
+struct FunctionOwner(*mut wasm_func_owner_t);
+
+// Only the lifetime token can cross threads. Access to the function still
+// requires its originating store on the isolate thread.
+#[cfg(feature = "experimental-async")]
+unsafe impl Send for FunctionOwner {}
+#[cfg(feature = "experimental-async")]
+unsafe impl Sync for FunctionOwner {}
+
+#[cfg(feature = "experimental-async")]
+impl Drop for FunctionOwner {
+    fn drop(&mut self) {
+        // V8 permits releasing the token on any thread, even after store teardown.
+        unsafe { wasm_func_owner_delete(self.0) }
+    }
 }
 
 unsafe impl Send for Function {}
@@ -58,14 +79,20 @@ impl<F> std::fmt::Debug for FunctionCallbackEnv<F> {
 }
 
 impl Function {
+    /// Takes ownership of a C function reference from the originating store.
+    pub(crate) unsafe fn from_owned(handle: VMFunction, store_id: wasmer_types::StoreId) -> Self {
+        assert!(!handle.is_null(), "V8 returned a null function");
+        Self {
+            handle,
+            store_id,
+            #[cfg(feature = "experimental-async")]
+            owner: std::sync::Arc::new(FunctionOwner(unsafe { wasm_func_own(handle) })),
+        }
+    }
+
     /// To `VMExtern`.
     pub fn to_vm_extern(&self) -> VMExtern {
-        let extern_ = unsafe { wasm_func_as_extern(self.handle) };
-        assert!(
-            !extern_.is_null(),
-            "Returned null Function extern from wasm-c-api"
-        );
-        VMExtern::V8(extern_)
+        VMExtern::V8(crate::v8::vm::VMExtern::Function(self.clone()))
     }
 
     #[allow(clippy::cast_ptr_alignment)]
@@ -127,14 +154,13 @@ impl Function {
         let store_id = store.objects_mut().id();
         let inner = store.inner.store.as_v8().inner;
 
-        let callback: CCallback = make_fn_callback(&func, param_types.len());
+        let callback: CCallback = make_fn_callback::<F, T>();
 
-        let mut callback_env: *mut FunctionCallbackEnv<F> =
-            Box::leak(Box::new(FunctionCallbackEnv {
-                store_id,
-                func,
-                env_handle: Some(env.as_v8().handle.clone()),
-            }));
+        let callback_env = Box::into_raw(Box::new(FunctionCallbackEnv {
+            store_id,
+            func: (func, fn_ty),
+            env_handle: Some(env.as_v8().handle.clone()),
+        }));
 
         let wasm_function = unsafe {
             wasm_func_new_with_env(
@@ -150,10 +176,7 @@ impl Function {
             panic!("failed when creating new typed function");
         }
 
-        Self {
-            handle: wasm_function,
-            store_id,
-        }
+        unsafe { Self::from_owned(wasm_function, store_id) }
     }
 
     /// Creates a new host `Function` from a native function.
@@ -224,10 +247,7 @@ impl Function {
             panic!("failed when creating new typed function");
         }
 
-        Self {
-            handle: wasm_function,
-            store_id,
-        }
+        unsafe { Self::from_owned(wasm_function, store_id) }
     }
 
     pub fn new_typed_with_env<T, F, Args, Rets>(
@@ -306,14 +326,15 @@ impl Function {
             panic!("failed when creating new typed function");
         }
 
-        Self {
-            handle: wasm_function,
-            store_id,
-        }
+        unsafe { Self::from_owned(wasm_function, store_id) }
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
         check_isolate(_store);
+        assert!(
+            self.is_from_store(_store),
+            "function belongs to another store"
+        );
         let type_ = unsafe { wasm_func_type(self.handle) };
         let params: *const wasm_valtype_vec_t = unsafe { wasm_functype_params(type_) };
         let returns: *const wasm_valtype_vec_t = unsafe { wasm_functype_results(type_) };
@@ -364,7 +385,11 @@ impl Function {
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         check_isolate(store);
-        // unimplemented!();
+        if !self.is_from_store(store) || params.iter().any(|value| !value.is_from_store(store)) {
+            return Err(RuntimeError::new(
+                "function or argument belongs to another store",
+            ));
+        }
         let signature = self.ty(store);
         if signature.params().len() != params.len()
             || signature
@@ -385,13 +410,6 @@ impl Function {
             )));
         }
 
-        // let wasm_func_param_arity(self.handle)
-
-        let wasm_params = params
-            .iter()
-            .map(|v| IntoCApiValue::into_cv(v.clone()))
-            .collect::<Vec<_>>();
-
         let size = unsafe { wasm_func_result_arity(self.handle) };
 
         let mut results = {
@@ -404,6 +422,7 @@ impl Function {
 
         call_wrapped(store, wrapper, |store| {
             // `wasm_func_call` takes the arguments, so every entry gets its own.
+            let wasm_params: Vec<_> = params.iter().cloned().map(IntoCApiValue::into_cv).collect();
             let mut args = Default::default();
             let trap = unsafe {
                 wasm_val_vec_new(&mut args, wasm_params.len(), wasm_params.as_ptr());
@@ -436,10 +455,7 @@ impl Function {
     }
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
-        Self {
-            handle: internal.unwrap_v_8(),
-            store_id: _store.objects_mut().id(),
-        }
+        unsafe { Self::from_owned(internal.unwrap_v_8(), _store.objects_mut().id()) }
     }
 
     pub(crate) fn vm_funcref(&self, _store: &impl AsStoreRef) -> VMFuncRef {
@@ -459,7 +475,7 @@ impl Function {
     }
 }
 
-fn make_fn_callback<F, T: Send + 'static>(func: &F, args: usize) -> CCallback
+fn make_fn_callback<F, T: Send + 'static>() -> CCallback
 where
     F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
         + 'static
@@ -477,21 +493,21 @@ where
             + Send
             + Sync,
     {
-        let r: *mut (FunctionCallbackEnv<F>) = env as _;
+        let r = unsafe { &*env.cast::<FunctionCallbackEnv<(F, FunctionType)>>() };
 
-        let mut current = unsafe { crate::StoreContext::get_current((*r).store_id) };
+        let mut current = unsafe { crate::StoreContext::get_current(r.store_id) };
         let mut store = current.as_mut();
-        let env_handle = unsafe { (*r).env_handle.as_ref().unwrap().clone() };
+        let env_handle = r.env_handle.as_ref().unwrap().clone();
         let mut fn_env = env::FunctionEnv::from_handle(env_handle).into_mut(&mut store);
-        let func: &F = unsafe { &(*r).func };
+        let (func, signature) = &r.func;
 
         let mut wasmer_args = vec![];
         let args_ptr = unsafe { (*args).data };
-        let args_len = unsafe { (*args).size };
-
-        for i in 0..args_len {
-            let value = unsafe { (*args_ptr.wrapping_add(i)).into_wv((*r).store_id) };
-            wasmer_args.push(value);
+        for (i, ty) in signature.params().iter().enumerate() {
+            let mut value = unsafe { *args_ptr.add(i) };
+            // V8's C++ Val tags every reference as externref.
+            value.kind = ty.into_ct();
+            wasmer_args.push(value.borrow_wv(r.store_id));
         }
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
@@ -595,8 +611,9 @@ macro_rules! impl_host_function {
                 let mut i = 0;
 
                 $(
-                    let c_arg = (*(*args).data.wrapping_add(i)).clone();
-                    let wasmer_arg = c_arg.into_wv((*r).store_id);
+                    let mut c_arg = *(*args).data.wrapping_add(i);
+                    c_arg.kind = <$x::Native as NativeWasmType>::WASM_TYPE.into_ct();
+                    let wasmer_arg = c_arg.borrow_wv((*r).store_id);
                     let raw_arg : RawValue = wasmer_arg.as_raw(store);
                     let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
 
@@ -668,8 +685,9 @@ macro_rules! impl_host_function {
               let mut i = 0;
 
               $(
-              let c_arg = (*(*args).data.wrapping_add(i)).clone();
-              let wasmer_arg = c_arg.into_wv((*r).store_id);
+              let mut c_arg = *(*args).data.wrapping_add(i);
+              c_arg.kind = <$x::Native as NativeWasmType>::WASM_TYPE.into_ct();
+              let wasmer_arg = c_arg.borrow_wv((*r).store_id);
               let raw_arg : RawValue = wasmer_arg.as_raw(store);
               let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
 

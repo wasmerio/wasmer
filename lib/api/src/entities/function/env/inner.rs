@@ -1,5 +1,5 @@
 #[cfg(feature = "experimental-async")]
-use crate::{AsStoreAsync, StoreAsyncWriteLock};
+use crate::AsStoreAsync;
 use crate::{
     AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut, StoreRef,
     macros::backend::match_rt,
@@ -346,9 +346,9 @@ impl<T: Send + 'static> BackendAsyncFunctionEnvHandleMut<T> {
     }
 
     /// Returns both the host state and the attached StoreMut
-    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreAsyncWriteLock) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
         match_rt!(on self => env {
-            env.data_and_store_mut()
+            env.data_and_write_lock()
         })
     }
 }

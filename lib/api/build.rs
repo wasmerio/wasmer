@@ -216,7 +216,7 @@ fn build_v8() {
         println!("cargo:rustc-link-lib=shlwapi");
     } else {
         println!("cargo:rustc-link-lib=c++");
-        #[cfg(all(target_os = "macos", feature = "experimental-async"))]
+        #[cfg(target_os = "macos")]
         {
             println!("cargo:rustc-link-lib=framework=Foundation");
             println!("cargo:rustc-link-lib=framework=Security");

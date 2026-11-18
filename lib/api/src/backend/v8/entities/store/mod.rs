@@ -15,9 +15,6 @@ pub struct Store {
     pub(crate) engine: Engine,
     pub(crate) inner: *mut wasm_store_t,
     pub(crate) thread_id: ThreadId,
-    #[cfg(feature = "experimental-async")]
-    // Owned C references must be released on the store thread before isolate disposal.
-    pub(crate) owned_functions: Vec<*mut crate::v8::bindings::wasm_func_t>,
 }
 
 impl std::fmt::Debug for Store {
@@ -36,8 +33,6 @@ impl Store {
             inner,
             engine,
             thread_id,
-            #[cfg(feature = "experimental-async")]
-            owned_functions: Vec::new(),
         }
     }
 
@@ -52,10 +47,6 @@ impl Store {
 
 impl Drop for Store {
     fn drop(&mut self) {
-        #[cfg(feature = "experimental-async")]
-        for func in self.owned_functions.drain(..) {
-            unsafe { crate::v8::bindings::wasm_func_delete(func) };
-        }
         unsafe { wasm_store_delete(self.inner) }
     }
 }

@@ -308,7 +308,11 @@ impl<T: Send + 'static> AsyncFunctionEnvHandleMut<T> {
         self.func_env.as_mut(&mut self.write_lock)
     }
 
-    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreAsyncWriteLock) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
+        self.data_and_write_lock()
+    }
+
+    pub(crate) fn data_and_write_lock(&mut self) -> (&mut T, &mut StoreAsyncWriteLock) {
         let data = self.data_mut() as *mut T;
         let data = unsafe { &mut *data };
         (data, &mut self.write_lock)

@@ -19,21 +19,19 @@ impl InstanceHandle {
     fn new(
         store: *mut wasm_store_t,
         module: *mut wasm_shared_module_t,
-        mut externs: Vec<VMExtern>,
+        externs: Vec<VMExtern>,
     ) -> Result<Self, InstantiationError> {
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
 
-        let externs: Vec<_> = externs.into_iter().map(|v| v.unwrap_v_8()).collect();
-
+        let mut raw: Vec<_> = externs
+            .iter()
+            .map(|v| v.unwrap_v_8_ref().as_raw())
+            .collect();
+        let imports = wasm_extern_vec_t {
+            size: raw.len(),
+            data: raw.as_mut_ptr(),
+        };
         let instance = unsafe {
-            let mut imports = unsafe {
-                let mut vec = Default::default();
-                wasm_extern_vec_new(&mut vec, externs.len(), externs.as_ptr());
-                vec
-            };
-
-            std::mem::forget(externs);
-
             #[cfg(feature = "experimental-async")]
             let instantiate = wasm_instance_new_with_jspi;
             #[cfg(not(feature = "experimental-async"))]
@@ -41,7 +39,7 @@ impl InstanceHandle {
             instantiate(
                 store,
                 wasm_module_obtain(store, module),
-                &mut imports,
+                &imports,
                 &mut trap,
             )
         };
@@ -78,7 +76,10 @@ impl InstanceHandle {
                 let _extern_type = export_type.ty();
                 // Annotation is here to prevent spurious IDE warnings.
 
-                let extern_ = Extern::from_vm_extern(&mut store, VMExtern::V8(*wasm_export));
+                let extern_ = Extern::from_vm_extern(
+                    &mut store,
+                    VMExtern::V8(crate::v8::vm::VMExtern::Raw(*wasm_export)),
+                );
                 (name.to_string(), extern_)
             })
             .collect::<Exports>()
@@ -121,6 +122,12 @@ impl Instance {
     ) -> Result<(Self, Exports), InstantiationError> {
         check_isolate(store);
         let store_ref = store.as_store_ref();
+        if externs
+            .iter()
+            .any(|import| !import.is_from_store(&store_ref))
+        {
+            return Err(InstantiationError::DifferentStores);
+        }
         let externs: Vec<VMExtern> = externs
             .iter()
             .map(|extern_| extern_.to_vm_extern())

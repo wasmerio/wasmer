@@ -69,13 +69,18 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType, )*
             {
 
+                 let func = self.func.as_v8();
+                 if !func.is_from_store(store) {
+                     return Err(RuntimeError::new("function belongs to another store"));
+                 }
+                 let func = func.handle;
+
                  // // let store_ptr = Value::I64(store.as_store_mut().as_raw() as _).as_jsvalue(store);
                  #[allow(unused_unsafe)]
-                 let params_list: Vec<_> = unsafe {
+                 let params_list: Vec<Value> = unsafe {
                      vec![ $( {
                          let raw = $x.to_native().into_raw(store);
-                         let value = Value::from_raw(&mut *store, <$x::Native as NativeWasmType>::WASM_TYPE, raw);
-                         value.into_cv()
+                         Value::from_raw(&mut *store, <$x::Native as NativeWasmType>::WASM_TYPE, raw)
                      } ),* ]
                  };
 
@@ -88,13 +93,12 @@ macro_rules! impl_native_traits {
                 };
 
 
-                 let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().unwrap_v_8()) };
-
                  call_wrapped(store, wrapper, |store| {
                     // `wasm_func_call` takes the arguments, so every entry gets its own.
+                    let args: Vec<_> = params_list.iter().cloned().map(IntoCApiValue::into_cv).collect();
                     let mut params = unsafe { std::mem::zeroed() };
                     let trap = unsafe {
-                        wasm_val_vec_new(&mut params, params_list.len(), params_list.as_ptr());
+                        wasm_val_vec_new(&mut params, args.len(), args.as_ptr());
                         crate::v8::enter_sync(&mut store.as_store_mut(), || wasm_func_call(func, &params, &mut results))
                     };
                     if trap.is_null() {
