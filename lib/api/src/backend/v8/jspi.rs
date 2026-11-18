@@ -108,10 +108,10 @@ fn with_turn<T>(turn: Option<Rc<Turn>>, f: impl FnOnce() -> T) -> T {
     f()
 }
 
-struct Continuation(*mut wasm_jspi_call_t);
+struct Continuation(*mut wasm_pending_call_t);
 impl Drop for Continuation {
     fn drop(&mut self) {
-        unsafe { wasm_jspi_call_delete(self.0) }
+        unsafe { wasm_pending_call_delete(self.0) }
     }
 }
 
@@ -368,7 +368,7 @@ impl Function {
                                 &mut continuation.0,
                             )
                         } else {
-                            wasm_jspi_call_resume(
+                            wasm_pending_call_resume(
                                 &mut continuation.0,
                                 &values.vector(),
                                 error,
