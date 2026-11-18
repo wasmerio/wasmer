@@ -36,7 +36,6 @@ type HostCallback = dyn Fn(&[Value]) -> Values;
 #[derive(Default)]
 pub(crate) struct Adapters {
     exports: HashMap<*mut wasm_func_t, *mut wasm_func_t>,
-    suspender: Option<*mut wasm_func_t>,
     handles: Vec<*mut wasm_func_t>,
     // V8 holds pointers to these callbacks until the isolate is disposed.
     #[allow(clippy::vec_box)]
@@ -115,16 +114,20 @@ fn valtype(ty: Type) -> ValType {
 
 // Each adapter calls three imports. For a host import they start the host
 // future, optionally suspend, and read its results. For an export they load
-// the arguments, call the guest, and save the results.
+// the arguments, call the guest, and save the results. A missing callee reserves
+// the middle import for WebAssembly.Suspending at instantiation.
 fn adapter(
     store: &mut StoreMut<'_>,
     signature: &FunctionType,
-    imports: [(&FunctionType, *mut wasm_func_t); 3],
-    suspending: bool,
+    start: (&FunctionType, *mut wasm_func_t),
+    callee: Option<(&FunctionType, *mut wasm_func_t)>,
+    finish: (&FunctionType, *mut wasm_func_t),
 ) -> Result<*mut wasm_func_t, RuntimeError> {
     let mut types = TypeSection::new();
     let mut import_section = ImportSection::new();
-    for (index, (ty, _)) in imports.iter().enumerate() {
+    let suspend_ty = FunctionType::new([], []);
+    let callee_ty = callee.map_or(&suspend_ty, |(ty, _)| ty);
+    for (index, ty) in [start.0, callee_ty, finish.0].iter().enumerate() {
         types.ty().function(
             ty.params().iter().copied().map(valtype),
             ty.results().iter().copied().map(valtype),
@@ -148,11 +151,11 @@ fn adapter(
         body.instruction(&Instruction::LocalGet(index as u32));
     }
     body.instruction(&Instruction::Call(0));
-    if suspending {
+    if callee.is_none() {
         body.instruction(&Instruction::If(BlockType::Empty));
     }
     body.instruction(&Instruction::Call(1));
-    if suspending {
+    if callee.is_none() {
         body.instruction(&Instruction::End);
     }
     body.instruction(&Instruction::Call(2));
@@ -177,13 +180,21 @@ fn adapter(
         if module.is_null() {
             return Err(RuntimeError::new("unable to compile V8 async adapter"));
         }
-        let mut items = imports.map(|(_, func)| wasm_func_as_extern(func));
+        let mut items = [
+            wasm_func_as_extern(start.1),
+            callee.map_or(ptr::null_mut(), |(_, func)| wasm_func_as_extern(func)),
+            wasm_func_as_extern(finish.1),
+        ];
         let imports = wasm_extern_vec_t {
             size: items.len(),
             data: items.as_mut_ptr(),
         };
         let mut trap = ptr::null_mut();
-        let instance = wasm_instance_new(backend.inner, module, &imports, &mut trap);
+        let instance = if callee.is_none() {
+            wasm_jspi_instance_new(backend.inner, module, &imports, &mut trap)
+        } else {
+            wasm_instance_new(backend.inner, module, &imports, &mut trap)
+        };
         wasm_module_delete(module);
         if instance.is_null() {
             return Err(Trap::from(trap).into());
@@ -367,8 +378,9 @@ fn export_adapter(
     let handle = adapter(
         store,
         &FunctionType::new([], []),
-        [(&args, load), (ty, function.handle), (&results, save)],
-        false,
+        (&args, load),
+        Some((ty, function.handle)),
+        (&results, save),
     )?;
     store
         .inner
@@ -507,22 +519,12 @@ impl Function {
             }
             Ok(turn.values.take())
         });
-        let backend = store.inner.store.as_v8_mut();
-        let suspend = *backend.jspi.suspender.get_or_insert_with(|| {
-            let suspend = unsafe { wasm_jspi_suspender(backend.inner) };
-            assert!(!suspend.is_null(), "failed to create V8 JSPI suspender");
-            backend.jspi.handles.push(suspend);
-            suspend
-        });
         let handle = adapter(
             &mut store,
             &ty,
-            [
-                (&start_ty, start),
-                (&FunctionType::new([], []), suspend),
-                (&finish_ty, finish),
-            ],
-            true,
+            (&start_ty, start),
+            None,
+            (&finish_ty, finish),
         )
         .expect("valid V8 async import adapter");
         Self {
