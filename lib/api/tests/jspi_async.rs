@@ -51,6 +51,14 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
         },
     );
 
+    // V8 instantiates synchronously. Its start function needs a plain import.
+    #[cfg(feature = "v8")]
+    let init_state = if store.is_v8() {
+        Function::new_typed(&mut store, || 1.0f64)
+    } else {
+        init_state
+    };
+
     let delta_env = FunctionEnv::new(
         &mut store,
         DeltaState {
@@ -458,6 +466,55 @@ fn v8_ready_typed_import_and_foreign_store() -> Result<()> {
     let other = Store::new(wasmer::v8::V8::new()).into_async();
     assert!(futures::executor::block_on(typed.call_async(&other, 6)).is_err());
     assert!(futures::executor::block_on(add.call_async(&other, vec![Value::I32(6)])).is_err());
+    Ok(())
+}
+
+#[cfg(feature = "v8")]
+#[test]
+fn v8_synchronous_guest_call_traps_before_ready_import() -> Result<()> {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    let mut store = Store::new(wasmer::v8::V8::new());
+    let module = Module::new(
+        &store,
+        r#"(module
+        (import "" "ready" (func $ready (result i32)))
+        (export "reexport" (func $ready))
+        (func (export "run") (result i32) call $ready))"#,
+    )?;
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = calls.clone();
+    let ready = Function::new_typed_async(&mut store, move || {
+        counter.fetch_add(1, Ordering::Relaxed);
+        future::ready(42i32)
+    });
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! { "" => { "ready" => ready } },
+    )?;
+    let functions = [
+        instance
+            .exports
+            .get_typed_function::<(), i32>(&store, "run")?,
+        instance
+            .exports
+            .get_typed_function::<(), i32>(&store, "reexport")?,
+    ];
+    for func in &functions {
+        assert_eq!(
+            func.call(&mut store).unwrap_err().to_trap(),
+            Some(TrapCode::YieldOutsideAsyncContext)
+        );
+    }
+    assert_eq!(calls.load(Ordering::Relaxed), 0);
+    let store = store.into_async();
+    for func in &functions {
+        assert_eq!(futures::executor::block_on(func.call_async(&store))?, 42);
+    }
+    assert_eq!(calls.load(Ordering::Relaxed), 2);
     Ok(())
 }
 
