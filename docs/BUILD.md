@@ -139,7 +139,7 @@ Build or unpack the [wee8 distribution with the typed JSPI C API](https://github
 
 ```sh
 WASMER_WEE8_DIR=/path/to/v8/out/dist cargo test -p wasmer --no-default-features \
-  --features v8-default,experimental-async --test jspi_async --test jspi_async_v8 --test simple_greenthread
+  --features v8-default,experimental-async --test jspi_async --test simple_greenthread
 ```
 
 V8 rejects `v128` parameters and results on suspending imports and promising exports. Guest code can keep SIMD values live across suspension. Floating-point values passed through a promising export use JavaScript number conversions, which may change NaN payloads.

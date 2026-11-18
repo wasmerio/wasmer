@@ -1,5 +1,11 @@
 #![cfg(all(feature = "experimental-async", not(target_arch = "wasm32")))]
 
+use tokio::test as async_test;
+
+mod common;
+#[path = "jspi_async/shared.rs"]
+mod shared;
+
 use std::{cell::RefCell, sync::OnceLock};
 
 use anyhow::Result;
