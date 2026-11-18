@@ -1193,75 +1193,20 @@ impl ActivationState {
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
-/// from traps.
-#[allow(clippy::type_complexity)]
+/// from traps: that of the Wasm entry `ThreadState::trap_handler` points to.
+///
+/// Each entry coroutine keeps one (see `EntryCoroutine`), made with the
+/// coroutine: the stack it covers is the coroutine's, so a call only sets the
+/// custom handler before it points the thread state at it.
 struct TrapHandlerContext {
-    inner: *const u8,
-    handle_trap: fn(
-        *const u8,
-        usize,
-        usize,
-        Option<usize>,
-        Option<TrapCode>,
-        &mut dyn FnMut(TrapHandlerRegs),
-    ) -> bool,
-    custom_trap: Option<*const TrapHandlerFn<'static>>,
-}
-struct TrapHandlerContextInner {
-    /// Information about the currently running coroutine. This is used to
-    /// reset execution to the root of the coroutine when a trap is handled.
+    /// Information about the entry coroutine. This is used to reset execution
+    /// to the root of the coroutine when a trap is handled.
     coro_trap_handler: CoroutineTrapHandler<UnwindReason>,
+    /// The embedder's handler of the running call, tried first.
+    custom_trap: Option<*const TrapHandlerFn<'static>>,
 }
 
 impl TrapHandlerContext {
-    /// Runs the given function with a trap handler context. The previous
-    /// trap handler context is preserved and restored afterwards.
-    fn install<R>(
-        state: &ThreadState,
-        custom_trap: Option<*const TrapHandlerFn<'static>>,
-        coro_trap_handler: CoroutineTrapHandler<UnwindReason>,
-        f: impl FnOnce() -> R,
-    ) -> R {
-        // Type-erase the trap handler function so that it can be placed in TLS.
-        fn func(
-            ptr: *const u8,
-            pc: usize,
-            sp: usize,
-            maybe_fault_address: Option<usize>,
-            trap_code: Option<TrapCode>,
-            update_regs: &mut dyn FnMut(TrapHandlerRegs),
-        ) -> bool {
-            unsafe {
-                (*(ptr as *const TrapHandlerContextInner)).handle_trap(
-                    pc,
-                    sp,
-                    maybe_fault_address,
-                    trap_code,
-                    update_regs,
-                )
-            }
-        }
-        let inner = TrapHandlerContextInner { coro_trap_handler };
-        let ctx = Self {
-            inner: &inner as *const _ as *const u8,
-            handle_trap: func,
-            custom_trap,
-        };
-
-        compiler_fence(Ordering::Release);
-        let prev = state.trap_handler.load(Ordering::Relaxed);
-        state
-            .trap_handler
-            .store(&ctx as *const Self as *mut Self, Ordering::Relaxed);
-
-        defer! {
-            state.trap_handler.store(prev, Ordering::Relaxed);
-            compiler_fence(Ordering::Acquire);
-        }
-
-        f()
-    }
-
     /// Attempts to handle the trap if it's a wasm trap.
     unsafe fn handle_trap(
         pc: usize,
@@ -1286,20 +1231,12 @@ impl TrapHandlerContext {
                 return true;
             }
 
-            (ctx.handle_trap)(
-                ctx.inner,
-                pc,
-                sp,
-                maybe_fault_address,
-                trap_code,
-                &mut update_regs,
-            )
+            ctx.handle_wasm_trap(pc, sp, maybe_fault_address, trap_code, &mut update_regs)
         }
     }
-}
 
-impl TrapHandlerContextInner {
-    unsafe fn handle_trap(
+    /// Handles a trap if it happened on the entry coroutine's stack.
+    unsafe fn handle_wasm_trap(
         &self,
         pc: usize,
         sp: usize,
@@ -1449,12 +1386,21 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     // nested call can set another one.
     state.job.set(&job);
 
-    // Set up metadata for the trap handler for the duration of the call. It
-    // is restored to its previous value afterwards.
-    let coro_trap_handler = entry.coro.trap_handler();
-    let result = TrapHandlerContext::install(state, trap_handler, coro_trap_handler, || {
+    // Point the signal handler at the coroutine's trap handler context for the
+    // duration of the call, and restore the previous one afterwards.
+    entry.trap_ctx.custom_trap = trap_handler;
+    compiler_fence(Ordering::Release);
+    let prev = state.trap_handler.load(Ordering::Relaxed);
+    state
+        .trap_handler
+        .store(ptr::from_mut(&mut entry.trap_ctx), Ordering::Relaxed);
+    let result = {
+        defer! {
+            state.trap_handler.store(prev, Ordering::Relaxed);
+            compiler_fence(Ordering::Acquire);
+        }
         entry.coro.resume(())
-    });
+    };
     match result {
         // The call returned, and the coroutine waits for the next one.
         CoroutineResult::Yield(reason) if reason.is_null() => {
@@ -1497,6 +1443,8 @@ struct EntryCoroutine {
     coro: Coroutine<(), *mut UnwindReason, UnwindReason, DefaultStack>,
     /// The size of its stack, compared with the size a call asks for.
     stack_size: usize,
+    /// What the signal handler uses while a call runs on the coroutine.
+    trap_ctx: TrapHandlerContext,
 }
 
 /// The body of every entry coroutine: runs the call set in `state.job`, then
@@ -1535,9 +1483,15 @@ fn new_entry(state: &ThreadState, stack_size: usize) -> EntryCoroutine {
     let stack = acquire_stack(state, stack_size);
     let stack_size = stack.size();
     let state = state as *const ThreadState;
+    let coro = Coroutine::with_stack(stack, move |yielder, ()| entry_body(state, yielder));
+    let trap_ctx = TrapHandlerContext {
+        coro_trap_handler: coro.trap_handler(),
+        custom_trap: None,
+    };
     EntryCoroutine {
-        coro: Coroutine::with_stack(stack, move |yielder, ()| entry_body(state, yielder)),
+        coro,
         stack_size,
+        trap_ctx,
     }
 }
 
