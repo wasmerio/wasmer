@@ -275,6 +275,19 @@ fn host(
         }
     }
 
+    unsafe extern "C" fn unsupported_signature(
+        store: *mut c_void,
+        _: *const wasm_val_vec_t,
+        _: *mut wasm_val_vec_t,
+    ) -> *mut wasm_trap_t {
+        let text = c"V8 JSPI does not support v128 parameters or results";
+        let message = wasm_message_t {
+            size: text.to_bytes_with_nul().len(),
+            data: text.as_ptr().cast_mut().cast(),
+        };
+        unsafe { wasm_trap_new(store.cast(), &message) }
+    }
+
     unsafe fn types(values: &[Type]) -> wasm_valtype_vec_t {
         let values: Vec<_> = values
             .iter()
@@ -299,9 +312,21 @@ fn host(
             (&mut *data as *mut Callback).cast(),
             None,
         );
+        // Wasmer host constructors are infallible. Keep the declared type so
+        // linking succeeds and report an unsupported signature on invocation.
+        let func = if func.is_null() {
+            wasm_func_new_with_env(
+                backend.inner,
+                ty,
+                Some(unsupported_signature),
+                backend.inner.cast(),
+                None,
+            )
+        } else {
+            backend.jspi.callbacks.push(data);
+            func
+        };
         wasm_functype_delete(ty);
-        assert!(!func.is_null(), "failed to create V8 async callback");
-        backend.jspi.callbacks.push(data);
         backend.jspi.handles.push(func);
         func
     }

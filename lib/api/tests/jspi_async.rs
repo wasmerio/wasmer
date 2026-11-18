@@ -326,8 +326,10 @@ fn v8_suspended_calls_keep_their_own_continuations() -> Result<()> {
         r#"
         (module
           (import "" "wait" (func $wait (param i32) (result i32)))
-          (func (export "run") (param i32 v128) (result i32 v128)
-            local.get 0 call $wait i32.const 1 i32.add local.get 1))
+          (func (export "run") (param i32) (result i32 i32)
+            local.get 0 i32x4.splat
+            local.get 0 call $wait i32.const 1 i32.add local.set 0
+            i32x4.extract_lane 3 local.get 0))
     "#,
     )?;
     let receivers = Rc::new(RefCell::new(VecDeque::new()));
@@ -343,33 +345,33 @@ fn v8_suspended_calls_keep_their_own_continuations() -> Result<()> {
         let (cancel, first) = oneshot::channel();
         let (release, second) = oneshot::channel();
         receivers.borrow_mut().extend([first, second]);
-        let mut a = run.call_async(&store, vec![Value::I32(1), Value::V128(100)]);
-        let mut b = run.call_async(&store, vec![Value::I32(2), Value::V128(u128::MAX)]);
+        let mut a = run.call_async(&store, vec![Value::I32(1)]);
+        let mut b = run.call_async(&store, vec![Value::I32(2)]);
         assert!(poll!(&mut a).is_pending());
         assert!(poll!(&mut b).is_pending());
         drop(a);
         assert!(cancel.send(10).is_err());
         release.send(20).unwrap();
         let result = b.await?;
-        assert_eq!(result[0].unwrap_i32(), 23);
-        assert_eq!(result[1].unwrap_v128(), u128::MAX);
+        assert_eq!(result[0].unwrap_i32(), 2);
+        assert_eq!(result[1].unwrap_i32(), 23);
         Ok(())
     })
 }
 
 #[cfg(feature = "v8")]
 #[test]
-fn v8_suspending_import_round_trips_simd_and_funcref() -> Result<()> {
+fn v8_suspending_import_round_trips_funcref() -> Result<()> {
     let mut store = Store::new(wasmer::v8::V8::new());
     let module = Module::new(
         &store,
         r#"(module
-        (import "" "echo" (func $echo (param v128 funcref) (result v128 funcref)))
-        (func (export "run") (param v128 funcref) (result v128 funcref)
-          local.get 0 local.get 1 call $echo)
+        (import "" "echo" (func $echo (param funcref) (result funcref)))
+        (func (export "run") (param funcref) (result funcref)
+          local.get 0 call $echo)
         (func (export "answer") (result i32) i32.const 42))"#,
     )?;
-    let ty = FunctionType::new([Type::V128, Type::FuncRef], [Type::V128, Type::FuncRef]);
+    let ty = FunctionType::new([Type::FuncRef], [Type::FuncRef]);
     let echo = Function::new_async(&mut store, ty, |values| {
         let values = values.to_vec();
         async move { Ok(values) }
@@ -378,17 +380,55 @@ fn v8_suspending_import_round_trips_simd_and_funcref() -> Result<()> {
     let run = instance.exports.get_function("run")?;
     let answer = instance.exports.get_function("answer")?.clone();
     let store = store.into_async();
-    let bits = 0xdead_beef_0123_4567_fedc_ba98_7654_3210;
-    let results = futures::executor::block_on(run.call_async(
-        &store,
-        vec![Value::V128(bits), Value::FuncRef(Some(answer))],
-    ))?;
-    assert_eq!(results[0].unwrap_v128(), bits);
-    let Some(reference) = results[1].unwrap_funcref() else {
+    let results =
+        futures::executor::block_on(run.call_async(&store, vec![Value::FuncRef(Some(answer))]))?;
+    let Some(reference) = results[0].unwrap_funcref() else {
         panic!("expected a function reference")
     };
     let result = futures::executor::block_on(reference.call_async(&store, Vec::new()))?;
     assert_eq!(result[0].unwrap_i32(), 42);
+    Ok(())
+}
+
+#[cfg(feature = "v8")]
+#[test]
+fn v8_rejects_v128_at_async_boundaries() -> Result<()> {
+    let mut store = Store::new(wasmer::v8::V8::new());
+    let module = Module::new(
+        &store,
+        r#"(module
+        (import "" "consume" (func $consume (param v128)))
+        (import "" "produce" (func $produce (result v128)))
+        (func (export "call_consume") v128.const i32x4 1 2 3 4 call $consume)
+        (func (export "call_produce") call $produce drop)
+        (func (export "param") (param v128))
+        (func (export "result") (result v128) v128.const i32x4 1 2 3 4))"#,
+    )?;
+    let consume = Function::new_async(&mut store, FunctionType::new([Type::V128], []), |_| async {
+        Ok(vec![])
+    });
+    let produce = Function::new_async(&mut store, FunctionType::new([], [Type::V128]), |_| async {
+        Ok(vec![Value::V128(0)])
+    });
+    let instance = Instance::new(
+        &mut store,
+        &module,
+        &imports! { "" => { "consume" => consume, "produce" => produce } },
+    )?;
+    let store = store.into_async();
+    for (name, args) in [
+        ("call_consume", vec![]),
+        ("call_produce", vec![]),
+        ("param", vec![Value::V128(0)]),
+        ("result", vec![]),
+    ] {
+        let function = instance.exports.get_function(name)?;
+        let error = futures::executor::block_on(function.call_async(&store, args)).unwrap_err();
+        assert!(
+            error.message().contains("v128 parameters or results"),
+            "{name}: {error}"
+        );
+    }
     Ok(())
 }
 
