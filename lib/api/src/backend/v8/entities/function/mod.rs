@@ -37,22 +37,11 @@ type CCallback = unsafe extern "C" fn(
 /// A WebAssembly `function` in `v8`.
 pub struct Function {
     pub(crate) handle: VMFunction,
-    #[cfg(feature = "experimental-async")]
-    pub(crate) store_id: Option<wasmer_types::StoreId>,
+    pub(crate) store_id: wasmer_types::StoreId,
 }
 
 unsafe impl Send for Function {}
 unsafe impl Sync for Function {}
-
-impl From<VMFunction> for Function {
-    fn from(handle: VMFunction) -> Self {
-        Self {
-            handle,
-            #[cfg(feature = "experimental-async")]
-            store_id: None,
-        }
-    }
-}
 
 pub(crate) struct FunctionCallbackEnv<F> {
     pub(crate) store_id: wasmer_types::StoreId,
@@ -163,8 +152,7 @@ impl Function {
 
         Self {
             handle: wasm_function,
-            #[cfg(feature = "experimental-async")]
-            store_id: Some(store_id),
+            store_id,
         }
     }
 
@@ -238,8 +226,7 @@ impl Function {
 
         Self {
             handle: wasm_function,
-            #[cfg(feature = "experimental-async")]
-            store_id: Some(store_id),
+            store_id,
         }
     }
 
@@ -321,8 +308,7 @@ impl Function {
 
         Self {
             handle: wasm_function,
-            #[cfg(feature = "experimental-async")]
-            store_id: Some(store_id),
+            store_id,
         }
     }
 
@@ -436,7 +422,13 @@ impl Function {
             let results = std::ptr::slice_from_raw_parts(results.data, results.size);
             (*results)
                 .iter()
-                .map(|v| IntoWasmerValue::into_wv(*v))
+                .zip(signature.results())
+                .map(|(value, ty)| {
+                    // The C++ Val representation tags all reference results as externref.
+                    let mut value = *value;
+                    value.kind = ty.into_ct();
+                    value.into_wv(self.store_id)
+                })
                 .collect::<Vec<_>>()
                 .into_boxed_slice()
         };
@@ -446,8 +438,7 @@ impl Function {
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
         Self {
             handle: internal.unwrap_v_8(),
-            #[cfg(feature = "experimental-async")]
-            store_id: Some(_store.objects_mut().id()),
+            store_id: _store.objects_mut().id(),
         }
     }
 
@@ -463,22 +454,8 @@ impl Function {
     }
 
     /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-        #[cfg(feature = "experimental-async")]
-        {
-            let store = _store.as_store_ref();
-            if let Some(owner) = self.store_id {
-                return owner == store.objects().id();
-            }
-            store.inner.store.is_v8()
-                && unsafe {
-                    wasm_func_belongs_to_store(self.handle, store.inner.store.as_v8().inner)
-                }
-        }
-        #[cfg(not(feature = "experimental-async"))]
-        {
-            true
-        }
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        self.store_id == store.as_store_ref().objects().id()
     }
 }
 
@@ -513,7 +490,7 @@ where
         let args_len = unsafe { (*args).size };
 
         for i in 0..args_len {
-            let value = unsafe { (*args_ptr.wrapping_add(i)).into_wv().clone() };
+            let value = unsafe { (*args_ptr.wrapping_add(i)).into_wv((*r).store_id) };
             wasmer_args.push(value);
         }
 
@@ -619,7 +596,7 @@ macro_rules! impl_host_function {
 
                 $(
                     let c_arg = (*(*args).data.wrapping_add(i)).clone();
-                    let wasmer_arg = c_arg.into_wv();
+                    let wasmer_arg = c_arg.into_wv((*r).store_id);
                     let raw_arg : RawValue = wasmer_arg.as_raw(store);
                     let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
 
@@ -692,7 +669,7 @@ macro_rules! impl_host_function {
 
               $(
               let c_arg = (*(*args).data.wrapping_add(i)).clone();
-              let wasmer_arg = c_arg.into_wv();
+              let wasmer_arg = c_arg.into_wv((*r).store_id);
               let raw_arg : RawValue = wasmer_arg.as_raw(store);
               let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
 

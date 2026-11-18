@@ -17,6 +17,7 @@ use super::check_isolate;
 /// A WebAssembly `table` in the `v8` runtime.
 pub struct Table {
     pub(crate) handle: VMTable,
+    store_id: wasmer_types::StoreId,
 }
 
 unsafe impl Send for Table {}
@@ -50,6 +51,7 @@ impl Table {
         let init: wasm_val_t = init.into_cv();
 
         Ok(Self {
+            store_id: store_mut.as_store_ref().objects().id(),
             handle: unsafe { wasm_table_new(v8_store.inner, wasm_tablety, init.of.ref_) },
         })
     }
@@ -111,7 +113,7 @@ impl Table {
                 of: bindings::wasm_val_t__bindgen_ty_1 { ref_ },
             };
 
-            Some(value.into_wv())
+            Some(value.into_wv(self.store_id))
         }
     }
 
@@ -197,13 +199,13 @@ impl Table {
         let store_mut = store.as_store_mut();
 
         Self {
+            store_id: store.as_store_ref().objects().id(),
             handle: vm_extern.unwrap_v_8(),
         }
     }
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        check_isolate(store);
-        true
+        self.store_id == store.as_store_ref().objects().id()
     }
 }
 

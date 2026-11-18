@@ -108,21 +108,10 @@ macro_rules! impl_native_traits {
                     let mut rets_list_array = Rets::empty_array();
                     let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
 
-                    match Rets::size() {
-                        0 => {},
-                        1 => {
-                            let val = (*results.data.wrapping_add(0)).clone();
-                            let val = val.into_wv();
-                            *mut_rets = val.as_raw(store);
-                        }
-                        _n => {
-                            for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
-                                    let val = (*results.data.wrapping_add(i)).clone();
-                                    let val = val.into_wv();
-                                    let slot = mut_rets.add(i);
-                                    *slot = val.as_raw(store);
-                            }
-                        }
+                    for (i, ty) in Rets::wasm_types().iter().enumerate() {
+                        let mut value = *results.data.add(i);
+                        value.kind = ty.into_ct();
+                        *mut_rets.add(i) = value.into_wv(self.func.as_v8().store_id).as_raw(store);
                     }
 
                     Ok(unsafe { Rets::from_array(store, rets_list_array) })

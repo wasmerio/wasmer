@@ -2,7 +2,7 @@ pub(crate) mod inner;
 pub(crate) use inner::*;
 
 #[cfg(feature = "experimental-async")]
-use crate::AsStoreAsync;
+use crate::{AsStoreAsync, StoreAsyncWriteLock};
 use crate::{AsStoreMut, AsStoreRef, StoreMut, StoreRef, macros::backend::match_rt};
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
@@ -163,7 +163,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
 }
 
 #[cfg(feature = "experimental-async")]
-impl<T: 'static> AsyncFunctionEnvHandle<T> {
+impl<T: Send + 'static> AsyncFunctionEnvHandle<T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         self.0.data()
@@ -183,17 +183,20 @@ impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<T> {
 }
 
 #[cfg(feature = "experimental-async")]
-impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
+impl<T: Send + 'static> AsyncFunctionEnvHandleMut<T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         self.0.data_mut()
     }
 
     /// Returns both the host state and the attached StoreMut
-    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreAsyncWriteLock) {
         self.0.data_and_store_mut()
     }
+}
 
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     /// Borrows a new [`FunctionEnvMut`] from this
     /// [`AsyncFunctionEnvHandleMut`].
     pub fn as_function_env_mut(&mut self) -> FunctionEnvMut<'_, T> {

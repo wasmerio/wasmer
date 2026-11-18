@@ -144,7 +144,7 @@ WASMER_WEE8_DIR=/path/to/v8/out/dist cargo test -p wasmer --no-default-features 
 
 V8 rejects `v128` parameters and results on suspending imports and promising exports. Guest code can keep SIMD values live across suspension. Floating-point values passed through a promising export use JavaScript number conversions, which may change NaN payloads.
 
-A host import can await work when entered through `Function::call_async` or `TypedFunction::call_async`. A synchronous call, including a nested call from a synchronous host callback, can run an immediately ready import. If that import needs to suspend, the call returns `YieldOutsideAsyncContext`.
+A host import can await work when entered through `Function::call_async` or `TypedFunction::call_async`. A synchronous guest call into a suspending import, including from a module start function, returns `YieldOutsideAsyncContext` before the callback runs. Calling a ready host function directly can complete synchronously.
 
 ### All Compilers
 

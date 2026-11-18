@@ -67,11 +67,11 @@ impl IntoCApiValue for Value {
 
 pub trait IntoWasmerValue {
     /// Consume [`self`] to produce a [`Value`].
-    fn into_wv(self) -> Value;
+    fn into_wv(self, store_id: wasmer_types::StoreId) -> Value;
 }
 
 impl IntoWasmerValue for wasm_val_t {
-    fn into_wv(self) -> Value {
+    fn into_wv(self, store_id: wasmer_types::StoreId) -> Value {
         match self.kind as _ {
             bindings::wasm_valkind_enum_WASM_I32 => Value::I32(unsafe { self.of.i32_ }),
             bindings::wasm_valkind_enum_WASM_I64 => Value::I64(unsafe { self.of.i64_ }),
@@ -86,8 +86,7 @@ impl IntoWasmerValue for wasm_val_t {
             bindings::wasm_valkind_enum_WASM_FUNCREF => Value::FuncRef(Some(Function(
                 BackendFunction::V8(crate::backend::v8::function::Function {
                     handle: unsafe { self.of.ref_ as _ },
-                    #[cfg(feature = "experimental-async")]
-                    store_id: None,
+                    store_id,
                 }),
             ))),
             bindings::wasm_valkind_enum_WASM_EXTERNREF => {

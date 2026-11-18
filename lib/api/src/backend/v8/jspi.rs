@@ -13,7 +13,6 @@ use crate::{
 use futures::FutureExt;
 use std::{
     cell::RefCell,
-    collections::HashMap,
     ffi::c_void,
     future::Future,
     panic::{AssertUnwindSafe, catch_unwind},
@@ -27,46 +26,6 @@ type Values = Result<Vec<Value>, RuntimeError>;
 type LocalFuture<T> = Pin<Box<dyn Future<Output = T>>>;
 type HostFuture = LocalFuture<Values>;
 type HostCallback = dyn Fn(&[Value]) -> HostFuture;
-
-#[derive(Default)]
-pub(crate) struct JspiFunctions {
-    handles: Vec<*mut wasm_func_t>,
-    promising: HashMap<*mut wasm_func_t, *mut wasm_promising_func_t>,
-    // V8 holds pointers to these callbacks until the isolate is disposed.
-    #[allow(clippy::vec_box)]
-    callbacks: Vec<Box<Callback>>,
-}
-
-impl JspiFunctions {
-    fn promising(
-        &mut self,
-        func: *mut wasm_func_t,
-    ) -> Result<*mut wasm_promising_func_t, RuntimeError> {
-        use std::collections::hash_map::Entry;
-        match self.promising.entry(func) {
-            Entry::Occupied(entry) => Ok(*entry.get()),
-            Entry::Vacant(entry) => {
-                let mut trap = ptr::null_mut();
-                let handle = unsafe { wasm_func_promising(func, &mut trap) };
-                if handle.is_null() {
-                    return Err(Trap::from(trap).into());
-                }
-                Ok(*entry.insert(handle))
-            }
-        }
-    }
-}
-
-impl Drop for JspiFunctions {
-    fn drop(&mut self) {
-        for (_, func) in self.promising.drain() {
-            unsafe { wasm_promising_func_delete(func) };
-        }
-        for function in self.handles.drain(..) {
-            unsafe { wasm_func_delete(function) }
-        }
-    }
-}
 
 struct Callback {
     store: StoreId,
@@ -131,13 +90,12 @@ unsafe fn read_value(store: StoreId, val: wasm_val_t) -> Result<Value, RuntimeEr
                 .inner
                 .store
                 .as_v8_mut()
-                .jspi
-                .handles
+                .owned_functions
                 .push(handle);
             Ok(Value::FuncRef(Some(crate::Function(
                 crate::BackendFunction::V8(Function {
                     handle,
-                    store_id: Some(store),
+                    store_id: store,
                 }),
             ))))
         }
@@ -147,7 +105,7 @@ unsafe fn read_value(store: StoreId, val: wasm_val_t) -> Result<Value, RuntimeEr
         bindings::wasm_valkind_enum_WASM_EXTERNREF => Err(RuntimeError::new(
             "V8 does not support non-null externref host values",
         )),
-        _ => Ok(val.into_wv()),
+        _ => Ok(val.into_wv(store)),
     }
 }
 
@@ -297,24 +255,29 @@ fn host(
         unsafe { wasm_valtype_vec_new(&mut output, values.len(), values.as_ptr()) };
         output
     }
-    let mut data = Box::new(Callback {
+    unsafe extern "C" fn drop_callback(data: *mut c_void) {
+        drop(unsafe { Box::from_raw(data.cast::<Callback>()) });
+    }
+
+    let data = Box::into_raw(Box::new(Callback {
         store: store.objects_mut().id(),
         results: ty.results().into(),
         function: Box::new(function),
-    });
+    }));
     let backend = store.inner.store.as_v8_mut();
     unsafe {
         let ty = wasm_functype_new(&mut types(ty.params()), &mut types(ty.results()));
-        let func = wasm_func_new_suspending(
+        let func = wasm_func_new_suspending_with_env(
             backend.inner,
             ty,
             Some(invoke),
-            (&mut *data as *mut Callback).cast(),
-            None,
+            data.cast(),
+            Some(drop_callback),
         );
         // Wasmer host constructors are infallible. Keep the declared type so
         // linking succeeds and report an unsupported signature on invocation.
         let func = if func.is_null() {
+            drop_callback(data.cast());
             wasm_func_new_with_env(
                 backend.inner,
                 ty,
@@ -323,11 +286,10 @@ fn host(
                 None,
             )
         } else {
-            backend.jspi.callbacks.push(data);
             func
         };
         wasm_functype_delete(ty);
-        backend.jspi.handles.push(func);
+        backend.owned_functions.push(func);
         func
     }
 }
@@ -354,13 +316,6 @@ impl Function {
                     "V8 async call parameters do not match the function signature or store",
                 ));
             }
-            let promising = lock
-                .as_store_mut()
-                .inner
-                .store
-                .as_v8_mut()
-                .jspi
-                .promising(function.handle)?;
             let turn = Rc::new(Turn {
                 store: store.id,
                 pending: RefCell::default(),
@@ -386,12 +341,19 @@ impl Function {
                     };
                     let trap = unsafe {
                         if continuation.0.is_null() {
-                            wasm_promising_func_call(
+                            let mut trap = ptr::null_mut();
+                            let promising = wasm_func_promising(function.handle, &mut trap);
+                            if promising.is_null() {
+                                return Err(Trap::from(trap).into());
+                            }
+                            let trap = wasm_promising_func_call(
                                 promising,
                                 &values.vector(),
                                 &mut output.vector(),
                                 &mut continuation.0,
-                            )
+                            );
+                            wasm_promising_func_delete(promising);
+                            trap
                         } else {
                             wasm_pending_call_resume(
                                 &mut continuation.0,
@@ -468,7 +430,7 @@ impl Function {
         });
         Self {
             handle,
-            store_id: Some(id),
+            store_id: id,
         }
     }
     pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self

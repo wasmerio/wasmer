@@ -16,7 +16,8 @@ pub struct Store {
     pub(crate) inner: *mut wasm_store_t,
     pub(crate) thread_id: ThreadId,
     #[cfg(feature = "experimental-async")]
-    pub(crate) jspi: crate::v8::jspi::JspiFunctions,
+    // Owned C references must be released on the store thread before isolate disposal.
+    pub(crate) owned_functions: Vec<*mut crate::v8::bindings::wasm_func_t>,
 }
 
 impl std::fmt::Debug for Store {
@@ -36,7 +37,7 @@ impl Store {
             engine,
             thread_id,
             #[cfg(feature = "experimental-async")]
-            jspi: Default::default(),
+            owned_functions: Vec::new(),
         }
     }
 
@@ -52,7 +53,9 @@ impl Store {
 impl Drop for Store {
     fn drop(&mut self) {
         #[cfg(feature = "experimental-async")]
-        drop(std::mem::take(&mut self.jspi));
+        for func in self.owned_functions.drain(..) {
+            unsafe { crate::v8::bindings::wasm_func_delete(func) };
+        }
         unsafe { wasm_store_delete(self.inner) }
     }
 }

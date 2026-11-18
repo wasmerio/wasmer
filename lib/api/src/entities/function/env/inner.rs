@@ -1,5 +1,5 @@
 #[cfg(feature = "experimental-async")]
-use crate::AsStoreAsync;
+use crate::{AsStoreAsync, StoreAsyncWriteLock};
 use crate::{
     AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut, StoreRef,
     macros::backend::match_rt,
@@ -291,19 +291,14 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
 
     /// Creates an [`AsStoreAsync`] from this [`BackendAsyncFunctionEnvMut`].
     pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.as_store_async(),
-            #[cfg(feature = "js")]
-            Self::Js(f) => f.as_store_async(),
-            #[cfg(feature = "v8")]
-            Self::V8(f) => f.as_store_async(),
-        }
+        match_rt!(on self => env {
+            env.as_store_async().store()
+        })
     }
 }
 
 #[cfg(feature = "experimental-async")]
-impl<T: 'static> BackendAsyncFunctionEnvHandle<T> {
+impl<T: Send + 'static> BackendAsyncFunctionEnvHandle<T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         match self {
@@ -318,14 +313,7 @@ impl<T: 'static> BackendAsyncFunctionEnvHandle<T> {
 
     /// Returns both the host state and the attached StoreRef
     pub fn data_and_store(&self) -> (&T, &impl AsStoreRef) {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.data_and_store(),
-            #[cfg(feature = "js")]
-            Self::Js(f) => f.data_and_store(),
-            #[cfg(feature = "v8")]
-            Self::V8(f) => f.data_and_store(),
-        }
+        (self.data(), self)
     }
 }
 
@@ -344,7 +332,7 @@ impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandle<T> {
 }
 
 #[cfg(feature = "experimental-async")]
-impl<T: 'static> BackendAsyncFunctionEnvHandleMut<T> {
+impl<T: Send + 'static> BackendAsyncFunctionEnvHandleMut<T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         match self {
@@ -358,17 +346,15 @@ impl<T: 'static> BackendAsyncFunctionEnvHandleMut<T> {
     }
 
     /// Returns both the host state and the attached StoreMut
-    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.data_and_store_mut(),
-            #[cfg(feature = "js")]
-            Self::Js(f) => f.data_and_store_mut(),
-            #[cfg(feature = "v8")]
-            Self::V8(f) => f.data_and_store_mut(),
-        }
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreAsyncWriteLock) {
+        match_rt!(on self => env {
+            env.data_and_store_mut()
+        })
     }
+}
 
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> BackendAsyncFunctionEnvHandleMut<T> {
     /// Borrows a new [`BackendFunctionEnvMut`] from this
     /// [`BackendAsyncFunctionEnvHandleMut`].
     pub fn as_function_env_mut(&mut self) -> BackendFunctionEnvMut<'_, T> {

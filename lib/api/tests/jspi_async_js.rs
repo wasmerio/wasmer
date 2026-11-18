@@ -1,5 +1,10 @@
 #![cfg(all(feature = "experimental-async", feature = "js", target_arch = "wasm32"))]
 
+use wasm_bindgen_test::wasm_bindgen_test as async_test;
+
+#[path = "jspi_async/shared.rs"]
+mod shared;
+
 use js_sys::Promise;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;

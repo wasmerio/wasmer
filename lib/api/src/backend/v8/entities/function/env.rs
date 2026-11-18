@@ -19,7 +19,7 @@ impl<T> FunctionEnv<T> {
     /// Make a new FunctionEnv
     pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
     where
-        T: Send + Any + 'static + Sized,
+        T: Any + Send + 'static + Sized,
     {
         Self {
             handle: StoreHandle::new(
@@ -33,7 +33,7 @@ impl<T> FunctionEnv<T> {
     /// Get the data as reference
     pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
     where
-        T: Any + 'static + Sized,
+        T: Any + Send + 'static + Sized,
     {
         self.handle
             .get(store.as_store_ref().objects().as_v8())
@@ -52,7 +52,7 @@ impl<T> FunctionEnv<T> {
     /// Get the data as mutable
     pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
     where
-        T: Any + 'static + Sized,
+        T: Any + Send + 'static + Sized,
     {
         self.handle
             .get_mut(store.objects_mut().as_v8_mut())
@@ -64,7 +64,7 @@ impl<T> FunctionEnv<T> {
     /// Convert it into a `FunctionEnvMut`
     pub fn into_mut<'a>(self, store: &'a mut impl AsStoreMut) -> FunctionEnvMut<'a, T>
     where
-        T: Any + 'static + Sized,
+        T: Any + Send + 'static + Sized,
     {
         FunctionEnvMut {
             store_mut: store.as_store_mut(),
@@ -279,18 +279,18 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         self.clone()
     }
 
-    pub fn as_store_async(&self) -> StoreAsync {
+    pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
         self.store.as_ref().expect("synchronous store").store()
     }
 }
 
 #[cfg(feature = "experimental-async")]
-impl<T: 'static> AsyncFunctionEnvHandle<T> {
+impl<T: Send + 'static> AsyncFunctionEnvHandle<T> {
     pub fn data(&self) -> &T {
         self.func_env.as_ref(&self.read_lock)
     }
 
-    pub fn data_and_store(&self) -> (&T, &StoreAsyncReadLock) {
+    pub fn data_and_store(&self) -> (&T, &impl AsStoreRef) {
         (self.data(), &self.read_lock)
     }
 }
@@ -303,7 +303,7 @@ impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<T> {
 }
 
 #[cfg(feature = "experimental-async")]
-impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
+impl<T: Send + 'static> AsyncFunctionEnvHandleMut<T> {
     pub fn data_mut(&mut self) -> &mut T {
         self.func_env.as_mut(&mut self.write_lock)
     }
@@ -313,7 +313,10 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
         let data = unsafe { &mut *data };
         (data, &mut self.write_lock)
     }
+}
 
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     pub fn as_function_env_mut(&mut self) -> FunctionEnvMut<'_, T> {
         FunctionEnvMut {
             store_mut: self.write_lock.as_store_mut(),

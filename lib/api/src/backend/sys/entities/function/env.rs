@@ -310,7 +310,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     /// Creates an [`AsStoreAsync`] from this [`AsyncFunctionEnvMut`].
-    pub fn as_store_async(&self) -> StoreAsync {
+    pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
         match &self.store {
             AsyncFunctionEnvMutStore::Sync(_) => {
                 panic!("Cannot build a StoreAsync within a sync context")
@@ -354,7 +354,7 @@ impl<T: 'static> AsyncFunctionEnvHandle<T> {
     }
 
     /// Returns both the host state and the attached StoreRef
-    pub fn data_and_store(&self) -> (&T, &StoreAsyncReadLock) {
+    pub fn data_and_store(&self) -> (&T, &impl AsStoreRef) {
         (self.data(), &self.read_lock)
     }
 }
