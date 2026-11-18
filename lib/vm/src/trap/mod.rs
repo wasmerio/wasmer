@@ -19,9 +19,10 @@ pub use trap::{Trap, UnwindReason};
 #[cfg(feature = "baremetal")]
 pub use traphandlers::install_unwinder;
 pub use traphandlers::{
-    ActivationState, CurrentThread, MAX_STACK_SIZE, TrapHandlerFn, VMConfig, catch_traps,
-    drain_stack_pool, get_stack_size, on_host_stack, raise_lib_trap, raise_user_trap,
-    set_stack_size,
+    ActivationState, CurrentThread, DEFAULT_HOST_CALL_RESERVE, HostCallInPlace, MAX_STACK_SIZE,
+    TrapHandlerFn, VMConfig, catch_traps, drain_stack_pool, get_host_call_reserve, get_stack_size,
+    host_call_in_place, host_calls_on_native_stack, on_host_stack, raise_lib_trap, raise_user_trap,
+    set_host_call_reserve, set_host_calls_on_native_stack, set_stack_size,
 };
 pub use traphandlers::{init_traps, resume_panic};
 pub use wasmer_types::TrapCode;

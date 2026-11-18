@@ -106,6 +106,42 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     f()
 }
 
+/// Ignored in baremetal mode, where there is only one stack. Kept for API
+/// compatibility.
+pub const DEFAULT_HOST_CALL_RESERVE: usize = 256 * 1024;
+
+/// Ignored in baremetal mode. Kept for API compatibility.
+pub fn set_host_call_reserve(_bytes: usize) {}
+
+/// Always [`DEFAULT_HOST_CALL_RESERVE`] in baremetal mode.
+pub fn get_host_call_reserve() -> usize {
+    DEFAULT_HOST_CALL_RESERVE
+}
+
+/// Ignored in baremetal mode, where host functions run on the only stack.
+/// Kept for API compatibility.
+pub fn set_host_calls_on_native_stack(_always: bool) {}
+
+/// Always `true` in baremetal mode: host functions run on the only stack.
+pub fn host_calls_on_native_stack() -> bool {
+    true
+}
+
+/// A host function called from Wasm that runs in place; see the signal-based
+/// backend. Here every host function does.
+#[must_use = "the host call ends when this is dropped"]
+pub struct HostCallInPlace {
+    _not_send: PhantomData<*mut ()>,
+}
+
+/// Always starts the call in place: there is only one stack.
+#[inline(always)]
+pub fn host_call_in_place() -> Option<HostCallInPlace> {
+    Some(HostCallInPlace {
+        _not_send: PhantomData,
+    })
+}
+
 /// Just run the `closure` and return its result wrapped in `Ok()`. Nothing is
 /// caught in `baremetal` mode.
 ///

@@ -106,6 +106,7 @@ impl Function {
                 store_id,
                 slot,
                 func_ty: function_type.clone(),
+                in_place: true,
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -248,6 +249,8 @@ impl Function {
                 store_id,
                 slot,
                 func_ty: function_type.clone(),
+                // Its future may suspend the coroutine the call came from.
+                in_place: false,
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -851,6 +854,9 @@ pub(crate) struct DynamicFunction<F> {
     slot: SlotRef,
     /// The function's type, which its results are checked against.
     func_ty: FunctionType,
+    /// Whether a call from Wasm may run in place, on the Wasm stack (see
+    /// `wasmer_vm::host_call_in_place`): false for asynchronous functions.
+    in_place: bool,
 }
 
 impl<F> DynamicFunction<F>
@@ -858,12 +864,18 @@ where
     F: Fn(*mut RawValue) -> HostCallOutcome + 'static,
 {
     // This function wraps our func, to make it compatible with the
-    // reverse trampoline signature
-    unsafe extern "C-unwind" fn func_wrapper(
+    // reverse trampoline signature.
+    //
+    // With `IN_PLACE`, a call runs on the Wasm stack it came from when enough
+    // of it is left, and otherwise goes to the other instance, which switches
+    // to the host stack. That instance stays out of line, and with it the
+    // registers the switch makes every caller save.
+    #[inline(never)]
+    unsafe extern "C-unwind" fn func_wrapper<const IN_PLACE: bool>(
         this: &mut VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
     ) {
-        let result = on_host_stack(|| {
+        let call = || {
             panic::catch_unwind(AssertUnwindSafe(|| match (this.ctx.func)(values_vec) {
                 HostCallOutcome::Ready(result, mut store_wrapper) => {
                     let store = store_wrapper.as_ptr();
@@ -915,11 +927,23 @@ where
                     result
                 }
             }))
-        });
+        };
+        let result = if IN_PLACE {
+            match wasmer_vm::host_call_in_place() {
+                Some(in_place) => {
+                    let result = call();
+                    drop(in_place);
+                    result
+                }
+                None => return unsafe { Self::func_wrapper::<false>(this, values_vec) },
+            }
+        } else {
+            on_host_stack(call)
+        };
 
-        // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
-        // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
-        // See: https://github.com/wasmerio/wasmer/pull/5700
+        // IMPORTANT: DO NOT ALLOCATE ON THE STACK: this runs on the Wasm stack,
+        // and when the call ran on the host stack, little of the Wasm stack
+        // may be left. See: https://github.com/wasmerio/wasmer/pull/5700
         match result {
             Ok(InvocationResult::Success((), store_ptr)) => unsafe {
                 // Note: can't acquire a proper ref-counted context ref here, since we can switch
@@ -956,7 +980,11 @@ where
     }
 
     fn func_body_ptr(&self) -> VMFunctionCallback {
-        Self::func_wrapper as VMFunctionCallback
+        if self.in_place {
+            Self::func_wrapper::<true> as VMFunctionCallback
+        } else {
+            Self::func_wrapper::<false> as VMFunctionCallback
+        }
     }
 
     fn call_trampoline_address(&self) -> VMTrampoline {
@@ -972,7 +1000,11 @@ where
         // by the engine linker.
         unsafe {
             let dynamic_function = &mut *(vmctx as *mut VMDynamicFunctionContext<Self>);
-            Self::func_wrapper(dynamic_function, args);
+            if dynamic_function.ctx.in_place {
+                Self::func_wrapper::<true>(dynamic_function, args);
+            } else {
+                Self::func_wrapper::<false>(dynamic_function, args);
+            }
         }
     }
 }
@@ -1024,14 +1056,19 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C-unwind" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            // With `IN_PLACE`, a call runs on the Wasm stack it came from when
+            // enough of it is left, and otherwise goes to the other instance,
+            // which switches to the host stack. That instance stays out of line,
+            // and with it the registers the switch makes every caller save.
+            #[inline(never)]
+            unsafe extern "C-unwind" fn func_wrapper<const IN_PLACE: bool, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
-                let result = on_host_stack(|| {
+                let call = || {
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         let mut store_wrapper = unsafe { StoreContext::get_current_in(env.slot, env.store_id) };
                         let store_ptr = store_wrapper.as_ptr();
@@ -1043,11 +1080,23 @@ macro_rules! impl_host_function {
                         )*
                         to_invocation_result((env.func)($($x),* ).into_result(), || store_ptr)
                     }))
-                });
+                };
+                let result = if IN_PLACE {
+                    match wasmer_vm::host_call_in_place() {
+                        Some(in_place) => {
+                            let result = call();
+                            drop(in_place);
+                            result
+                        }
+                        None => return unsafe { func_wrapper::<false, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) },
+                    }
+                } else {
+                    on_host_stack(call)
+                };
 
-                // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
-                // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
-                // See: https://github.com/wasmerio/wasmer/pull/5700
+                // IMPORTANT: DO NOT ALLOCATE ON THE STACK: this runs on the Wasm
+                // stack, and when the call ran on the host stack, little of the
+                // Wasm stack may be left. See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(InvocationResult::Success(result, store_ptr)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
@@ -1084,7 +1133,7 @@ macro_rules! impl_host_function {
                 }
             }
 
-            func_wrapper::< $( $x, )* Rets, RetsAsResult, Func > as _
+            func_wrapper::< true, $( $x, )* Rets, RetsAsResult, Func > as _
 
         }
 
@@ -1123,14 +1172,19 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C-unwind" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            // With `IN_PLACE`, a call runs on the Wasm stack it came from when
+            // enough of it is left, and otherwise goes to the other instance,
+            // which switches to the host stack. That instance stays out of line,
+            // and with it the registers the switch makes every caller save.
+            #[inline(never)]
+            unsafe extern "C-unwind" fn func_wrapper<const IN_PLACE: bool, T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                 where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                let result = wasmer_vm::on_host_stack(|| {
+                let call = || {
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         let mut store_wrapper = unsafe { StoreContext::get_current_in(env.slot, env.store_id) };
                         let store_ptr = store_wrapper.as_ptr();
@@ -1146,11 +1200,23 @@ macro_rules! impl_host_function {
                         }.into();
                         to_invocation_result((env.func)(f_env, $($x),* ).into_result(), || store_ptr)
                     }))
-                });
+                };
+                let result = if IN_PLACE {
+                    match wasmer_vm::host_call_in_place() {
+                        Some(in_place) => {
+                            let result = call();
+                            drop(in_place);
+                            result
+                        }
+                        None => return unsafe { func_wrapper::<false, T, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) },
+                    }
+                } else {
+                    on_host_stack(call)
+                };
 
-                // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
-                // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
-                // See: https://github.com/wasmerio/wasmer/pull/5700
+                // IMPORTANT: DO NOT ALLOCATE ON THE STACK: this runs on the Wasm
+                // stack, and when the call ran on the host stack, little of the
+                // Wasm stack may be left. See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(InvocationResult::Success(result, store_ptr)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
@@ -1186,7 +1252,7 @@ macro_rules! impl_host_function {
                     Err(panic) => unsafe { resume_panic(panic) },
                 }
             }
-            func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Func > as _
+            func_wrapper::< true, T, $( $x, )* Rets, RetsAsResult, Func > as _
         }
 
         #[allow(non_snake_case)]
