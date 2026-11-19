@@ -576,8 +576,9 @@ impl FirstPoll {
 
 impl Drop for FirstPoll {
     fn drop(&mut self) {
-        // Dropping the future panicked. The frames the panic unwinds through
-        // expect the store where a host function leaves it.
+        // Something between the loan and its end panicked that
+        // `block_on_future` does not catch. The frames the panic unwinds
+        // through expect the store where a host function leaves it.
         if self.store.is_some() {
             self.end(true);
         }
@@ -644,9 +645,9 @@ impl CoroutineContext {
                     coroutine: CURRENT_COROUTINE.with(|cell| cell.replace(ptr::null())),
                     store: Some(store),
                 };
-                // Declared after `first_poll`, so that a panic dropping the
-                // future still drops it, and whatever it holds, before the
-                // store is taken back.
+                // Declared after `first_poll`, so that the future, and
+                // whatever it holds, is dropped before the store is taken
+                // back however this ends.
                 let mut future = future;
                 // Safety: this is the context of the poll that resumed the
                 // coroutine. That poll is waiting for the coroutine to switch
@@ -665,8 +666,15 @@ impl CoroutineContext {
                 };
                 // A future that is done, or panicked, is dropped before the
                 // store is taken back, as the poller drops it: nothing it
-                // still owns may keep the store locked.
-                drop(future);
+                // still owns may keep the store locked. A panic in its
+                // destructor goes on as one in its poll does, once the store
+                // is back; after a panic in its poll, that one goes on.
+                let dropped = panic::catch_unwind(AssertUnwindSafe(move || drop(future)));
+                let resume = match (resume, dropped) {
+                    (resume, Ok(())) => resume,
+                    (resume @ AsyncResume::HostFuturePanicked(_), Err(_)) => resume,
+                    (_, Err(payload)) => AsyncResume::HostFuturePanicked(payload),
+                };
                 if first_poll.end(true) {
                     return Self::resumed(resume);
                 }
@@ -988,38 +996,58 @@ mod first_poll {
         assert!(store.into_store().is_ok());
     }
 
-    /// Locks the store and hands the lock over to `holder`, then panics.
-    struct HandsTheStoreOverThenPanics<T> {
+    #[derive(Clone, Copy, PartialEq)]
+    enum PanicsIn {
+        Poll,
+        Drop,
+    }
+
+    /// Locks the store and hands the lock over to `holder`. Then it panics,
+    /// or is ready and panics when it is dropped.
+    struct HandsTheStoreOver<T> {
         lock: Pin<Box<dyn Future<Output = T>>>,
         holder: Rc<RefCell<Option<T>>>,
+        panics_in: PanicsIn,
     }
-    impl<T> Future for HandsTheStoreOverThenPanics<T> {
+    impl<T> Future for HandsTheStoreOver<T> {
         type Output = Result<Vec<Value>, RuntimeError>;
         fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             let this = self.get_mut();
             let lock = std::task::ready!(this.lock.as_mut().poll(cx));
             *this.holder.borrow_mut() = Some(lock);
-            panic!("host future panicked after handing the store over")
+            if this.panics_in == PanicsIn::Poll {
+                panic!("host future panicked after handing the store over");
+            }
+            Poll::Ready(Ok(vec![]))
+        }
+    }
+    impl<T> Drop for HandsTheStoreOver<T> {
+        fn drop(&mut self) {
+            if self.panics_in == PanicsIn::Drop && !std::thread::panicking() {
+                panic!("host future panicked when dropped, after handing the store over");
+            }
         }
     }
 
     /// The same when the future hands the store's lock to something else
-    /// before it panics: the call waits for the store, as it does when such
-    /// a future returns, and the panic goes on once the store is back. The
-    /// host function that catches it carries on with its store.
-    #[test]
-    fn a_panic_after_handing_the_store_over_goes_on_once_the_store_is_back() {
+    /// before it panics, in its poll or in its destructor: the call waits for
+    /// the store, as it does when such a future returns, and the panic goes
+    /// on once the store is back. The host function that catches it carries
+    /// on with its store.
+    fn after_handing_the_store_over(panics_in: PanicsIn) {
         let mut store = sys_store();
         let ty = FunctionType::new(vec![], vec![]);
         let env = FunctionEnv::new(&mut store, 0u32);
         let holder = Rc::new(RefCell::new(None));
         let panics = Function::new_with_env_async(&mut store, &env, ty.clone(), {
             let holder = holder.clone();
-            move |env: crate::AsyncFunctionEnvMut<u32>, _: &[Value]| HandsTheStoreOverThenPanics {
+            move |env: crate::AsyncFunctionEnvMut<u32>, _: &[Value]| HandsTheStoreOver {
                 lock: Box::pin(async move { env.write().await }),
                 holder: holder.clone(),
+                panics_in,
             }
-        });
+        })
+        .eager();
         let seen = Arc::new(Mutex::new(None));
         let outer = Function::new_with_env(&mut store, &env, ty, {
             let seen = seen.clone();
@@ -1039,7 +1067,10 @@ mod first_poll {
         let mut call = Box::pin(outer.call_async(&store, vec![]));
         let waker = futures::task::noop_waker();
         let mut cx = Context::from_waker(&waker);
-        assert!(call.as_mut().poll(&mut cx).is_pending(), "the call waits for the store");
+        assert!(
+            call.as_mut().poll(&mut cx).is_pending(),
+            "the call waits for the store"
+        );
         assert_eq!(*seen.lock().unwrap(), None);
         holder.borrow_mut().take();
         assert!(matches!(call.as_mut().poll(&mut cx), Poll::Ready(Ok(_))));
@@ -1049,5 +1080,15 @@ mod first_poll {
             panic!("the store is still shared");
         };
         assert_eq!(*env.as_ref(&store), 1);
+    }
+
+    #[test]
+    fn a_panic_after_handing_the_store_over_goes_on_once_the_store_is_back() {
+        after_handing_the_store_over(PanicsIn::Poll);
+    }
+
+    #[test]
+    fn a_panic_dropping_a_future_that_handed_the_store_over_goes_on_once_the_store_is_back() {
+        after_handing_the_store_over(PanicsIn::Drop);
     }
 }
