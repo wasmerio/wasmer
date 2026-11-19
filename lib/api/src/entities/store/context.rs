@@ -372,35 +372,6 @@ impl StoreContext {
         })
     }
 
-    #[cfg(feature = "unsafe-cothread")]
-    fn push_cothread(id: StoreId, store_ptr: NonNull<StoreInner>) {
-        STORE_CONTEXT_STACK.with(|cell| {
-            let mut stack = cell.borrow_mut();
-            stack.push(Self {
-                id,
-                borrow_count: 1,
-                entry: UnsafeCell::new(StoreContextEntry::Sync(store_ptr.as_ptr())),
-            });
-        });
-    }
-
-    #[cfg(feature = "unsafe-cothread")]
-    fn uninstall_cothread(id: StoreId) {
-        STORE_CONTEXT_STACK.with(|cell| {
-            let mut stack = cell.borrow_mut();
-            // Search from the top so we find our entry even if the stack has
-            // been disturbed (e.g. another guard panicked mid-flight).
-            if let Some(pos) = stack.iter().rposition(|ctx| ctx.id == id) {
-                stack.remove(pos);
-            } else {
-                panic!(
-                    "CoroutineStoreGuard::drop: entry not found in context stack; \
-                        the store context stack is corrupted"
-                );
-            }
-        });
-    }
-
     /// Returns true if no call into a store is running on this thread: there
     /// are no active store context entries, and no call into a plain store
     /// (which has none) is innermost.
@@ -798,11 +769,37 @@ impl StoreContext {
     }
 }
 
+/// The thread state of a coroutine run under [`CoroutineStoreGuard`]s, kept
+/// off the thread while the coroutine is suspended.
 #[cfg(feature = "unsafe-cothread")]
-/// RAII guard that installs the store context on the thread-local stack when
-/// created and removes it on drop. See [`crate::Store::coroutine_store_guard`].
+#[derive(Default)]
+struct SuspendedCothread {
+    /// The entries the coroutine pushed onto the store context stack that
+    /// were still there when it suspended, bottom first: those of the calls
+    /// it is suspended in.
+    entries: Vec<StoreContext>,
+    /// The trap handler and active stores of those calls.
+    activation: wasmer_vm::ActivationState,
+}
+
+#[cfg(feature = "unsafe-cothread")]
+thread_local! {
+    /// The state of each suspended coroutine of this thread that was run
+    /// under [`CoroutineStoreGuard`]s, by the store the guards were made for.
+    static SUSPENDED_COTHREADS: RefCell<std::collections::HashMap<StoreId, SuspendedCothread>> =
+        RefCell::new(std::collections::HashMap::new());
+}
+
+#[cfg(feature = "unsafe-cothread")]
+/// Puts the thread state of a coroutine that runs Wasm on a store onto the
+/// thread for one resume of the coroutine, and takes it off again when
+/// dropped. See [`crate::Store::coroutine_store_guard`].
 pub struct CoroutineStoreGuard<'a> {
     store_id: StoreId,
+    /// Where the coroutine's entries start on the store context stack.
+    base: usize,
+    /// The thread's own activation state while the coroutine's is installed.
+    activation: wasmer_vm::ActivationState,
     _store: std::marker::PhantomData<&'a mut StoreInner>,
 }
 
@@ -813,8 +810,7 @@ impl<'a> CoroutineStoreGuard<'a> {
     /// (active or suspended).
     ///
     /// # Safety
-    /// Exactly one `StorePtrWrapper` derived from `store` must be alive on
-    /// the suspended coroutine's stack for the duration of the guard.
+    /// See [`crate::Store::coroutine_store_guard`].
     pub(crate) unsafe fn new(store: &'a mut StoreInner) -> Self {
         let store_id = store.objects.id();
         assert!(
@@ -825,12 +821,30 @@ impl<'a> CoroutineStoreGuard<'a> {
         );
         // Calls into the store keep to the context stack from now on: the
         // coroutines that run them are suspended and resumed in any order,
-        // which these guards follow by adding and removing entries, while
-        // calls through the slot would put back each other's values.
+        // which these guards follow by moving the entries of their calls off
+        // the thread and back, while calls through the slot would put back
+        // each other's values.
         store.context_mode |= context_mode::COTHREAD;
-        StoreContext::push_cothread(store_id, NonNull::from(store));
+        let SuspendedCothread {
+            entries,
+            mut activation,
+        } = SUSPENDED_COTHREADS
+            .with(|cell| cell.borrow_mut().remove(&store_id))
+            .unwrap_or_default();
+        let base = STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let base = stack.len();
+            stack.extend(entries);
+            base
+        });
+        // Safety: the embedder is about to resume the coroutine that owns
+        // the state, on this thread; `Drop` swaps again as soon as the
+        // resume ends, however it ends.
+        unsafe { activation.swap() };
         Self {
             store_id,
+            base,
+            activation,
             _store: std::marker::PhantomData,
         }
     }
@@ -839,10 +853,40 @@ impl<'a> CoroutineStoreGuard<'a> {
 #[cfg(feature = "unsafe-cothread")]
 impl Drop for CoroutineStoreGuard<'_> {
     fn drop(&mut self) {
-        if std::thread::panicking() {
+        // Safety: the second of the pair `new` started; control is back
+        // from the coroutine.
+        unsafe { self.activation.swap() };
+        let activation = std::mem::take(&mut self.activation);
+        // Whatever is left above `base` belongs to the calls the coroutine
+        // is suspended in. A coroutine that returned or unwound left nothing
+        // behind: each of its calls took its entry and trap handler off on
+        // the way out.
+        let entries = STORE_CONTEXT_STACK.try_with(|cell| {
+            let mut stack = cell.try_borrow_mut().ok()?;
+            (self.base <= stack.len()).then(|| stack.split_off(self.base))
+        });
+        let entries = match entries {
+            Ok(Some(entries)) => entries,
+            _ if std::thread::panicking() => return,
+            _ => panic!(
+                "CoroutineStoreGuard::drop: the store context stack is shorter than \
+                 when the coroutine was resumed; the store context stack is corrupted"
+            ),
+        };
+        if entries.is_empty() && activation.is_empty() {
             return;
         }
-        StoreContext::uninstall_cothread(self.store_id);
+        let _ = SUSPENDED_COTHREADS.try_with(|cell| {
+            if let Ok(mut suspended) = cell.try_borrow_mut() {
+                suspended.insert(
+                    self.store_id,
+                    SuspendedCothread {
+                        entries,
+                        activation,
+                    },
+                );
+            }
+        });
     }
 }
 

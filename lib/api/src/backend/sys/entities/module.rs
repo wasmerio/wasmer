@@ -221,10 +221,18 @@ impl Module {
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            if let Err(err) =
+            //
+            // The store is paused while the start function runs, as for any
+            // other entry into Wasm: an async import it calls can then
+            // suspend the call of a host function that instantiates.
+            let finished = {
+                // A store entered through its slot has no counted borrow to
+                // pause: see `StoreEntryGuard::pause`.
+                let _pause_guard = store_install_guard.pause();
                 self.artifact
                     .finish_instantiation(&config, signal_handler, &mut instance_handle)
-            {
+            };
+            if let Err(err) = finished {
                 drop(store_install_guard);
                 // Keep the partially initialized instance alive: its funcrefs may already
                 // have been written into imported tables.

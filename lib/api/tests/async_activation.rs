@@ -810,6 +810,65 @@ fn a_call_polled_from_inside_its_own_store_is_refused() {
     assert!(guest.try_write().is_some(), "the store is free");
 }
 
+/// A host function running on the coroutine of a call instantiates a module
+/// whose start function waits on an async import. The start function
+/// suspends the call, as the host function's own calls into Wasm would, and
+/// the instance is created once the import is ready.
+#[test]
+fn a_start_function_that_waits_suspends_the_call_that_instantiates() {
+    const START: &str = r#"
+    (module
+      (import "h" "wait" (func $wait))
+      (global (export "started") (mut i32) (i32.const 0))
+      (func $start (call $wait) (global.set 0 (i32.const 1)))
+      (start $start))
+    "#;
+    let gate = Rc::new(Cell::new(false));
+    let mut store = Store::default();
+    let module = Module::new(&store, START).unwrap();
+    let wait = Function::new_async(&mut store, FunctionType::new(vec![], vec![]), {
+        let gate = gate.clone();
+        move |_| {
+            let gate = gate.clone();
+            async move {
+                Gate(gate).await;
+                Ok(vec![])
+            }
+        }
+    });
+    let env = wasmer::FunctionEnv::new(&mut store, ());
+    let created: Arc<std::sync::Mutex<Option<Instance>>> = Arc::default();
+    let instantiate =
+        Function::new_with_env(&mut store, &env, FunctionType::new(vec![], vec![]), {
+            let created = created.clone();
+            move |mut env: wasmer::FunctionEnvMut<()>, _: &[Value]| {
+                let imports = imports! { "h" => { "wait" => wait.clone() } };
+                let instance = Instance::new(&mut env, &module, &imports)
+                    .map_err(|e| RuntimeError::new(e.to_string()))?;
+                *created.lock().unwrap() = Some(instance);
+                Ok(vec![])
+            }
+        });
+    let store = store.into_async();
+
+    let mut call: CallFuture = Box::pin(instantiate.call_async(&store, vec![]));
+    expect_pending("instantiation", &mut call);
+    assert!(created.lock().unwrap().is_none());
+    gate.set(true);
+    assert!(matches!(poll_once(&mut call), Poll::Ready(Ok(_))));
+    drop(call);
+    let Ok(mut store) = store.into_store() else {
+        panic!("the store is still shared");
+    };
+    let instance = created
+        .lock()
+        .unwrap()
+        .take()
+        .expect("the instance was created");
+    let started = instance.exports.get_global("started").unwrap();
+    assert_eq!(started.get(&mut store).unwrap_i32(), 1);
+}
+
 /// A host future is polled for the first time on the coroutine of the call,
 /// inside the import call, and the coroutine suspends only if the future is
 /// pending. That poll has to behave as the poller's own polls do: the future

@@ -58,7 +58,8 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
                                  engine_name: &str,
                                  engine_feature_name: &str,
                                  experimental_artifact: bool,
-                                 dynamic_memory: bool|
+                                 dynamic_memory: bool,
+                                 sse42: bool|
      -> ::proc_macro2::TokenStream {
         let config_compiler = ::quote::format_ident!("{}", compiler_name);
         let test_name = ::quote::format_ident!("{}", engine_name.to_lowercase());
@@ -69,6 +70,10 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
         if dynamic_memory {
             config = quote! { #config.with_dynamic_memory() };
         }
+        if sse42 {
+            config = quote! { #config.with_sse42() };
+        }
+        let sse42_cfg = sse42.then(|| quote! { #[cfg(target_arch = "x86_64")] });
         let experimental_artifact_cfg = experimental_artifact.then(|| match compiler_name {
             "Cranelift" | "Singlepass" | "LLVM" => quote! {},
             _ => quote! { #[cfg(target_os = "linux")] },
@@ -86,6 +91,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
             #attrs
             #[cfg(feature = #engine_feature_name)]
             #experimental_artifact_cfg
+            #sse42_cfg
             #new_sig {
                 #fn_name(#config)
             }
@@ -115,6 +121,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
                 &compiler_name.to_lowercase(),
                 false,
                 false,
+                false,
             );
             let native_compiler = compiler_name != "V8";
             let experimental_artifact_test = native_compiler.then(|| {
@@ -125,6 +132,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
                     &compiler_name.to_lowercase(),
                     true,
                     false,
+                    false,
                 )
             });
             let dynamic_memory_experimental_artifact_test = native_compiler.then(|| {
@@ -134,6 +142,18 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
                     &format!("{compiler_name}_dynamic_memory_exp_artifact"),
                     &compiler_name.to_lowercase(),
                     true,
+                    true,
+                    false,
+                )
+            });
+            let sse42_test = (compiler_name == "Singlepass").then(|| {
+                construct_engine_test(
+                    func,
+                    compiler_name,
+                    "singlepass_sse42",
+                    "singlepass",
+                    false,
+                    false,
                     true,
                 )
             });
@@ -147,6 +167,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
                     #engine_test
                     #experimental_artifact_test
                     #dynamic_memory_experimental_artifact_test
+                    #sse42_test
                 }
             }
         };

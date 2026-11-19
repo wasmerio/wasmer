@@ -20,6 +20,7 @@ use crate::{
     Value, WasmTypeList, WithEnv, WithoutEnv,
     entities::function::call_wrapper::call_wrapped,
     js::{
+        error::trap_value,
         store::StoreSlot,
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
@@ -320,7 +321,7 @@ impl Function {
                 let mut store = unsafe { slot.store()? };
                 let arguments = numeric::values(function_type.params(), numbers);
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &arguments)?;
+                let results = func(env, &arguments).map_err(trap_value)?;
                 Ok(match function_type.results() {
                     [] => 0.0,
                     _ => numeric::result(&results),
@@ -342,7 +343,7 @@ impl Function {
                     })
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let _results = func(env, &wasm_arguments)?;
+                let _results = func(env, &wasm_arguments).map_err(trap_value)?;
                 Ok(())
             })
                 as Box<dyn Fn(&Array) -> Result<(), JsValue>>)
@@ -359,7 +360,7 @@ impl Function {
                     })
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &wasm_arguments)?;
+                let results = func(env, &wasm_arguments).map_err(trap_value)?;
                 Ok(host_result_to_js(&function_type.results()[0], &results[0]))
             })
                 as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>)
@@ -376,7 +377,7 @@ impl Function {
                     })
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &wasm_arguments)?;
+                let results = func(env, &wasm_arguments).map_err(trap_value)?;
                 Ok(host_results_to_js(function_type.results(), &results))
             })
                 as Box<dyn Fn(&Array) -> Result<Array, JsValue>>)
