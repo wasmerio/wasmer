@@ -532,7 +532,7 @@ impl InstanceGroupState {
         let ty = ty.clone();
         let resolved: Mutex<Option<Option<Function>>> = Mutex::new(None);
 
-        Function::new_with_env(
+        let stub = Function::new_with_env(
             store,
             env,
             ty.clone(),
@@ -689,6 +689,10 @@ impl InstanceGroupState {
                     .map(|ret| ret.into())
                     .map_err(flatten_runtime_error)
             },
-        )
+        );
+        // It runs the linker, like a syscall: see `on_native_stack` in the
+        // crate root.
+        stub.set_calls_on_native_stack(store, true);
+        stub
     }
 }
