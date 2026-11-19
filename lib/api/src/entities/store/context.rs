@@ -228,6 +228,21 @@ impl SlotRef {
         Self(objects.as_sys().slot())
     }
 
+    /// The address of the slot.
+    #[inline]
+    pub(crate) fn as_ptr(self) -> NonNull<wasmer_vm::StoreSlot> {
+        self.0
+    }
+
+    /// The slot at `ptr`.
+    ///
+    /// # Safety
+    /// `ptr` must be the address of a slot, from [`Self::as_ptr`].
+    #[inline]
+    pub(crate) unsafe fn from_ptr(ptr: NonNull<wasmer_vm::StoreSlot>) -> Self {
+        Self(ptr)
+    }
+
     #[inline]
     fn slot(&self) -> &wasmer_vm::StoreSlot {
         // SAFETY: valid for as long as the objects that own it, and with them

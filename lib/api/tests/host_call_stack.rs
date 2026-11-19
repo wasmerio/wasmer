@@ -13,7 +13,14 @@
 //! wrong overflows the Wasm stack inside host code, which kills the process,
 //! so these tests have a test binary of their own.
 
-use std::{hint::black_box, mem::MaybeUninit, sync::Mutex};
+use std::{
+    hint::black_box,
+    mem::MaybeUninit,
+    sync::{
+        Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
 use wasmer::{
     Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module, RuntimeError, Store,
@@ -194,4 +201,92 @@ fn host_calls_on_the_native_stack() -> Result<(), Box<dyn std::error::Error>> {
     set_host_calls_on_native_stack(true);
     assert!(host_calls_on_native_stack());
     run_host_calls()
+}
+
+/// The address of a local of the test that last called into Wasm.
+static CALLER_FRAME: AtomicUsize = AtomicUsize::new(0);
+
+/// Whether this runs on the native stack: within 512 KiB below the frame of
+/// the test that called into Wasm. A Wasm stack is a mapping of its own, so it
+/// is never there.
+#[inline(never)]
+fn on_native_stack() -> bool {
+    let local = 0u8;
+    let here = black_box(&local) as *const u8 as usize;
+    let caller = CALLER_FRAME.load(Ordering::Relaxed);
+    here < caller && caller - here < 512 * 1024
+}
+
+/// A host function set to run on the native stack does from its next call
+/// on, while the others go on running on the Wasm stack, and runs there again
+/// once the setting is taken back.
+#[test]
+fn a_host_function_can_run_on_the_native_stack() -> Result<(), Box<dyn std::error::Error>> {
+    let _lock = SETTINGS.lock().unwrap_or_else(|e| e.into_inner());
+    let _restore = RestoreNativeStack(host_calls_on_native_stack());
+    set_host_calls_on_native_stack(false);
+
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+            (import "host" "typed" (func $typed (result i32)))
+            (import "host" "with_env" (func $with_env (result i32)))
+            (import "host" "dynamic" (func $dynamic (result i32)))
+            (func (export "typed") (result i32) call $typed)
+            (func (export "with_env") (result i32) call $with_env)
+            (func (export "dynamic") (result i32) call $dynamic))"#,
+    )?;
+    let env = FunctionEnv::new(&mut store, ());
+    let typed = Function::new_typed(&mut store, || i32::from(on_native_stack()));
+    let with_env = Function::new_typed_with_env(&mut store, &env, |_: FunctionEnvMut<()>| {
+        i32::from(on_native_stack())
+    });
+    let dynamic = Function::new(
+        &mut store,
+        FunctionType::new([], [Type::I32]),
+        |_: &[Value]| Ok(vec![Value::I32(i32::from(on_native_stack()))]),
+    );
+    let imports = imports! {
+        "host" => {
+            "typed" => typed.clone(),
+            "with_env" => with_env.clone(),
+            "dynamic" => dynamic.clone(),
+        }
+    };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let ran_on_native_stack = |store: &mut Store, name: &str| {
+        let call: TypedFunction<(), i32> = instance.exports.get_typed_function(store, name)?;
+        let local = 0u8;
+        CALLER_FRAME.store(black_box(&local) as *const u8 as usize, Ordering::Relaxed);
+        Ok::<_, Box<dyn std::error::Error>>(call.call(store)? == 1)
+    };
+
+    let functions = [
+        ("typed", typed),
+        ("with_env", with_env),
+        ("dynamic", dynamic),
+    ];
+    for (name, function) in &functions {
+        assert!(!function.calls_on_native_stack(&store), "{name}");
+        assert!(!ran_on_native_stack(&mut store, name)?, "{name}");
+    }
+    for (name, function) in &functions {
+        function.set_calls_on_native_stack(&mut store, true);
+        assert!(function.calls_on_native_stack(&store), "{name}");
+        assert!(ran_on_native_stack(&mut store, name)?, "{name}");
+        // The other functions stay on the Wasm stack.
+        for (other, _) in functions.iter().filter(|(other, _)| other != name) {
+            assert!(!ran_on_native_stack(&mut store, other)?, "{other}");
+        }
+        function.set_calls_on_native_stack(&mut store, false);
+        assert!(!function.calls_on_native_stack(&store), "{name}");
+        assert!(!ran_on_native_stack(&mut store, name)?, "{name}");
+    }
+
+    // A function defined in Wasm has no such setting.
+    let exported = instance.exports.get_function("typed")?;
+    exported.set_calls_on_native_stack(&mut store, true);
+    assert!(!exported.calls_on_native_stack(&store));
+    Ok(())
 }

@@ -544,6 +544,43 @@ impl Function {
         self.0.is_from_store(store)
     }
 
+    /// Makes every call from Wasm to this host function run on the native
+    /// stack, or, with `false`, lets it run on the Wasm stack again.
+    ///
+    /// On the `sys` backend a synchronous host function called from Wasm
+    /// runs on the Wasm stack it was called from when enough of that stack is
+    /// left (the host-call reserve), which saves switching stacks. A host
+    /// function that may need more stack than the reserve, or that should run
+    /// on the thread's own stack every time, is set to run there. The setting
+    /// applies from the next call on, including calls through instances that
+    /// already import the function. `wasmer::sys::vm::set_host_calls_on_native_stack`
+    /// does the same for every host function.
+    ///
+    /// Asynchronous host functions always run on the native stack, and other
+    /// backends always run host functions on their own stack: there, and for
+    /// a function defined in Wasm, this does nothing.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, Store};
+    /// # let mut store = Store::default();
+    /// #
+    /// let heavy = Function::new_typed(&mut store, |x: i32| x + 1);
+    /// heavy.set_calls_on_native_stack(&mut store, true);
+    /// ```
+    pub fn set_calls_on_native_stack(&self, store: &mut impl AsStoreMut, always: bool) {
+        self.0.set_calls_on_native_stack(store, always)
+    }
+
+    /// Whether every call from Wasm to this host function runs on the native
+    /// stack: when it was set to with [`Self::set_calls_on_native_stack`], and
+    /// for an asynchronous host function. Always `false` on backends that
+    /// have no Wasm stacks of their own, and for a function defined in Wasm.
+    pub fn calls_on_native_stack(&self, store: &impl AsStoreRef) -> bool {
+        self.0.calls_on_native_stack(store)
+    }
+
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         self.0.to_vm_extern()
     }

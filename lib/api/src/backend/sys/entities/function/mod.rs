@@ -27,8 +27,19 @@ use crate::{
 use smallvec::{SmallVec, smallvec};
 use std::panic::{self, AssertUnwindSafe};
 use std::{
-    cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, marker::PhantomData,
-    pin::Pin, sync::Arc,
+    any::Any,
+    cell::UnsafeCell,
+    cmp::max,
+    error::Error,
+    ffi::c_void,
+    future::Future,
+    marker::PhantomData,
+    pin::Pin,
+    ptr::NonNull,
+    sync::{
+        Arc,
+        atomic::{AtomicPtr, Ordering},
+    },
 };
 use wasmer_types::{NativeWasmType, RawValue, StoreId, Type};
 #[cfg(feature = "experimental-host-interrupt")]
@@ -104,7 +115,7 @@ impl Function {
             ctx: DynamicFunction {
                 func: wrapper,
                 store_id,
-                slot,
+                slot: HostSlot::new(slot),
                 func_ty: function_type.clone(),
                 in_place: true,
             },
@@ -132,11 +143,12 @@ impl Function {
             call_trampoline,
         };
 
+        let in_place = host_data.ctx.in_place;
         let vm_function = VMFunction {
             anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
             kind: VMFunctionKind::Dynamic,
             signature: function_type,
-            host_data,
+            host_data: HostFunctionData::boxed(host_data, |data| &data.ctx.slot, in_place),
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
@@ -247,7 +259,7 @@ impl Function {
             ctx: DynamicFunction {
                 func: wrapper,
                 store_id,
-                slot,
+                slot: HostSlot::new(slot),
                 func_ty: function_type.clone(),
                 // Its future may suspend the coroutine the call came from.
                 in_place: false,
@@ -273,11 +285,12 @@ impl Function {
             call_trampoline,
         };
 
+        let in_place = host_data.ctx.in_place;
         let vm_function = VMFunction {
             anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
             kind: VMFunctionKind::Dynamic,
             signature: function_type,
-            host_data,
+            host_data: HostFunctionData::boxed(host_data, |data| &data.ctx.slot, in_place),
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
@@ -295,7 +308,7 @@ impl Function {
         let func_ptr = func.function_callback_sys().unwrap_sys();
         let host_data = Box::new(StaticFunction {
             store_id: store.objects_mut().id(),
-            slot: SlotRef::of(store.objects_mut()),
+            slot: HostSlot::new(SlotRef::of(store.objects_mut())),
             env,
             func,
         });
@@ -323,7 +336,7 @@ impl Function {
             anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
             kind: VMFunctionKind::Static,
             signature: function_type,
-            host_data,
+            host_data: HostFunctionData::boxed(host_data, |data| &data.slot, true),
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
@@ -450,7 +463,7 @@ impl Function {
         let func_ptr = func.function_callback_sys().unwrap_sys();
         let host_data = Box::new(StaticFunction {
             store_id: store.objects_mut().id(),
-            slot: SlotRef::of(store.objects_mut()),
+            slot: HostSlot::new(SlotRef::of(store.objects_mut())),
             env: env.as_sys().clone().into(),
             func,
         });
@@ -478,7 +491,7 @@ impl Function {
             anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
             kind: VMFunctionKind::Static,
             signature: function_type,
-            host_data,
+            host_data: HostFunctionData::boxed(host_data, |data| &data.slot, true),
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
@@ -703,6 +716,24 @@ impl Function {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
+    /// See [`crate::Function::set_calls_on_native_stack`].
+    pub(crate) fn set_calls_on_native_stack(&self, store: &mut impl AsStoreMut, always: bool) {
+        let objects = store.objects_mut().as_sys_mut();
+        if let Some(data) = self.handle.get(objects).host_data.downcast_ref::<HostFunctionData>() {
+            data.slot().set_on_native_stack(always);
+        }
+    }
+
+    /// See [`crate::Function::calls_on_native_stack`].
+    pub(crate) fn calls_on_native_stack(&self, store: &impl AsStoreRef) -> bool {
+        let store = store.as_store_ref();
+        let function = self.handle.get(store.objects().as_sys());
+        function
+            .host_data
+            .downcast_ref::<HostFunctionData>()
+            .is_some_and(|data| !data.in_place || data.slot().get().1)
+    }
+
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Sys(wasmer_vm::VMExtern::Function(self.handle.internal_handle()))
     }
@@ -850,8 +881,9 @@ pub(crate) enum HostCallOutcome {
 pub(crate) struct DynamicFunction<F> {
     func: F,
     store_id: StoreId,
-    /// The store's slot, where a call into a plain store leaves it.
-    slot: SlotRef,
+    /// The store's slot, where a call into a plain store leaves it, and
+    /// whether every call runs on the native stack all the same.
+    slot: HostSlot,
     /// The function's type, which its results are checked against.
     func_ty: FunctionType,
     /// Whether a call from Wasm may run in place, on the Wasm stack (see
@@ -911,7 +943,7 @@ where
                     };
                     let result = result.and_then(|values| {
                         let mut store_wrapper = unsafe {
-                            StoreContext::get_current_in(this.ctx.slot, this.ctx.store_id)
+                            StoreContext::get_current_in(this.ctx.slot.slot(), this.ctx.store_id)
                         };
                         write_dynamic_results(
                             &mut store_wrapper,
@@ -921,7 +953,7 @@ where
                         )
                     });
                     let result = to_invocation_result(result, || unsafe {
-                        StoreContext::get_current_transient_in(this.ctx.slot, this.ctx.store_id)
+                        StoreContext::get_current_transient_in(this.ctx.slot.slot(), this.ctx.store_id)
                     });
                     drop(plain_store_entry);
                     result
@@ -929,11 +961,13 @@ where
             }))
         };
         let result = if IN_PLACE {
+            let (slot, on_native_stack) = this.ctx.slot.get();
+            if on_native_stack {
+                return unsafe { Self::func_wrapper::<false>(this, values_vec) };
+            }
             // A call into a plain store left its thread in the slot, which
             // saves looking the thread up.
-            let thread = this
-                .ctx
-                .slot
+            let thread = slot
                 .thread()
                 .unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
             match wasmer_vm::host_call_in_place_on(thread) {
@@ -1021,10 +1055,88 @@ where
 /// [`crate::Function::new_typed_with_env`] to learn more.
 pub(crate) struct StaticFunction<F, T> {
     pub(crate) store_id: StoreId,
-    /// The store's slot, where a call into a plain store leaves it.
-    pub(crate) slot: SlotRef,
+    /// The store's slot, where a call into a plain store leaves it, and
+    /// whether every call runs on the native stack all the same.
+    pub(crate) slot: HostSlot,
     pub(crate) env: FunctionEnv<T>,
     pub(crate) func: F,
+}
+
+/// The slot of a host function's store (see [`SlotRef`]), with the setting
+/// that [`crate::Function::set_calls_on_native_stack`] writes in the lowest
+/// bit of its address, which the alignment of a slot leaves free. A call
+/// reads the setting with the slot it loads anyway, so the setting costs it
+/// no memory access.
+pub(crate) struct HostSlot(AtomicPtr<wasmer_vm::StoreSlot>);
+
+impl HostSlot {
+    /// The bit of the address that says calls always run on the native stack.
+    const ON_NATIVE_STACK: usize = 1;
+
+    fn new(slot: SlotRef) -> Self {
+        const {
+            assert!(std::mem::align_of::<wasmer_vm::StoreSlot>() > Self::ON_NATIVE_STACK);
+        }
+        Self(AtomicPtr::new(slot.as_ptr().as_ptr()))
+    }
+
+    /// The slot, and whether every call runs on the native stack.
+    #[inline(always)]
+    fn get(&self) -> (SlotRef, bool) {
+        let tagged = self.0.load(Ordering::Relaxed);
+        let slot = tagged.map_addr(|addr| addr & !Self::ON_NATIVE_STACK);
+        // SAFETY: `new` stored the address of a slot, and only the bit
+        // changes after that.
+        let slot = unsafe { SlotRef::from_ptr(NonNull::new_unchecked(slot)) };
+        (slot, tagged.addr() & Self::ON_NATIVE_STACK != 0)
+    }
+
+    /// The slot.
+    #[inline(always)]
+    fn slot(&self) -> SlotRef {
+        self.get().0
+    }
+
+    fn set_on_native_stack(&self, always: bool) {
+        // Only the thread that holds the store writes it, and nothing else
+        // changes the address.
+        let tagged = self.0.load(Ordering::Relaxed).map_addr(|addr| {
+            if always {
+                addr | Self::ON_NATIVE_STACK
+            } else {
+                addr & !Self::ON_NATIVE_STACK
+            }
+        });
+        self.0.store(tagged, Ordering::Relaxed);
+    }
+}
+
+/// What the `VMFunction` of a host function owns: the function's state, and
+/// where in it the slot is that [`crate::Function::set_calls_on_native_stack`]
+/// sets the bit of.
+struct HostFunctionData {
+    /// Inside `_state`, which keeps it in place.
+    slot: NonNull<HostSlot>,
+    /// Whether a call may run on the Wasm stack at all: false for
+    /// asynchronous functions, which always run on the native stack.
+    in_place: bool,
+    _state: Box<dyn Any>,
+}
+
+impl HostFunctionData {
+    fn boxed<S: 'static>(state: Box<S>, slot: fn(&S) -> &HostSlot, in_place: bool) -> Box<dyn Any> {
+        Box::new(Self {
+            slot: NonNull::from(slot(&state)),
+            in_place,
+            _state: state,
+        })
+    }
+
+    fn slot(&self) -> &HostSlot {
+        // SAFETY: the slot is inside `_state`, whose allocation lives as long
+        // as `self` and does not move.
+        unsafe { self.slot.as_ref() }
+    }
 }
 
 impl crate::Function {
@@ -1077,7 +1189,7 @@ macro_rules! impl_host_function {
             {
                 let call = || {
                     panic::catch_unwind(AssertUnwindSafe(|| {
-                        let mut store_wrapper = unsafe { StoreContext::get_current_in(env.slot, env.store_id) };
+                        let mut store_wrapper = unsafe { StoreContext::get_current_in(env.slot.slot(), env.store_id) };
                         let store_ptr = store_wrapper.as_ptr();
                         let mut store = store_wrapper.as_mut();
                         $(
@@ -1089,9 +1201,13 @@ macro_rules! impl_host_function {
                     }))
                 };
                 let result = if IN_PLACE {
+                    let (slot, on_native_stack) = env.slot.get();
+                    if on_native_stack {
+                        return unsafe { func_wrapper::<false, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) };
+                    }
                     // A call into a plain store left its thread in the slot,
                     // which saves looking the thread up.
-                    let thread = env.slot.thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+                    let thread = slot.thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
                     match wasmer_vm::host_call_in_place_on(thread) {
                         Some(in_place) => {
                             let result = call();
@@ -1196,7 +1312,7 @@ macro_rules! impl_host_function {
             {
                 let call = || {
                     panic::catch_unwind(AssertUnwindSafe(|| {
-                        let mut store_wrapper = unsafe { StoreContext::get_current_in(env.slot, env.store_id) };
+                        let mut store_wrapper = unsafe { StoreContext::get_current_in(env.slot.slot(), env.store_id) };
                         let store_ptr = store_wrapper.as_ptr();
                         let mut store = store_wrapper.as_mut();
                         $(
@@ -1212,9 +1328,13 @@ macro_rules! impl_host_function {
                     }))
                 };
                 let result = if IN_PLACE {
+                    let (slot, on_native_stack) = env.slot.get();
+                    if on_native_stack {
+                        return unsafe { func_wrapper::<false, T, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) };
+                    }
                     // A call into a plain store left its thread in the slot,
                     // which saves looking the thread up.
-                    let thread = env.slot.thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+                    let thread = slot.thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
                     match wasmer_vm::host_call_in_place_on(thread) {
                         Some(in_place) => {
                             let result = call();
