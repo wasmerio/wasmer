@@ -4,9 +4,11 @@ use std::{
     sync::{LazyLock, atomic::AtomicU64},
 };
 use std::{
+    any::Any,
     cell::{Cell, RefCell},
     future::Future,
     marker::PhantomData,
+    panic::{self, AssertUnwindSafe},
     pin::Pin,
     ptr,
     rc::Rc,
@@ -46,14 +48,18 @@ enum AsyncYield {
     /// For a host future the coroutine polled with the poller's task context
     /// and found pending. The coroutine has given the store up.
     Pending(HostFuture),
-    /// For the store: the host future completed with this, but its poll left
-    /// the store locked. The coroutine has given the store up.
-    StoreTaken(Result<Vec<Value>, RuntimeError>),
+    /// For the store: the host future the coroutine polled completed, or
+    /// panicked, but its poll left the store locked. The coroutine has given
+    /// the store up, and is to be resumed with this once it is back.
+    StoreTaken(AsyncResume),
 }
 
 enum AsyncResume {
     Start,
     HostFutureReady(Result<Vec<Value>, RuntimeError>),
+    /// The host future the coroutine polled itself panicked with this, and
+    /// the panic goes on from where the poll was made.
+    HostFuturePanicked(Box<dyn Any + Send>),
 }
 
 #[cfg(feature = "experimental-host-interrupt")]
@@ -419,8 +425,8 @@ impl Future for AsyncCallFuture {
                     self.pending_future = Some(future);
                     (store_given_up, polled) = (true, true);
                 }
-                Some(CoroutineResult::Yield(AsyncYield::StoreTaken(result))) => {
-                    self.next_resume = Some(AsyncResume::HostFutureReady(result));
+                Some(CoroutineResult::Yield(AsyncYield::StoreTaken(resume))) => {
+                    self.next_resume = Some(resume);
                     store_given_up = true;
                 }
                 Some(CoroutineResult::Return(result)) => {
@@ -570,8 +576,8 @@ impl FirstPoll {
 
 impl Drop for FirstPoll {
     fn drop(&mut self) {
-        // The future panicked. The frames the panic unwinds through expect
-        // the store where a host function leaves it.
+        // Dropping the future panicked. The frames the panic unwinds through
+        // expect the store where a host function leaves it.
         if self.store.is_some() {
             self.end(true);
         }
@@ -604,7 +610,9 @@ impl CoroutineContext {
     /// poller would, and takes the store back. If it cannot, because the
     /// future locked it and something else still holds the lock, it suspends
     /// and the poller waits for the store, as it does before every
-    /// resumption.
+    /// resumption. A future that panics is dropped and the store taken back
+    /// the same way before the panic goes on, so that a host frame further
+    /// up that catches it finds the store where it left it.
     ///
     /// Where this poll differs from the poller's:
     ///
@@ -636,37 +644,54 @@ impl CoroutineContext {
                     coroutine: CURRENT_COROUTINE.with(|cell| cell.replace(ptr::null())),
                     store: Some(store),
                 };
-                // Declared after `first_poll`, so that a panic drops the
-                // future, and whatever it holds, before the store is taken
-                // back.
+                // Declared after `first_poll`, so that a panic dropping the
+                // future still drops it, and whatever it holds, before the
+                // store is taken back.
                 let mut future = future;
                 // Safety: this is the context of the poll that resumed the
                 // coroutine. That poll is waiting for the coroutine to switch
                 // back and does not use the context meanwhile.
-                match future.as_mut().poll(unsafe { &mut *cx }) {
-                    Poll::Ready(result) => {
-                        // A future that is done is dropped before the store is
-                        // taken back, as the poller drops it: nothing it still
-                        // owns may keep the store locked.
-                        drop(future);
-                        if first_poll.end(true) {
-                            return result;
-                        }
-                        AsyncYield::StoreTaken(result)
-                    }
-                    Poll::Pending => {
+                let poll =
+                    panic::catch_unwind(AssertUnwindSafe(|| future.as_mut().poll(unsafe {
+                        &mut *cx
+                    })));
+                let resume = match poll {
+                    Ok(Poll::Pending) => {
                         first_poll.end(false);
-                        AsyncYield::Pending(future)
+                        return self.suspend(AsyncYield::Pending(future));
                     }
+                    Ok(Poll::Ready(result)) => AsyncResume::HostFutureReady(result),
+                    Err(payload) => AsyncResume::HostFuturePanicked(payload),
+                };
+                // A future that is done, or panicked, is dropped before the
+                // store is taken back, as the poller drops it: nothing it
+                // still owns may keep the store locked.
+                drop(future);
+                if first_poll.end(true) {
+                    return Self::resumed(resume);
                 }
+                AsyncYield::StoreTaken(resume)
             }
         };
 
+        self.suspend(yielded)
+    }
+
+    /// Suspends the coroutine, and returns what the host future it waits for
+    /// returned once it is resumed.
+    fn suspend(&self, yielded: AsyncYield) -> Result<Vec<Value>, RuntimeError> {
         // The poller takes this coroutine's state off the thread and puts it
         // back before resuming us; see `AsyncCallFuture::switch_to_coroutine`.
         let yielder = unsafe { self.yielder.as_ref().expect("yielder pointer valid") };
-        match yielder.suspend(yielded) {
+        Self::resumed(yielder.suspend(yielded))
+    }
+
+    /// What the host future the coroutine waited for returned, or its panic,
+    /// which goes on from here.
+    fn resumed(resume: AsyncResume) -> Result<Vec<Value>, RuntimeError> {
+        match resume {
             AsyncResume::HostFutureReady(result) => result,
+            AsyncResume::HostFuturePanicked(payload) => panic::resume_unwind(payload),
             AsyncResume::Start => unreachable!("coroutine resumed without start"),
         }
     }
@@ -961,5 +986,68 @@ mod first_poll {
         assert_eq!(*seen.lock().unwrap(), Some((true, true)));
         drop(call);
         assert!(store.into_store().is_ok());
+    }
+
+    /// Locks the store and hands the lock over to `holder`, then panics.
+    struct HandsTheStoreOverThenPanics<T> {
+        lock: Pin<Box<dyn Future<Output = T>>>,
+        holder: Rc<RefCell<Option<T>>>,
+    }
+    impl<T> Future for HandsTheStoreOverThenPanics<T> {
+        type Output = Result<Vec<Value>, RuntimeError>;
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            let this = self.get_mut();
+            let lock = std::task::ready!(this.lock.as_mut().poll(cx));
+            *this.holder.borrow_mut() = Some(lock);
+            panic!("host future panicked after handing the store over")
+        }
+    }
+
+    /// The same when the future hands the store's lock to something else
+    /// before it panics: the call waits for the store, as it does when such
+    /// a future returns, and the panic goes on once the store is back. The
+    /// host function that catches it carries on with its store.
+    #[test]
+    fn a_panic_after_handing_the_store_over_goes_on_once_the_store_is_back() {
+        let mut store = sys_store();
+        let ty = FunctionType::new(vec![], vec![]);
+        let env = FunctionEnv::new(&mut store, 0u32);
+        let holder = Rc::new(RefCell::new(None));
+        let panics = Function::new_with_env_async(&mut store, &env, ty.clone(), {
+            let holder = holder.clone();
+            move |env: crate::AsyncFunctionEnvMut<u32>, _: &[Value]| HandsTheStoreOverThenPanics {
+                lock: Box::pin(async move { env.write().await }),
+                holder: holder.clone(),
+            }
+        });
+        let seen = Arc::new(Mutex::new(None));
+        let outer = Function::new_with_env(&mut store, &env, ty, {
+            let seen = seen.clone();
+            move |mut env: FunctionEnvMut<u32>, _| {
+                let caught = catch_unwind(AssertUnwindSafe(|| panics.call(&mut env, &[])));
+                assert!(caught.is_err(), "the panic reaches the host function");
+                *seen.lock().unwrap() = Some((
+                    CoroutineContext::get_current().is_some(),
+                    StoreContext::top_is_async(),
+                ));
+                *env.data_mut() += 1;
+                Ok(vec![])
+            }
+        });
+        let store = store.into_async();
+
+        let mut call = Box::pin(outer.call_async(&store, vec![]));
+        let waker = futures::task::noop_waker();
+        let mut cx = Context::from_waker(&waker);
+        assert!(call.as_mut().poll(&mut cx).is_pending(), "the call waits for the store");
+        assert_eq!(*seen.lock().unwrap(), None);
+        holder.borrow_mut().take();
+        assert!(matches!(call.as_mut().poll(&mut cx), Poll::Ready(Ok(_))));
+        assert_eq!(*seen.lock().unwrap(), Some((true, true)));
+        drop(call);
+        let Ok(store) = store.into_store() else {
+            panic!("the store is still shared");
+        };
+        assert_eq!(*env.as_ref(&store), 1);
     }
 }
