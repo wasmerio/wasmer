@@ -280,7 +280,7 @@ impl Function {
         let store_id = host.store_id;
         let (start, takes_array) = host.start();
         let function = jspi::host_function(&func_ty, store_id, &start, takes_array);
-        let vm_function = VMFunction::new(function, func_ty);
+        let vm_function = VMFunction::new(function, func_ty).without_receiver();
         Self::from_vm_extern(
             &mut store.as_store_mut(),
             VMExternFunction::Js(vm_function),
@@ -432,7 +432,7 @@ impl Function {
                 })
             });
             let function = owned(function, store.as_store_ref().objects().id());
-            let vm_function = VMFunction::new(function, func_ty);
+            let vm_function = VMFunction::new(function, func_ty).without_receiver();
             return Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function));
         }
         let wrapped_func: JsValue = match function_type.results().len() {
@@ -493,7 +493,7 @@ impl Function {
         };
 
         let function = owned(variadic(&wrapped_func), store.as_store_ref().objects().id());
-        let vm_function = VMFunction::new(function, func_ty);
+        let vm_function = VMFunction::new(function, func_ty).without_receiver();
         Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function))
     }
 
@@ -523,7 +523,7 @@ impl Function {
         let leading = [JsValue::from_f64(slot.address())];
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
         slot.keep_alive_by(&binded_func);
-        let vm_function = VMFunction::new(owned(binded_func, id), ty);
+        let vm_function = VMFunction::new(owned(binded_func, id), ty).without_receiver();
         Self {
             handle: vm_function,
         }
@@ -559,7 +559,7 @@ impl Function {
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
         slot.keep_alive_by(&binded_func);
         let id = store.as_store_ref().objects().id();
-        let vm_function = VMFunction::new(owned(binded_func, id), ty);
+        let vm_function = VMFunction::new(owned(binded_func, id), ty).without_receiver();
         Self {
             handle: vm_function,
         }
@@ -601,6 +601,12 @@ impl Function {
             // is called as `Reflect::apply` calls it below.
             let function = &self.handle.function;
             let returns = !ty.results().is_empty();
+            // `null` for a function that may look at it, as below; none for
+            // the others, which the guard then calls directly.
+            let receiver = match self.handle.sees_receiver {
+                true => &JsValue::NULL,
+                false => &JsValue::UNDEFINED,
+            };
             let mut result = 0.0;
             let results = |result: f64| -> Box<[Value]> {
                 let results = ty.results().iter();
@@ -609,7 +615,7 @@ impl Function {
             if let Some(integers) = numeric::integers(ty, params) {
                 call_wrapped(store, wrapper, |_| {
                     let _entered = enter_sync();
-                    result = numeric::call_integers(function, &JsValue::NULL, &integers, returns)?;
+                    result = numeric::call_integers(function, receiver, &integers, returns)?;
                     Ok(())
                 })?;
                 return Ok(results(result));
@@ -617,7 +623,7 @@ impl Function {
             if let Some(numbers) = numeric::numbers(ty, params) {
                 call_wrapped(store, wrapper, |_| {
                     let _entered = enter_sync();
-                    result = numeric::call(function, &JsValue::NULL, &numbers, returns)?;
+                    result = numeric::call(function, receiver, &numbers, returns)?;
                     Ok(())
                 })?;
                 return Ok(results(result));

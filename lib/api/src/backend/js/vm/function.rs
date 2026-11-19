@@ -2,8 +2,24 @@ use std::any::Any;
 
 use crate::js::utils::js_handle::JsHandle;
 use js_sys::{Array, Function as JsFunction, Reflect, Symbol};
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen};
 use wasmer_types::{FunctionType, RawValue, Type};
+
+#[wasm_bindgen(inline_js = r#"
+let probe;
+export function isWasmFunction(value) {
+  probe ??= new WebAssembly.Table({ element: "anyfunc", initial: 1 });
+  try { probe.set(0, value); } catch { return false; }
+  probe.set(0, null);
+  return true;
+}
+"#)]
+extern "C" {
+    /// Whether `value` is a WebAssembly function: one a table of functions
+    /// takes.
+    #[wasm_bindgen(js_name = isWasmFunction)]
+    fn is_wasm_function(value: &JsValue) -> bool;
+}
 
 fn type_key() -> Symbol {
     Symbol::for_("wasmer.function-type")
@@ -48,6 +64,12 @@ pub struct VMFunction {
     /// Whether calls of the function take the numeric lane: worked out once
     /// from `ty`, which does not change, instead of on every call.
     pub(crate) numeric: bool,
+    /// Whether the function may see the receiver it is called with: false
+    /// for a WebAssembly function and for a host function of this crate,
+    /// which do not look at it. `Function::call` gives the others `null`, and
+    /// these none, which the guards of the numeric lane then call directly,
+    /// faster than through `Reflect.apply` (see `numeric`).
+    pub(crate) sees_receiver: bool,
 }
 
 impl Eq for VMFunction {}
@@ -62,6 +84,25 @@ impl VMFunction {
             function: JsHandle::new(function),
             numeric: crate::js::function::numeric::is_numeric(&ty),
             ty,
+            sees_receiver: true,
+        }
+    }
+
+    /// The function as one that does not look at its receiver: a host
+    /// function of this crate, or a WebAssembly function.
+    pub(crate) fn without_receiver(self) -> Self {
+        Self {
+            sees_receiver: false,
+            ..self
+        }
+    }
+
+    /// The function, as one that does not look at its receiver if it is a
+    /// WebAssembly function.
+    pub(crate) fn probing_receiver(self) -> Self {
+        match is_wasm_function(&self.function) {
+            true => self.without_receiver(),
+            false => self,
         }
     }
 
@@ -176,3 +217,44 @@ impl VMFuncRef {
 
 /// The type of function callbacks in the `js` VM.
 pub type VMFunctionCallback = *const VMFunctionBody;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen::closure::Closure;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    /// A WebAssembly function is taken for one that does not see its
+    /// receiver; a JavaScript function is not.
+    #[wasm_bindgen_test]
+    fn only_a_webassembly_function_is_taken_for_one_without_a_receiver() {
+        // (module (func (export "f")))
+        let bytes: [u8; 31] = [
+            0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x04, 0x01, 0x60, 0x00, 0x00,
+            0x03, 0x02, 0x01, 0x00, 0x07, 0x05, 0x01, 0x01, 0x66, 0x00, 0x00, 0x0a, 0x04, 0x01,
+            0x02, 0x00, 0x0b,
+        ];
+        let module =
+            js_sys::WebAssembly::Module::new(&js_sys::Uint8Array::from(&bytes[..])).unwrap();
+        let instance = js_sys::WebAssembly::Instance::new(&module, &js_sys::Object::new()).unwrap();
+        let exports = Reflect::get(&instance, &"exports".into()).unwrap();
+        let wasm: JsFunction = Reflect::get(&exports, &"f".into())
+            .unwrap()
+            .unchecked_into();
+        let ty = FunctionType::new([], []);
+        assert!(
+            !VMFunction::new(wasm, ty.clone())
+                .probing_receiver()
+                .sees_receiver
+        );
+
+        let javascript: JsFunction = Closure::<dyn Fn()>::new(|| {})
+            .into_js_value()
+            .unchecked_into();
+        assert!(
+            VMFunction::new(javascript, ty)
+                .probing_receiver()
+                .sees_receiver
+        );
+    }
+}

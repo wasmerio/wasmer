@@ -362,10 +362,13 @@ impl Function {
         if value.is_instance_of::<JsFunction>() {
             Ok(Self::from_vm_extern(
                 store,
-                crate::vm::VMExternFunction::Js(VMFunction::new(
-                    value.clone().unchecked_into::<JsFunction>(),
-                    function_type.clone(),
-                )),
+                crate::vm::VMExternFunction::Js(
+                    VMFunction::new(
+                        value.clone().unchecked_into::<JsFunction>(),
+                        function_type.clone(),
+                    )
+                    .probing_receiver(),
+                ),
             ))
         } else {
             Err(JsError::new(&format!(

@@ -359,9 +359,12 @@ pub(crate) fn host(
 }
 
 // A call of a function on the numeric lane goes through a *guard*: a
-// function that calls it through a `Reflect.apply` taken when the module is
-// loaded, as the general path calls with `Reflect::apply` (nothing is looked
-// up on the function), and catches what that throws by itself. Its import is
+// function that calls it with its receiver through a `Reflect.apply` taken
+// when the module is loaded, as the general path calls with `Reflect::apply`
+// (nothing is looked up on the function), and catches what that throws by
+// itself. Without a receiver (`undefined`), it calls the function directly,
+// which is the same call: engines make it faster, JavaScriptCore by a third
+// for a guest function of two i32s. Its import is
 // not a `catch` one: wasm-bindgen glues those with `handleError`, which
 // makes a closure and an `arguments` object on every call and is shared by
 // every `catch` import of the program, about half of a call into a guest on
@@ -387,24 +390,24 @@ const apply = Reflect.apply;
 let caught;
 export function take() { const taken = caught; caught = undefined; return taken; }
 export function toNumber(value) { return +value; }
-export function guard0(target, receiver) { try { return +apply(target, receiver, []); } catch (error) { caught = [error]; return NaN; } }
-export function guardVoid0(target, receiver) { try { apply(target, receiver, []); return 0; } catch (error) { caught = [error]; return 1; } }
-export function guard1(target, receiver, a) { try { return +apply(target, receiver, [a]); } catch (error) { caught = [error]; return NaN; } }
-export function guardVoid1(target, receiver, a) { try { apply(target, receiver, [a]); return 0; } catch (error) { caught = [error]; return 1; } }
-export function guard2(target, receiver, a, b) { try { return +apply(target, receiver, [a, b]); } catch (error) { caught = [error]; return NaN; } }
-export function guardVoid2(target, receiver, a, b) { try { apply(target, receiver, [a, b]); return 0; } catch (error) { caught = [error]; return 1; } }
-export function guard3(target, receiver, a, b, c) { try { return +apply(target, receiver, [a, b, c]); } catch (error) { caught = [error]; return NaN; } }
-export function guardVoid3(target, receiver, a, b, c) { try { apply(target, receiver, [a, b, c]); return 0; } catch (error) { caught = [error]; return 1; } }
-export function guard4(target, receiver, a, b, c, d) { try { return +apply(target, receiver, [a, b, c, d]); } catch (error) { caught = [error]; return NaN; } }
-export function guardVoid4(target, receiver, a, b, c, d) { try { apply(target, receiver, [a, b, c, d]); return 0; } catch (error) { caught = [error]; return 1; } }
-export function guard5(target, receiver, a, b, c, d, e) { try { return +apply(target, receiver, [a, b, c, d, e]); } catch (error) { caught = [error]; return NaN; } }
-export function guardVoid5(target, receiver, a, b, c, d, e) { try { apply(target, receiver, [a, b, c, d, e]); return 0; } catch (error) { caught = [error]; return 1; } }
-export function guard6(target, receiver, a, b, c, d, e, f) { try { return +apply(target, receiver, [a, b, c, d, e, f]); } catch (error) { caught = [error]; return NaN; } }
-export function guardVoid6(target, receiver, a, b, c, d, e, f) { try { apply(target, receiver, [a, b, c, d, e, f]); return 0; } catch (error) { caught = [error]; return 1; } }
-export function guard7(target, receiver, a, b, c, d, e, f, g) { try { return +apply(target, receiver, [a, b, c, d, e, f, g]); } catch (error) { caught = [error]; return NaN; } }
-export function guardVoid7(target, receiver, a, b, c, d, e, f, g) { try { apply(target, receiver, [a, b, c, d, e, f, g]); return 0; } catch (error) { caught = [error]; return 1; } }
-export function guard8(target, receiver, a, b, c, d, e, f, g, h) { try { return +apply(target, receiver, [a, b, c, d, e, f, g, h]); } catch (error) { caught = [error]; return NaN; } }
-export function guardVoid8(target, receiver, a, b, c, d, e, f, g, h) { try { apply(target, receiver, [a, b, c, d, e, f, g, h]); return 0; } catch (error) { caught = [error]; return 1; } }
+export function guard0(target, receiver) { try { return +(receiver === undefined ? target() : apply(target, receiver, [])); } catch (error) { caught = [error]; return NaN; } }
+export function guardVoid0(target, receiver) { try { receiver === undefined ? target() : apply(target, receiver, []); return 0; } catch (error) { caught = [error]; return 1; } }
+export function guard1(target, receiver, a) { try { return +(receiver === undefined ? target(a) : apply(target, receiver, [a])); } catch (error) { caught = [error]; return NaN; } }
+export function guardVoid1(target, receiver, a) { try { receiver === undefined ? target(a) : apply(target, receiver, [a]); return 0; } catch (error) { caught = [error]; return 1; } }
+export function guard2(target, receiver, a, b) { try { return +(receiver === undefined ? target(a, b) : apply(target, receiver, [a, b])); } catch (error) { caught = [error]; return NaN; } }
+export function guardVoid2(target, receiver, a, b) { try { receiver === undefined ? target(a, b) : apply(target, receiver, [a, b]); return 0; } catch (error) { caught = [error]; return 1; } }
+export function guard3(target, receiver, a, b, c) { try { return +(receiver === undefined ? target(a, b, c) : apply(target, receiver, [a, b, c])); } catch (error) { caught = [error]; return NaN; } }
+export function guardVoid3(target, receiver, a, b, c) { try { receiver === undefined ? target(a, b, c) : apply(target, receiver, [a, b, c]); return 0; } catch (error) { caught = [error]; return 1; } }
+export function guard4(target, receiver, a, b, c, d) { try { return +(receiver === undefined ? target(a, b, c, d) : apply(target, receiver, [a, b, c, d])); } catch (error) { caught = [error]; return NaN; } }
+export function guardVoid4(target, receiver, a, b, c, d) { try { receiver === undefined ? target(a, b, c, d) : apply(target, receiver, [a, b, c, d]); return 0; } catch (error) { caught = [error]; return 1; } }
+export function guard5(target, receiver, a, b, c, d, e) { try { return +(receiver === undefined ? target(a, b, c, d, e) : apply(target, receiver, [a, b, c, d, e])); } catch (error) { caught = [error]; return NaN; } }
+export function guardVoid5(target, receiver, a, b, c, d, e) { try { receiver === undefined ? target(a, b, c, d, e) : apply(target, receiver, [a, b, c, d, e]); return 0; } catch (error) { caught = [error]; return 1; } }
+export function guard6(target, receiver, a, b, c, d, e, f) { try { return +(receiver === undefined ? target(a, b, c, d, e, f) : apply(target, receiver, [a, b, c, d, e, f])); } catch (error) { caught = [error]; return NaN; } }
+export function guardVoid6(target, receiver, a, b, c, d, e, f) { try { receiver === undefined ? target(a, b, c, d, e, f) : apply(target, receiver, [a, b, c, d, e, f]); return 0; } catch (error) { caught = [error]; return 1; } }
+export function guard7(target, receiver, a, b, c, d, e, f, g) { try { return +(receiver === undefined ? target(a, b, c, d, e, f, g) : apply(target, receiver, [a, b, c, d, e, f, g])); } catch (error) { caught = [error]; return NaN; } }
+export function guardVoid7(target, receiver, a, b, c, d, e, f, g) { try { receiver === undefined ? target(a, b, c, d, e, f, g) : apply(target, receiver, [a, b, c, d, e, f, g]); return 0; } catch (error) { caught = [error]; return 1; } }
+export function guard8(target, receiver, a, b, c, d, e, f, g, h) { try { return +(receiver === undefined ? target(a, b, c, d, e, f, g, h) : apply(target, receiver, [a, b, c, d, e, f, g, h])); } catch (error) { caught = [error]; return NaN; } }
+export function guardVoid8(target, receiver, a, b, c, d, e, f, g, h) { try { receiver === undefined ? target(a, b, c, d, e, f, g, h) : apply(target, receiver, [a, b, c, d, e, f, g, h]); return 0; } catch (error) { caught = [error]; return 1; } }
 "#)]
 extern "C" {
     #[wasm_bindgen(catch, js_name = toNumber)]
