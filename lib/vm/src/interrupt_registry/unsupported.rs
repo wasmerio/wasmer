@@ -46,4 +46,6 @@ impl ActiveStores {
     }
 
     pub(crate) fn swap(&mut self) {}
+
+    pub(crate) fn abandon(&mut self) {}
 }

@@ -145,6 +145,8 @@ struct Guest {
     spin: Arc<Spin>,
     #[cfg(all(unix, feature = "experimental-host-interrupt"))]
     interrupter: wasmer::Interrupter,
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+    id: wasmer_types::StoreId,
 }
 
 impl Guest {
@@ -201,6 +203,8 @@ impl Guest {
         Self {
             #[cfg(all(unix, feature = "experimental-host-interrupt"))]
             interrupter: store.interrupter(),
+            #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+            id: store.id(),
             #[cfg(all(unix, feature = "experimental-host-interrupt"))]
             spin,
             store: store.into_async(),
@@ -499,20 +503,29 @@ const SCENARIO_COMPLETED: &str = "scenario completed:";
 /// once the thread locals the runtime keeps may be gone: they were made by
 /// the call, after the one that keeps it, and are destroyed before it. The
 /// call is not unwound then, which would need them, and the thread exits.
+/// Its store is no longer registered for interrupts, which would be aimed
+/// at the thread that is gone.
 fn suspended_call_dropped_as_its_thread_exits() {
     thread_local! {
         static KEPT: RefCell<Option<CallFuture>> = const { RefCell::new(None) };
     }
-    std::thread::spawn(|| {
+    let _id = std::thread::spawn(|| {
         KEPT.with(|_| ());
         let g = gates();
         let guest = Guest::new(&g);
         let mut call = guest.run(0, 0);
         expect_pending("call", &mut call);
         KEPT.set(Some(call));
+        #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+        guest.id
     })
     .join()
     .unwrap();
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+    assert!(matches!(
+        wasmer_vm::interrupt_registry::interrupt(_id),
+        Err(wasmer_vm::interrupt_registry::InterruptError::StoreNotRunning)
+    ));
 }
 
 const SCENARIO_TIMEOUT: Duration = Duration::from_secs(60);

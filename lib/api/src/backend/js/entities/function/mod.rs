@@ -65,6 +65,16 @@ pub(crate) fn mark_entered(synchronously: bool) -> bool {
     ENTERED_SYNCHRONOUSLY.replace(synchronously)
 }
 
+/// `function`, a host function made for the store `id`, recorded as that
+/// store's (see `Function::is_from_store`).
+fn owned(function: JsFunction, id: wasmer_types::StoreId) -> JsFunction {
+    #[cfg(feature = "experimental-async")]
+    jspi::own(&function, id);
+    #[cfg(not(feature = "experimental-async"))]
+    let _ = id;
+    function
+}
+
 /// Restores how the guest before was entered when dropped.
 pub(crate) struct EnteredGuest {
     #[cfg(feature = "experimental-async")]
@@ -100,7 +110,7 @@ use js_sys::{Array, Function as JsFunction};
 #[cfg(feature = "experimental-async")]
 use js_sys::Reflect;
 use wasm_bindgen::{JsCast, prelude::*};
-use wasmer_types::{FunctionType, RawValue};
+use wasmer_types::{FunctionType, RawValue, Type};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut,
@@ -150,8 +160,21 @@ fn raise_host_function_panic(payload: Box<dyn std::any::Any + Send>) -> ! {
 }
 
 #[inline]
-fn wasmer_array_to_js_array(values: &[Value]) -> Array {
-    Array::from_iter(values.iter().map(wasmer_value_to_js))
+/// What a dynamic host function returns for a result of type `ty`, as the
+/// engine takes it: an `i64` as a BigInt, which the engine requires of one,
+/// and anything else as a number or a reference, which the engine converts
+/// to the result's type if it is of another.
+fn result_to_js(value: &Value, ty: Option<&Type>) -> JsValue {
+    match (value, ty) {
+        (Value::I64(value), Some(Type::I64)) => JsValue::from(*value),
+        (value, _) => wasmer_value_to_js(value),
+    }
+}
+
+/// [`result_to_js`] for each of several results of the types `types`.
+fn results_to_js_array(values: &[Value], types: &[Type]) -> Array {
+    let values = values.iter().enumerate();
+    Array::from_iter(values.map(|(index, value)| result_to_js(value, types.get(index))))
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -370,6 +393,7 @@ impl Function {
                     _ => numeric::result(&results)?,
                 })
             });
+            let function = owned(function, store.as_store_ref().objects().id());
             let vm_function = VMFunction::new(function, func_ty);
             return Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function));
         }
@@ -404,7 +428,7 @@ impl Function {
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &wasm_arguments).map_err(trap_value)?;
-                Ok(wasmer_value_to_js(&results[0]))
+                Ok(result_to_js(&results[0], function_type.results().first()))
             })
                 as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
@@ -421,13 +445,14 @@ impl Function {
                     .collect::<Vec<_>>();
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &wasm_arguments).map_err(trap_value)?;
-                Ok(wasmer_array_to_js_array(&results))
+                Ok(results_to_js_array(&results, function_type.results()))
             })
                 as Box<dyn Fn(&Array) -> Result<Array, JsValue>>)
             .into_js_value(),
         };
 
-        let vm_function = VMFunction::new(variadic(&wrapped_func), func_ty);
+        let function = owned(variadic(&wrapped_func), store.as_store_ref().objects().id());
+        let vm_function = VMFunction::new(function, func_ty);
         Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function))
     }
 
@@ -450,9 +475,10 @@ impl Function {
         let func = as_table.get(address).unwrap();
 
         let ty = function.ty();
+        let id = store.as_store_ref().objects().id();
         let store = JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64);
         let binded_func = with_leading_arguments(func.unchecked_ref(), &[store], ty.params().len());
-        let vm_function = VMFunction::new(binded_func, ty);
+        let vm_function = VMFunction::new(owned(binded_func, id), ty);
         Self {
             handle: vm_function,
         }
@@ -485,7 +511,8 @@ impl Function {
             JsValue::from_f64(env.as_js().handle.internal_handle().index() as f64),
         ];
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
-        let vm_function = VMFunction::new(binded_func, ty);
+        let id = store.as_store_ref().objects().id();
+        let vm_function = VMFunction::new(owned(binded_func, id), ty);
         Self {
             handle: vm_function,
         }
@@ -587,6 +614,11 @@ impl Function {
         let function = self.clone();
         let store = store.store();
         Box::pin(async move {
+            // A host function reaches the store it was made for, which may be
+            // gone, through a pointer: it runs with that store only.
+            if !jspi::belongs_to(&function.handle.function, store.id) {
+                return Err(jspi::foreign_store_error());
+            }
             // As on other backends: an async host function, which this calls
             // directly, could not take them, and nothing converts them.
             let signature = &function.handle.ty;

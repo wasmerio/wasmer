@@ -620,7 +620,8 @@ impl<C> Drop for Cothread<C> {
             return unsafe { std::mem::ManuallyDrop::drop(&mut self.coroutine) };
         }
         if !self.state.can_install() {
-            return;
+            // Forgotten, and so are the registrations its calls hold.
+            return self.state.activation.abandon();
         }
         // Safety: dropping the coroutine is what runs while the state is
         // installed, and the coroutine is not used again.

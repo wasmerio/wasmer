@@ -241,8 +241,8 @@ fn from_inside_another_host_function(what: &'static str, ending_name: &str) {
 }
 
 /// A suspends; a host function of a call on A's own store drops it. A cannot
-/// be unwound there, where its store is in use: it is forgotten, and the
-/// store goes on.
+/// be unwound there, where its store is in use: it is forgotten, with the
+/// interrupt registration of its call, and the store goes on.
 fn dropped_where_its_store_is_in_use(ending_name: &str) {
     thread_local! {
         static TO_DROP: RefCell<Option<Cothread<Call>>> = const { RefCell::new(None) };
@@ -255,6 +255,13 @@ fn dropped_where_its_store_is_in_use(ending_name: &str) {
     dropper.call(&mut *a.store, &[]).unwrap();
     assert!(TO_DROP.with_borrow(Option::is_none));
     assert!(no_store_context_left());
+    // Nothing is registered for interrupts any more: one now would keep the
+    // store interrupted, and fail its next call.
+    #[cfg(all(unix, feature = "experimental-host-interrupt"))]
+    assert!(matches!(
+        wasmer_vm::interrupt_registry::interrupt(a.store.id()),
+        Err(wasmer_vm::interrupt_registry::InterruptError::StoreNotRunning)
+    ));
     a.start(how);
     expect_suspended("a's new call", &mut a);
     expect_ending("a's new call", &mut a, trap);

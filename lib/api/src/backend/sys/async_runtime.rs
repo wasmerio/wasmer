@@ -423,8 +423,10 @@ impl Drop for AsyncCallFuture {
         {
             if !StoreContext::thread_can_unwind() {
                 // The thread is exiting, and what the unwind needs of it is
-                // gone: the coroutine is forgotten, with its stack.
+                // gone: the coroutine is forgotten, with its stack, and so
+                // are the registrations its calls hold.
                 std::mem::forget(self.coroutine.take());
+                self.activation.vm.abandon();
                 return;
             }
             self.switch_to_coroutine(None);

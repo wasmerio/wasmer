@@ -99,6 +99,23 @@ impl ActivationState {
         }
         true
     }
+
+    /// Whether the calling thread still has what swapping a state in needs
+    /// of it; see the signal-based backend. Only the interrupt registry keeps
+    /// thread locals here.
+    pub fn thread_is_usable() -> bool {
+        #[cfg(feature = "experimental-host-interrupt")]
+        return crate::interrupt_registry::thread_is_usable();
+        #[cfg(not(feature = "experimental-host-interrupt"))]
+        true
+    }
+
+    /// Forgets the state of an activation whose stack is forgotten rather
+    /// than unwound; see the signal-based backend.
+    pub fn abandon(&mut self) {
+        #[cfg(feature = "experimental-host-interrupt")]
+        self.active_stores.abandon();
+    }
 }
 
 /// Runs `f` in-place (there is only one stack).

@@ -1133,6 +1133,28 @@ mod foreign {
       });
       return [reenter, holder];
     }
+    export function reenteringByIteration() {
+      const holder = {};
+      const proto = Array.prototype, original = proto[Symbol.iterator];
+      const reenter = (id) => {
+        // Until the guest's slice is over, iterating an array of -1 and 0,
+        // as what this returns is, re-enters the guest.
+        proto[Symbol.iterator] = function () {
+          if (this.length === 2 && this[0] === -1 && this[1] === 0) {
+            try { holder.inner(id); } catch (error) { holder.error = error; }
+          }
+          return original.call(this);
+        };
+        queueMicrotask(() => { proto[Symbol.iterator] = original; });
+        return [-1, 0];
+      };
+      return [reenter, holder];
+    }
+    export function countingTuple(count) {
+      const holder = { converted: 0 };
+      const value = { valueOf() { holder.converted++; return 1; } };
+      return [() => Array(count).fill(value), holder];
+    }
     export function instantiate(bytes, imports) {
       return new WebAssembly.Instance(new WebAssembly.Module(bytes), imports).exports;
     }
@@ -1177,6 +1199,15 @@ mod foreign {
         /// calls `holder.inner`: the engine calls it to make an `i32` of it.
         #[wasm_bindgen(js_name = reenteringByValue)]
         pub(super) fn reentering_by_value() -> js_sys::Array;
+        /// The same, but the function returns two results, -1 and 0, and
+        /// iterating them, until the guest's slice is over, calls
+        /// `holder.inner`.
+        #[wasm_bindgen(js_name = reenteringByIteration)]
+        pub(super) fn reentering_by_iteration() -> js_sys::Array;
+        /// A JavaScript function that returns `count` values, and the
+        /// holder that counts how often one was `converted` to a number.
+        #[wasm_bindgen(js_name = countingTuple)]
+        pub(super) fn counting_tuple(count: u32) -> js_sys::Array;
         /// The exports of `bytes` instantiated with `imports`.
         pub(super) fn instantiate(
             bytes: &[u8],
@@ -1325,11 +1356,13 @@ async fn a_refused_reentry_then_a_foreign_suspension_keeps_the_store() {
 /// `Function::from_jsvalue`, that calls the export directly: the guest calls
 /// it through one that marks what it runs, so the import refuses there too.
 /// That holds when the function re-enters the guest from its body, from the
-/// conversion of what it returns (`valueOf`), and when the guest reaches it
-/// through a module instantiated from `Imports::as_jsvalue`.
+/// conversion of what it returns (`valueOf`), from the iteration of its
+/// results (an `Array.prototype[Symbol.iterator]` of the embedder's), and
+/// when the guest reaches it through a module instantiated from
+/// `Imports::as_jsvalue`.
 #[wasm_bindgen_test]
 async fn an_embedder_reentry_then_a_foreign_suspension_keeps_the_store() {
-    for way in ["body", "result", "import object"] {
+    for way in ["body", "result", "iteration", "import object"] {
         let pair = foreign::foreign_suspending();
         let relay = wat::parse_str(
             r#"(module
@@ -1341,27 +1374,39 @@ async fn an_embedder_reentry_then_a_foreign_suspension_keeps_the_store() {
         let resolve: js_sys::Function = pair.get(1).unchecked_into();
         let reentering = match way {
             "result" => foreign::reentering_by_value(),
+            "iteration" => foreign::reentering_by_iteration(),
             _ => foreign::reentering(),
+        };
+        // Two results, -1 and 0, for the iteration: they add up to what the
+        // others return.
+        let (results, add) = match way {
+            "iteration" => ("i32 i32", "(i32.add (call $reenter (i32.const 99)))"),
+            _ => ("i32", "(call $reenter (i32.const 99))"),
         };
         let (reenter, holder) = (reentering.get(0), reentering.get(1));
 
         let mut store = Store::default();
         let module = Module::new(
             &store,
-            r#"(module
-              (import "host" "wait" (func $wait (param i32) (result i32)))
-              (import "host" "reenter" (func $reenter (param i32) (result i32)))
-              (import "host" "s" (func $s (result i32)))
-              (func (export "inner") (param i32) (result i32) (call $wait (local.get 0)))
-              (func (export "run") (result i32)
-                (i32.add (call $reenter (i32.const 99)) (call $s))))"#,
+            format!(
+                r#"(module
+                  (import "host" "wait" (func $wait (param i32) (result i32)))
+                  (import "host" "reenter" (func $reenter (param i32) (result {results})))
+                  (import "host" "s" (func $s (result i32)))
+                  (func (export "inner") (param i32) (result i32) (call $wait (local.get 0)))
+                  (func (export "run") (result i32) (i32.add {add} (call $s))))"#
+            ),
         )
         .unwrap();
         let log: Log = Rc::default();
         let gate = Gate::new(&log);
         let unary = FunctionType::new([Type::I32], [Type::I32]);
         let ty = FunctionType::new([], [Type::I32]);
-        let reenter = Function::from_jsvalue(&mut store, &unary, &reenter).unwrap();
+        let reenter_ty = match way {
+            "iteration" => FunctionType::new([Type::I32], [Type::I32, Type::I32]),
+            _ => unary.clone(),
+        };
+        let reenter = Function::from_jsvalue(&mut store, &reenter_ty, &reenter).unwrap();
         let reenter = match way {
             // A module of the embedder's own, instantiated with the import
             // object of `Imports`, whose export the guest calls.
@@ -1670,42 +1715,132 @@ async fn a_javascript_function_given_back_takes_its_new_type() {
     assert_eq!(run.call(&mut store, &[]).unwrap()[0].unwrap_i32(), 7);
 }
 
-/// An async host function looks for the guest that calls it in the store it
-/// was made in: in another store, it is refused, by `Instance::new` and when
-/// it is called directly. Taking its JavaScript form back into another store
-/// does not make it that store's.
+/// A host function this crate makes reaches the store it was made for
+/// through a pointer, and an async one looks for the guest that calls it
+/// there: synchronous or async, typed or dynamic, it belongs to that store.
+/// With another store it is refused, by `Instance::new` and by `call_async`,
+/// which would otherwise run it with the other store locked and its own
+/// perhaps gone. Taking its JavaScript form back into another store does
+/// not make it that store's.
 #[wasm_bindgen_test]
-async fn an_async_host_function_belongs_to_its_store() {
-    let mut first = Store::default();
-    let wait = Function::new_typed_async(&mut first, async |value: i32| value + 1);
-    let form = wait.as_jsvalue(&first);
-    let mut second = Store::default();
-    let ty = FunctionType::new([Type::I32], [Type::I32]);
-    let taken = Function::from_jsvalue(&mut second, &ty, &form).unwrap();
-    assert!(wait.is_from_store(&first));
-    assert!(!taken.is_from_store(&second));
+async fn a_host_function_belongs_to_its_store() {
+    struct Env;
+    let unary = FunctionType::new([Type::I32], [Type::I32]);
+    let wide = FunctionType::new([Type::I32], [Type::I64]);
+    let make: [(&str, FunctionType, fn(&mut Store) -> Function); 5] = [
+        ("async", unary.clone(), |store| {
+            Function::new_typed_async(store, async |value: i32| value + 1)
+        }),
+        ("typed", unary.clone(), |store| {
+            Function::new_typed(store, |value: i32| value + 1)
+        }),
+        ("typed with env", unary.clone(), |store| {
+            let env = FunctionEnv::new(store, Env);
+            Function::new_typed_with_env(store, &env, |_: FunctionEnvMut<Env>, value: i32| {
+                value + 1
+            })
+        }),
+        ("dynamic numbers", unary.clone(), |store| {
+            let ty = FunctionType::new([Type::I32], [Type::I32]);
+            Function::new(store, ty, |args| {
+                Ok(vec![Value::I32(args[0].unwrap_i32() + 1)])
+            })
+        }),
+        ("dynamic", wide, |store| {
+            let ty = FunctionType::new([Type::I32], [Type::I64]);
+            Function::new(store, ty, |args| {
+                Ok(vec![Value::I64(args[0].unwrap_i32() as i64 + 1)])
+            })
+        }),
+    ];
+    for (name, ty, make) in make {
+        let mut first = Store::default();
+        let own = make(&mut first);
+        let form = own.as_jsvalue(&first);
+        let mut second = Store::default();
+        let taken = Function::from_jsvalue(&mut second, &ty, &form).unwrap();
+        assert!(own.is_from_store(&first), "{name}");
+        assert!(!own.is_from_store(&second), "{name}");
+        assert!(!taken.is_from_store(&second), "{name}");
 
-    let module = Module::new(
-        &second,
-        r#"(module (import "h" "wait" (func (param i32) (result i32))))"#,
-    )
-    .unwrap();
-    let imports = imports! { "h" => { "wait" => taken.clone() } };
-    let error = Instance::new(&mut second, &module, &imports).unwrap_err();
-    assert!(error.to_string().contains("different stores"), "{error}");
+        let module = Module::new(
+            &second,
+            format!(
+                r#"(module (import "h" "f" (func (param i32) (result {}))))"#,
+                ty.results()[0].to_string().to_lowercase()
+            ),
+        )
+        .unwrap();
+        for function in [&own, &taken] {
+            let imports = imports! { "h" => { "f" => function.clone() } };
+            let error = Instance::new(&mut second, &module, &imports).unwrap_err();
+            assert!(
+                error.to_string().contains("different stores"),
+                "{name}: {error}"
+            );
+        }
 
-    let second = second.into_async();
-    let error = taken
-        .call_async(&second, vec![Value::I32(1)])
-        .await
-        .unwrap_err();
-    assert!(error.message().contains("does not belong to"), "{error}");
-    assert!(second.into_store().is_ok());
-    let first = first.into_async();
-    assert_eq!(
-        i32_of(taken.call_async(&first, vec![Value::I32(1)]).await),
-        2
-    );
+        let second = second.into_async();
+        for function in [&own, &taken] {
+            let error = function
+                .call_async(&second, vec![Value::I32(1)])
+                .await
+                .unwrap_err();
+            assert!(
+                error.message().contains("does not belong to"),
+                "{name}: {error}"
+            );
+        }
+        assert!(second.into_store().is_ok(), "{name}");
+        let first = first.into_async();
+        let results = taken.call_async(&first, vec![Value::I32(1)]).await.unwrap();
+        let result = match &results[0] {
+            Value::I32(value) => *value as i64,
+            Value::I64(value) => *value,
+            other => panic!("{name}: {other:?}"),
+        };
+        assert_eq!(result, 2, "{name}");
+    }
+}
+
+/// A JavaScript function an embedder gives, of several results, has them
+/// checked as the engine checks what a host function returns: iterated once,
+/// counted, and only then converted, so too many or too few fail the call
+/// without converting any of them.
+#[wasm_bindgen_test]
+fn several_results_are_counted_before_they_are_converted() {
+    let ty = FunctionType::new([], [Type::I32, Type::I32]);
+    for (count, converted) in [(1, None), (3, None), (2, Some(2))] {
+        let mut store = Store::default();
+        let tuple = foreign::counting_tuple(count);
+        let (f, holder) = (tuple.get(0), tuple.get(1));
+        let f = Function::from_jsvalue(&mut store, &ty, &f).unwrap();
+        let module = Module::new(
+            &store,
+            r#"(module
+              (import "h" "f" (func $f (result i32 i32)))
+              (func (export "run") (result i32) (i32.add (call $f))))"#,
+        )
+        .unwrap();
+        let instance =
+            Instance::new(&mut store, &module, &imports! { "h" => { "f" => f } }).unwrap();
+        let run = instance.exports.get_function("run").unwrap();
+        let result = run.call(&mut store, &[]);
+        let count_converted = js_sys::Reflect::get(&holder, &"converted".into())
+            .unwrap()
+            .as_f64()
+            .unwrap() as u32;
+        match converted {
+            Some(converted) => {
+                assert_eq!(result.unwrap()[0].unwrap_i32(), 2, "{count}");
+                assert_eq!(count_converted, converted, "{count}");
+            }
+            None => {
+                result.unwrap_err();
+                assert_eq!(count_converted, 0, "{count}: converted before counting");
+            }
+        }
+    }
 }
 
 /// An async host function is given to JavaScript in the form a guest imports

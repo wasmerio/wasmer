@@ -201,8 +201,11 @@ export function jspiHost(start, array, store) {
   storeOf.set(host, store);
   return host;
 }
-export function jspiHostStore(value) {
-  return storeOf.get(value);
+export function jspiOwn(value, store) {
+  storeOf.set(value, store);
+}
+export function jspiOwner(value) {
+  return storeOf.get(embedderOf.get(value) ?? value);
 }
 export function jspiHostOf(value) {
   return hostOf.get(value) ?? value;
@@ -226,6 +229,17 @@ function isWasmFunction(value) {
 }
 const toResult = (kind, value) =>
   kind === "n" ? +value : kind === "b" ? BigInt.asIntN(64, value) : value;
+const iterator = Symbol.iterator;
+// Results the engine iterates without running anything of the embedder's:
+// no prototype to look anything up on, and an iterator of its own.
+function tuple(values) {
+  let index = 0;
+  const next = () => index < values.length
+    ? { __proto__: null, value: values[index++], done: false }
+    : { __proto__: null, value: undefined, done: true };
+  const results = { __proto__: null, next };
+  return { __proto__: null, [iterator]: () => results };
+}
 export function jspiEmbedderFunction(value, kinds) {
   if (typeof value !== "function" || suspendingOf.has(value)) return value;
   // A function this made, given back: the embedder's own, for these results.
@@ -240,12 +254,15 @@ export function jspiEmbedderFunction(value, kinds) {
         const result = apply(value, this, args);
         if (kinds.length === 0) return result;
         if (kinds.length === 1) return toResult(kinds, result);
+        // As the engine does with what a host function returns: iterated
+        // once, its length checked, and then each value converted.
         const values = [];
-        for (const item of result) values.push(item);
-        for (let i = 0; i < values.length && i < kinds.length; i++) {
-          values[i] = toResult(kinds[i], values[i]);
+        for (const item of result) values[values.length] = item;
+        if (values.length !== kinds.length) {
+          throw new TypeError(`expected ${kinds.length} results, got ${values.length}`);
         }
-        return values;
+        for (let i = 0; i < kinds.length; i++) values[i] = toResult(kinds[i], values[i]);
+        return tuple(values);
       } finally {
         mark(previous);
       }
@@ -320,8 +337,10 @@ extern "C" {
     fn trap_error() -> JsValue;
     #[wasm_bindgen(js_name = jspiHost)]
     fn shim_host(start: &JsValue, array: bool, store: f64) -> Function;
-    #[wasm_bindgen(js_name = jspiHostStore)]
-    fn shim_host_store(value: &JsValue) -> Option<f64>;
+    #[wasm_bindgen(js_name = jspiOwn)]
+    fn shim_own(value: &JsValue, store: f64);
+    #[wasm_bindgen(js_name = jspiOwner)]
+    fn shim_owner(value: &JsValue) -> Option<f64>;
     #[wasm_bindgen(js_name = jspiIsWasmFunction)]
     fn shim_is_wasm_function(value: &JsValue) -> bool;
     #[wasm_bindgen(js_name = jspiIsHost)]
@@ -452,11 +471,23 @@ pub(crate) fn host_function(
     shim_host(start, array, store.as_raw().get() as f64)
 }
 
-/// Whether `function` can be used with the store `id`: an async host function
-/// with the store it was made in only, since its body looks for the guest
-/// that calls it there; any other function with any store.
+/// Records that `function`, a host function this crate made for the store
+/// `id`, belongs to it: what it runs reaches that store through a pointer.
+pub(crate) fn own(function: &JsValue, id: StoreId) {
+    shim_own(function, id.as_raw().get() as f64);
+}
+
+/// Whether `function` can be used with the store `id`: a host function this
+/// crate made, also given back as an embedder's function, with the store it
+/// was made for only, which, being the caller's, is alive; any other
+/// function with any store.
 pub(crate) fn belongs_to(function: &JsValue, id: StoreId) -> bool {
-    shim_host_store(function).is_none_or(|store| store == id.as_raw().get() as f64)
+    shim_owner(function).is_none_or(|store| store == id.as_raw().get() as f64)
+}
+
+/// The error of a host function called with another store than its own.
+pub(crate) fn foreign_store_error() -> RuntimeError {
+    RuntimeError::new("a host function was called with a store it does not belong to")
 }
 
 /// What a guest imports for `value`: the `WebAssembly.Suspending` form of an
@@ -795,12 +826,7 @@ pub(crate) fn start(
 ) -> Result<JsValue, JsValue> {
     let activation = match DIRECT.with(|direct| direct.borrow_mut().take()) {
         Some(activation) if activation.store_id == id => activation,
-        Some(_) => {
-            let error = RuntimeError::new(
-                "an async host function was called with a store it does not belong to",
-            );
-            return Err(Trap::user(Box::new(error)).into());
-        }
+        Some(_) => return Err(Trap::user(Box::new(foreign_store_error())).into()),
         None => suspendable(id)?,
     };
     let store = activation.store.borrow().as_ref().map(StoreAsync::store);

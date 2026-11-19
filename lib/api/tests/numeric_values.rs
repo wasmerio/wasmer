@@ -336,6 +336,24 @@ fn other_types_are_not_affected() -> Result<(), String> {
     assert_eq!(bits(&returned[0]), bits(&arguments[2]));
     assert_eq!(*calls.lock().unwrap(), [all_bits(&arguments)]);
 
+    // An `i64` that a dynamic host function returns reaches its guest, alone
+    // and next to another result. JavaScript has it as a BigInt.
+    for signature in [
+        FunctionType::new([Type::I64], [Type::I64]),
+        FunctionType::new([Type::I64, Type::F64], [Type::F64, Type::I64]),
+    ] {
+        let (call, _) = guest(&mut store, &signature, |arguments| {
+            arguments.iter().rev().cloned().collect()
+        });
+        for value in [i64::MIN + 1, (1 << 53) + 1, -7] {
+            let arguments = [Value::I64(value), Value::F64(0.5)];
+            let arguments = &arguments[..signature.params().len()];
+            let returned = call.call(&mut store, arguments).unwrap();
+            let expected: Vec<Value> = arguments.iter().rev().cloned().collect();
+            assert_eq!(all_bits(&returned), all_bits(&expected), "{signature}");
+        }
+    }
+
     let module = module(
         &store,
         r#"(module

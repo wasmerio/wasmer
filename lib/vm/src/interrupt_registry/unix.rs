@@ -192,6 +192,21 @@ impl ActiveStores {
             .is_some_and(|(_, interrupted)| interrupted.load(Ordering::Acquire))
     }
 
+    /// The activation's calls are gone without returning: each gives up the
+    /// installation it holds, as `uninstall` does for a call that returns,
+    /// without the thread they ran on. A store none holds any more is
+    /// removed, with its `interrupted` flag and the thread it was aimed at.
+    pub(crate) fn abandon(&mut self) {
+        for (store_id, _) in self.0.drain(..) {
+            if let Entry::Occupied(mut state) = STORE_INTERRUPT_STATE.entry(store_id) {
+                state.get_mut().installations -= 1;
+                if state.get().installations == 0 {
+                    state.remove();
+                }
+            }
+        }
+    }
+
     pub(crate) fn swap(&mut self) {
         THREAD_INTERRUPT_STATE.with(|t| {
             // Safety: See comments on THREAD_INTERRUPT_STATE.

@@ -995,6 +995,19 @@ impl ActivationState {
         }
         self.trap_handler.is_null()
     }
+
+    /// Forgets the state of an activation whose stack is forgotten rather
+    /// than unwound, while the state is not swapped in: its calls never
+    /// return. What they keep beyond the thread is given up as their return
+    /// would, the interrupt registrations of the stores they entered, which
+    /// would otherwise keep those stores interrupted, and aimed at this
+    /// thread, for good. The thread's own state is not touched: it may be
+    /// gone (see [`Self::thread_is_usable`]).
+    pub fn abandon(&mut self) {
+        self.trap_handler = ptr::null_mut();
+        #[cfg(feature = "experimental-host-interrupt")]
+        self.active_stores.abandon();
+    }
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
