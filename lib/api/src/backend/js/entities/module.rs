@@ -282,13 +282,8 @@ impl Module {
             #[allow(unused_unsafe)]
             unsafe {
                 if let Some(import) = resolved_import {
+                    // An async host function is given in its suspending form.
                     let value = import.as_jsvalue(&store.as_store_ref());
-                    // An async host function is imported in its suspending form.
-                    #[cfg(feature = "experimental-async")]
-                    let value = match import {
-                        Extern::Function(_) => crate::js::jspi::import(&value),
-                        _ => value,
-                    };
                     let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
                     if !val.is_undefined() {
                         // If the namespace is already set
@@ -323,8 +318,12 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        let instance = WebAssembly::Instance::new(&self.local_module(), &imports_object)
-            .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
+        // The start function runs here: it is a guest entered synchronously.
+        let instance = {
+            let _entered = crate::js::function::enter_sync();
+            WebAssembly::Instance::new(&self.local_module(), &imports_object)
+        }
+        .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
         #[cfg(feature = "wasm-types-polyfill")]
         self.annotate_table_functions(store, imports, &instance);
         Ok(instance)

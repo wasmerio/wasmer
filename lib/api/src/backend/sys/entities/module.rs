@@ -189,7 +189,7 @@ impl Module {
         let (engine, objects) = store_mut.engine_and_objects_mut();
         let config = engine.tunables().vmconfig();
         unsafe {
-            let mut instance_handle = self.artifact.instantiate(
+            let instance_handle = self.artifact.instantiate(
                 engine.tunables(),
                 &imports
                     .iter()
@@ -220,11 +220,19 @@ impl Module {
             // The store is paused while the start function runs, as for any
             // other entry into Wasm: an async import it calls can then
             // suspend the call of a host function that instantiates.
+            //
+            // An unwind through the start function, a host panic or the
+            // cancellation of the `call_async` it suspended, must not drop the
+            // instance either, and may not use the store to keep it: the
+            // instance is leaked then.
+            let mut unwinding = LeakOnUnwind(Some(instance_handle));
             let finished = {
                 let _pause_guard = StoreContext::pause(store_id);
+                let instance_handle = unwinding.0.as_mut().expect("not taken yet");
                 self.artifact
-                    .finish_instantiation(config, signal_handler, &mut instance_handle)
+                    .finish_instantiation(config, signal_handler, instance_handle)
             };
+            let instance_handle = unwinding.0.take().expect("not taken yet");
             if let Err(err) = finished {
                 // Keep the partially initialized instance alive: its funcrefs may already
                 // have been written into imported tables.
@@ -308,6 +316,19 @@ impl crate::Module {
             BackendModule::Sys(ref s) => Some(&s.artifact),
             #[allow(unreachable_patterns)]
             _ => None,
+        }
+    }
+}
+
+/// An instance being finished, which is leaked rather than dropped if what
+/// finishes it unwinds: tables of other instances may already hold its
+/// functions.
+struct LeakOnUnwind(Option<wasmer_vm::VMInstance>);
+
+impl Drop for LeakOnUnwind {
+    fn drop(&mut self) {
+        if let Some(instance) = self.0.take() {
+            std::mem::forget(instance);
         }
     }
 }

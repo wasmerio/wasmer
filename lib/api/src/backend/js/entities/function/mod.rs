@@ -21,6 +21,68 @@ extern "C" {
     fn variadic(f: &JsValue) -> JsFunction;
 }
 
+#[cfg(feature = "experimental-async")]
+thread_local! {
+    /// Whether the innermost entry into a guest on this thread is a
+    /// synchronous call, rather than `call_async`. Saved and restored around
+    /// each entry.
+    static ENTERED_SYNCHRONOUSLY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Marks the guest about to be entered as entered synchronously, until the
+/// guard is dropped: one that cannot be suspended. Some engines run the body
+/// of an async import before they refuse to suspend such a guest; the body
+/// refuses itself instead (see `jspi`). Without `experimental-async` there is
+/// nothing to mark.
+#[inline]
+pub(crate) fn enter_sync() -> EnteredGuest {
+    EnteredGuest::new(true)
+}
+
+/// Marks the guest about to be entered by `call_async` as not entered
+/// synchronously, until the guard is dropped, whatever called `call_async`.
+#[cfg(feature = "experimental-async")]
+pub(crate) fn enter_async() -> EnteredGuest {
+    EnteredGuest::new(false)
+}
+
+/// Whether the innermost entry into the running guest was a synchronous call.
+#[cfg(feature = "experimental-async")]
+pub(crate) fn entered_synchronously() -> bool {
+    ENTERED_SYNCHRONOUSLY.get()
+}
+
+/// Restores how the guest before was entered when dropped.
+pub(crate) struct EnteredGuest {
+    #[cfg(feature = "experimental-async")]
+    previous: bool,
+}
+
+impl EnteredGuest {
+    #[inline]
+    fn new(synchronously: bool) -> Self {
+        #[cfg(feature = "experimental-async")]
+        {
+            Self {
+                previous: ENTERED_SYNCHRONOUSLY.replace(synchronously),
+            }
+        }
+        #[cfg(not(feature = "experimental-async"))]
+        {
+            let _ = synchronously;
+            Self {}
+        }
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl Drop for EnteredGuest {
+    #[inline]
+    fn drop(&mut self) {
+        ENTERED_SYNCHRONOUSLY.set(self.previous);
+    }
+}
+
 use js_sys::{Array, Function as JsFunction};
 #[cfg(feature = "experimental-async")]
 use js_sys::Reflect;
@@ -449,6 +511,7 @@ impl Function {
             let mut result = 0.0;
             let returns = !ty.results().is_empty();
             call_wrapped(store, wrapper, |_| {
+                let _entered = enter_sync();
                 let function = &self.handle.function;
                 result = numeric::call(function, &JsValue::NULL, &numbers, returns)?;
                 Ok(())
@@ -470,6 +533,7 @@ impl Function {
 
         let mut result = JsValue::UNDEFINED;
         call_wrapped(store, wrapper, |_| {
+            let _entered = enter_sync();
             result = js_sys::Reflect::apply(&self.handle.function, &JsValue::NULL, &arr)?;
             Ok(())
         })?;

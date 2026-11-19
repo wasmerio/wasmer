@@ -154,27 +154,29 @@ pub(crate) fn closure_returning_any(
 
 // Calls through a `Reflect.apply` taken when the module is loaded, as the
 // generic path calls with `Reflect::apply`: nothing is looked up on the
-// function. What it returns crosses as a number; a call with no result does
-// not look at it.
+// function. What it returns is made a number here, as WebAssembly makes one
+// of what an import returns, so that what that throws, for a BigInt, a
+// Symbol or an object whose `valueOf` throws, is caught with the call. A
+// call with no result does not look at what it returns.
 #[wasm_bindgen(inline_js = r#"
 const apply = Reflect.apply;
-export function call0(target, r) { return apply(target, r, []); }
+export function call0(target, r) { return +apply(target, r, []); }
 export function callVoid0(target, r) { apply(target, r, []); }
-export function call1(target, r, a) { return apply(target, r, [a]); }
+export function call1(target, r, a) { return +apply(target, r, [a]); }
 export function callVoid1(target, r, a) { apply(target, r, [a]); }
-export function call2(target, r, a, b) { return apply(target, r, [a, b]); }
+export function call2(target, r, a, b) { return +apply(target, r, [a, b]); }
 export function callVoid2(target, r, a, b) { apply(target, r, [a, b]); }
-export function call3(target, r, a, b, c) { return apply(target, r, [a, b, c]); }
+export function call3(target, r, a, b, c) { return +apply(target, r, [a, b, c]); }
 export function callVoid3(target, r, a, b, c) { apply(target, r, [a, b, c]); }
-export function call4(target, r, a, b, c, d) { return apply(target, r, [a, b, c, d]); }
+export function call4(target, r, a, b, c, d) { return +apply(target, r, [a, b, c, d]); }
 export function callVoid4(target, r, a, b, c, d) { apply(target, r, [a, b, c, d]); }
-export function call5(target, r, a, b, c, d, e) { return apply(target, r, [a, b, c, d, e]); }
+export function call5(target, r, a, b, c, d, e) { return +apply(target, r, [a, b, c, d, e]); }
 export function callVoid5(target, r, a, b, c, d, e) { apply(target, r, [a, b, c, d, e]); }
-export function call6(target, r, a, b, c, d, e, f) { return apply(target, r, [a, b, c, d, e, f]); }
+export function call6(target, r, a, b, c, d, e, f) { return +apply(target, r, [a, b, c, d, e, f]); }
 export function callVoid6(target, r, a, b, c, d, e, f) { apply(target, r, [a, b, c, d, e, f]); }
-export function call7(target, r, a, b, c, d, e, f, g) { return apply(target, r, [a, b, c, d, e, f, g]); }
+export function call7(target, r, a, b, c, d, e, f, g) { return +apply(target, r, [a, b, c, d, e, f, g]); }
 export function callVoid7(target, r, a, b, c, d, e, f, g) { apply(target, r, [a, b, c, d, e, f, g]); }
-export function call8(target, r, a, b, c, d, e, f, g, h) { return apply(target, r, [a, b, c, d, e, f, g, h]); }
+export function call8(target, r, a, b, c, d, e, f, g, h) { return +apply(target, r, [a, b, c, d, e, f, g, h]); }
 export function callVoid8(target, r, a, b, c, d, e, f, g, h) { apply(target, r, [a, b, c, d, e, f, g, h]); }
 "#)]
 extern "C" {

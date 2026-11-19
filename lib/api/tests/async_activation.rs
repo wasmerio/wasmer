@@ -35,7 +35,7 @@ use std::{
 
 use wasmer::{
     AsStoreAsync, Function, FunctionType, Instance, Module, RuntimeError, Store, StoreAsync,
-    StoreAsyncWriteLock, Type, TypedFunction, Value, imports,
+    StoreAsyncWriteLock, Table, TableType, Type, TypedFunction, Value, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -867,6 +867,72 @@ fn a_start_function_that_waits_suspends_the_call_that_instantiates() {
         .expect("the instance was created");
     let started = instance.exports.get_global("started").unwrap();
     assert_eq!(started.get(&mut store).unwrap_i32(), 1);
+}
+
+/// The same call, cancelled while the start function waits. The instance's
+/// elements already put one of its functions into a table of the store, so
+/// the instance outlives the cancellation: the function still works once
+/// other instances have been made, which would take the memory of one that
+/// was freed.
+#[test]
+fn a_start_function_cancelled_while_it_waits_leaves_its_functions_working() {
+    const START: &str = r#"
+    (module
+      (import "h" "wait" (func $wait))
+      (import "h" "table" (table 1 funcref))
+      (global $answer (mut i32) (i32.const 0))
+      (func $answer (result i32) (global.get $answer))
+      (elem (i32.const 0) $answer)
+      (func $start (global.set $answer (i32.const 41)) (call $wait))
+      (start $start))
+    "#;
+    const OTHER: &str = r#"
+    (module
+      (import "h" "wait" (func $wait))
+      (import "h" "table" (table 1 funcref))
+      (global $answer (mut i32) (i32.const 0))
+      (func $answer (result i32) (global.get $answer))
+      (elem (i32.const 0) $answer))
+    "#;
+    let mut store = Store::default();
+    let module = Module::new(&store, START).unwrap();
+    let other = Module::new(&store, OTHER).unwrap();
+    let wait = Function::new_async(&mut store, FunctionType::new(vec![], vec![]), |_| async {
+        Gate(Rc::new(Cell::new(false))).await;
+        Ok(vec![])
+    });
+    let table_type = TableType::new(Type::FuncRef, 1, None);
+    let table = Table::new(&mut store, table_type, Value::FuncRef(None)).unwrap();
+    let env = wasmer::FunctionEnv::new(&mut store, ());
+    let instantiate =
+        Function::new_with_env(&mut store, &env, FunctionType::new(vec![], vec![]), {
+            let (wait, table) = (wait.clone(), table.clone());
+            move |mut env: wasmer::FunctionEnvMut<()>, _: &[Value]| {
+                let imports =
+                    imports! { "h" => { "wait" => wait.clone(), "table" => table.clone() } };
+                Instance::new(&mut env, &module, &imports)
+                    .map_err(|e| RuntimeError::new(e.to_string()))?;
+                Ok(vec![])
+            }
+        });
+    let store = store.into_async();
+
+    let mut call: CallFuture = Box::pin(instantiate.call_async(&store, vec![]));
+    expect_pending("instantiation", &mut call);
+    drop(call);
+    let Ok(mut store) = store.into_store() else {
+        panic!("the store is still shared");
+    };
+    for _ in 0..64 {
+        let table = Table::new(&mut store, table_type, Value::FuncRef(None)).unwrap();
+        let imports = imports! { "h" => { "wait" => wait.clone(), "table" => table } };
+        Instance::new(&mut store, &other, &imports).unwrap();
+    }
+    let Some(Value::FuncRef(Some(answer))) = table.get(&mut store, 0) else {
+        panic!("the element was not written");
+    };
+    let answer = answer.call(&mut store, &[]).unwrap();
+    assert_eq!(answer[0].unwrap_i32(), 41);
 }
 
 /// A host function catches a panic from a guest it called, and goes on using

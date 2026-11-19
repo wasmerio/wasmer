@@ -127,6 +127,7 @@ macro_rules! impl_native_traits {
                     let function = &self.func.as_js().handle.function;
                     let mut result = 0.0;
                     call_wrapped(store, wrapper, |_| {
+                        let _entered = super::enter_sync();
                         let receiver = &JsValue::UNDEFINED;
                         result = numeric::call(function, receiver, &numbers, result_ty.is_some())?;
                         Ok(())
@@ -146,6 +147,7 @@ macro_rules! impl_native_traits {
                                 .map(|&(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
                         )
                     };
+                    let _entered = super::enter_sync();
                     results = self
                         .func
                         .as_js()

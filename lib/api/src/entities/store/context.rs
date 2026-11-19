@@ -431,17 +431,21 @@ impl StoreContext {
 /// The state belongs to the coroutine and to nothing else, so it cannot be
 /// installed for another coroutine. Dropping a `Cothread` drops the
 /// coroutine, which unwinds it if it is suspended, with its state installed;
-/// forgetting one forgets the state with the coroutine.
+/// forgetting one forgets the state with the coroutine. So the `Cothread`
+/// must own the coroutine (see [`Cothread::new`]).
 ///
 /// Every coroutine that can suspend while a call into Wasm is on its stack
 /// must be a `Cothread`, and be resumed only through [`Cothread::resume`].
 /// A `Cothread` stays on the thread that made it.
 ///
 /// ```ignore
-/// let mut cothread = Cothread::new(Coroutine::new(move |yielder, ()| {
-///     // A host function of `run` suspends the coroutine with `yielder`.
-///     run.call(&mut store, 0)
-/// }));
+/// // Safety: the `Coroutine` is owned by the `Cothread`.
+/// let mut cothread = unsafe {
+///     Cothread::new(Coroutine::new(move |yielder, ()| {
+///         // A host function of `run` suspends the coroutine with `yielder`.
+///         run.call(&mut store, 0)
+///     }))
+/// };
 /// unsafe { cothread.resume(|coroutine| coroutine.resume(())) };
 /// ```
 #[cfg(feature = "unsafe-cothread")]
@@ -538,7 +542,15 @@ impl Drop for InstalledCothreadState<'_> {
 #[cfg(feature = "unsafe-cothread")]
 impl<C> Cothread<C> {
     /// Wraps a coroutine that has not run yet.
-    pub fn new(coroutine: C) -> Self {
+    ///
+    /// # Safety
+    /// `coroutine` must own the coroutine, and be the only way to resume it:
+    /// dropping it must unwind the coroutine if it is suspended, and drop it
+    /// there and then, as dropping a `corosensei::Coroutine` does. A borrow of
+    /// a coroutine, or a handle shared with something else, would leave it
+    /// suspended when the `Cothread` is dropped, with its thread state gone,
+    /// for whoever unwinds it later to unwind without.
+    pub unsafe fn new(coroutine: C) -> Self {
         Self {
             coroutine: std::mem::ManuallyDrop::new(coroutine),
             state: CothreadState::default(),
@@ -1051,7 +1063,8 @@ mod cothread {
         let mut store = Store::default();
         let (id, ptr) = pointer(&mut store);
         let call = Call::default();
-        let mut cothread = Cothread::new(());
+        // Safety: no coroutine; the tests replay its state by hand.
+        let mut cothread = unsafe { Cothread::new(()) };
 
         unsafe { cothread.resume(|_| enter_and_suspend(ptr, &call)) };
         assert!(StoreContext::is_empty(), "the entry is off the thread");
@@ -1070,7 +1083,8 @@ mod cothread {
         let (mut a, mut b) = (Store::default(), Store::default());
         let ((a_id, a_ptr), (b_id, b_ptr)) = (pointer(&mut a), pointer(&mut b));
         let call = Call::default();
-        let mut cothread = Cothread::new(());
+        // Safety: no coroutine; the tests replay its state by hand.
+        let mut cothread = unsafe { Cothread::new(()) };
         unsafe { cothread.resume(|_| enter_and_suspend(a_ptr, &call)) };
 
         // Resumed from a host function of a call on another store.
@@ -1098,7 +1112,9 @@ mod cothread {
         let mut store = Store::default();
         let (id, ptr) = pointer(&mut store);
         let call = Call::default();
-        let mut cothread = Cothread::new(Unwinds(id, call.clone()));
+        // Safety: `Unwinds` stands for an owned coroutine: dropping it is
+        // what unwinding one does.
+        let mut cothread = unsafe { Cothread::new(Unwinds(id, call.clone())) };
         unsafe { cothread.resume(|_| enter_and_suspend(ptr, &call)) };
         assert!(StoreContext::is_empty());
         drop(cothread);
@@ -1111,7 +1127,8 @@ mod cothread {
         let mut store = Store::default();
         let (id, ptr) = pointer(&mut store);
         let call = Call::default();
-        let mut cothread = Cothread::new(());
+        // Safety: no coroutine; the tests replay its state by hand.
+        let mut cothread = unsafe { Cothread::new(()) };
         unsafe { cothread.resume(|_| enter_and_suspend(ptr, &call)) };
 
         // Another call on the store, made on the thread meanwhile.

@@ -59,6 +59,7 @@ use crate::{
     Value,
     js::{
         error::Trap,
+        function::{enter_async, entered_synchronously},
         utils::convert::AsJs as _,
     },
 };
@@ -120,6 +121,12 @@ struct Activation {
     waits: Cell<u32>,
     /// The engine suspended the guest for its current wait.
     accepted: Cell<bool>,
+    /// What the guest waits for is being driven: a poll of the call from
+    /// inside it, by a waker that polls at once, leaves it to the outer one.
+    driving: Cell<bool>,
+    /// The call was polled from inside its own driving: whoever woke it is
+    /// woken again, once that is over.
+    redrive: Cell<bool>,
 }
 
 struct Activations {
@@ -177,11 +184,18 @@ export function jspiTrapError() {
   }
   return trapError;
 }
-const SUSPENDING = Symbol.for("wasmer.suspending");
+const SUSPENDING = Symbol.for("wasmer.suspending"), HOST = Symbol.for("wasmer.host");
 export function jspiHost(start, array) {
   const host = array ? (...args) => start(args) : start;
-  host[SUSPENDING] = new WebAssembly.Suspending(host);
+  const suspending = new WebAssembly.Suspending(host);
+  host[SUSPENDING] = suspending;
+  suspending[HOST] = host;
   return host;
+}
+export function jspiHostOf(value) {
+  const host = (typeof value === "object" || typeof value === "function") && value !== null
+    ? value[HOST] : undefined;
+  return host === undefined ? value : host;
 }
 export function jspiIsHost(value) {
   return typeof value === "function" && value[SUSPENDING] !== undefined;
@@ -222,7 +236,7 @@ export function jspiCancelWake(token) {
   return pending;
 }
 export function jspiIsThenable(value) {
-  return value !== null && (typeof value === "object" || typeof value === "function") &&
+  return (typeof value === "object" || typeof value === "function") && value !== null &&
     typeof value.then === "function";
 }
 export function jspiCheckLater(token, wait) {
@@ -247,6 +261,8 @@ extern "C" {
     fn shim_is_host(value: &JsValue) -> bool;
     #[wasm_bindgen(js_name = jspiImport)]
     fn shim_import(value: &JsValue) -> JsValue;
+    #[wasm_bindgen(js_name = jspiHostOf)]
+    fn shim_host_of(value: &JsValue) -> JsValue;
     #[wasm_bindgen(js_name = jspiWait)]
     fn shim_wait(token: i32) -> JsValue;
     #[wasm_bindgen(js_name = jspiWake)]
@@ -255,8 +271,8 @@ extern "C" {
     fn shim_wake_later(token: i32, value: &JsValue);
     #[wasm_bindgen(js_name = jspiCancelWake)]
     fn shim_cancel_wake(token: i32) -> bool;
-    #[wasm_bindgen(js_name = jspiIsThenable)]
-    fn shim_is_thenable(value: &JsValue) -> bool;
+    #[wasm_bindgen(js_name = jspiIsThenable, catch)]
+    fn shim_is_thenable(value: &JsValue) -> Result<bool, JsValue>;
     #[wasm_bindgen(js_name = jspiUnwind)]
     fn shim_unwind(token: i32);
     #[wasm_bindgen(js_name = jspiCheckLater)]
@@ -283,6 +299,39 @@ pub(crate) fn results(values: &[Value], store: &impl AsStoreRef) -> JsValue {
     }
 }
 
+/// Whether the results of an import can reach the guest as they are: a
+/// promise takes a thenable it is resolved with for a promise, waits for it,
+/// and gives the guest what it settles with. So an import whose result is one
+/// fails instead, as one whose result cannot be read: reading `then` runs
+/// JavaScript, which may throw. It runs before the store is taken back for
+/// the guest, and may drop the call. The promise reads `then` again when it
+/// is resolved; an object that answers differently, as a `Proxy` can, is
+/// taken for what it answers then.
+fn deliverable(values: &[Value]) -> Result<(), RuntimeError> {
+    let value: JsValue = match values {
+        [Value::ExternRef(Some(reference))] => match &reference.0 {
+            crate::BackendExternRef::Js(reference) => reference.as_js_value(),
+            #[allow(unreachable_patterns)]
+            _ => return Ok(()),
+        },
+        [Value::FuncRef(Some(function))] => function.as_js().handle.function.clone().into(),
+        // Nothing else is ever a thenable: several results reach the guest
+        // as an array.
+        _ => return Ok(()),
+    };
+    match shim_is_thenable(&value) {
+        Ok(false) => Ok(()),
+        Ok(true) => Err(RuntimeError::new(
+            "an async host function returned a thenable, which a guest cannot be given \
+             through JSPI as it is",
+        )),
+        Err(error) => Err(RuntimeError::new(format!(
+            "reading `then` of what an async host function returned threw: {}",
+            RuntimeError::from(error).message()
+        ))),
+    }
+}
+
 /// The function of an async host function: `start`, which returns the
 /// promise the guest waits on, or, if it takes an `array`, a function that
 /// calls it with its arguments in one. A guest imports it as a
@@ -304,9 +353,17 @@ pub(crate) fn host_function(ty: &FunctionType, start: &JsValue, array: bool) -> 
 }
 
 /// What a guest imports for `value`: the `WebAssembly.Suspending` form of an
-/// async host function, and anything else as it is.
+/// async host function, and anything else as it is. This is what a function
+/// is given to JavaScript as: the function itself returns a promise to a
+/// guest that calls it, and fails outside of one.
 pub(crate) fn import(value: &JsValue) -> JsValue {
     shim_import(value)
+}
+
+/// The async host function whose `WebAssembly.Suspending` form `value` is, as
+/// [`import`] gives it; anything else as it is.
+pub(crate) fn host_of(value: &JsValue) -> JsValue {
+    shim_host_of(value)
 }
 
 impl Activation {
@@ -399,6 +456,25 @@ impl Activation {
     /// microtask that sees the guest wait (`now`), and from the future of the
     /// call.
     fn drive(self: &Rc<Self>, cx: &mut Context<'_>, now: bool) {
+        if self.driving.get() {
+            // Polled from inside the poll of the host future, or of the lock:
+            // the import is taken out for it, and is not finished. The outer
+            // driving goes on, and passes the wake on (see below).
+            self.redrive.set(true);
+            return;
+        }
+        self.driving.set(true);
+        self.redrive.set(false);
+        self.drive_once(cx, now);
+        self.driving.set(false);
+        if self.redrive.take() && self.state.get() == State::Waiting {
+            // A wake that came during the poll was taken by a poll of the call
+            // that did nothing: whoever is waiting for it is woken again.
+            cx.waker().wake_by_ref();
+        }
+    }
+
+    fn drive_once(self: &Rc<Self>, cx: &mut Context<'_>, now: bool) {
         if self.state.get() != State::Waiting || !self.accepted.get() {
             return;
         }
@@ -409,7 +485,18 @@ impl Activation {
                 return;
             }
             match outcome {
-                Poll::Ready(Ok(results)) => *self.results.borrow_mut() = Some(results),
+                Poll::Ready(Ok(results)) => {
+                    let deliverable = deliverable(&results);
+                    if self.state.get() != State::Waiting {
+                        // Reading the results dropped the call.
+                        return;
+                    }
+                    if let Err(error) = deliverable {
+                        *self.error.borrow_mut() = Some(error);
+                        return self.unwind();
+                    }
+                    *self.results.borrow_mut() = Some(results);
+                }
                 Poll::Ready(Err(error)) => {
                     *self.error.borrow_mut() = Some(error);
                     return self.unwind();
@@ -438,27 +525,15 @@ impl Activation {
                 let store = self.store.borrow().as_ref().map(StoreAsync::store);
                 let store = store.expect("a guest that can run has its store");
                 *self.relock.borrow_mut() = Some(Box::pin(async move { store.write_lock().await }));
-                self.drive(cx, now);
+                self.drive_once(cx, now);
             }
         }
     }
 
-    /// Wakes the guest with the results of its import, with its store. A
-    /// thenable cannot be one: the promise would wait for it, and give the
-    /// guest what it settles with, so the import fails instead.
+    /// Wakes the guest with the results of its import, with its store.
     fn resume(self: &Rc<Self>, lock: StoreAsyncWriteLock, now: bool) {
         let values = self.results.take().unwrap_or_default();
         let value = results(&values, &lock);
-        if matches!(values[..], [Value::ExternRef(Some(_)) | Value::FuncRef(Some(_))])
-            && shim_is_thenable(&value)
-        {
-            drop(lock);
-            *self.error.borrow_mut() = Some(RuntimeError::new(
-                "an async host function returned a thenable, which a guest cannot be given \
-                 through JSPI as it is",
-            ));
-            return self.unwind();
-        }
         self.switch_in(lock);
         self.accepted.set(false);
         self.wake(&value, now);
@@ -543,10 +618,16 @@ pub(crate) fn refusal(error: &JsValue) -> Option<RuntimeError> {
 /// The engine refuses to suspend a guest that was entered by a synchronous
 /// call since, or that has any other JavaScript frame on the stack since it
 /// was entered. Some engines refuse before the body of the import runs, and
-/// others after: then the wait the body made is forgotten once the guest goes
-/// on, and the store, which the activation holds until the guest waits, is
-/// never given up for it.
+/// others after. A guest entered by a synchronous call of this crate refuses
+/// itself here, before it makes a wait. One beneath another JavaScript frame
+/// makes it: the wait is forgotten once the guest goes on, and the store,
+/// which the activation holds until the wait is confirmed, is never given up
+/// for it. That guest is taken to wait if it is suspended next somewhere
+/// else, before its slice is over: nothing tells the two apart.
 fn suspendable(id: StoreId) -> Result<Rc<Activation>, JsValue> {
+    if entered_synchronously() {
+        return Err(cannot_suspend());
+    }
     let activation = running(id).ok_or_else(cannot_suspend)?;
     activation.forget_refused_wait();
     if activation.cancelled.get() {
@@ -583,6 +664,12 @@ fn check(token: i32, wait: i32) {
         || activation.accepted.get()
     {
         return;
+    }
+    if activation.cancelled.get() {
+        // The call was dropped before it was known that the engine had
+        // suspended the guest: it is unwound now that it is.
+        activation.accepted.set(true);
+        return activation.unwind();
     }
     activation.accept();
     let caller = activation.caller.borrow().clone();
@@ -637,6 +724,8 @@ impl Call {
                 entering: Cell::new(true),
                 waits: Cell::new(0),
                 accepted: Cell::new(false),
+                driving: Cell::new(false),
+                redrive: Cell::new(false),
             });
             activations.slots[(token - FIRST_TOKEN) as usize] = Some(activation.clone());
             activation
@@ -645,7 +734,11 @@ impl Call {
         // A promising function returns a promise, or throws before it enters
         // the guest. The reaction is attached here, before anything else can
         // run: a rejection nobody handles ends the process on some hosts.
-        match enter() {
+        let entered = {
+            let _entered = enter_async();
+            enter()
+        };
+        match entered {
             Ok(promise) => shim_settle(&promise, activation.token),
             Err(error) => activation.retire(Err(error)),
         }
@@ -688,13 +781,17 @@ impl Drop for Call {
     fn drop(&mut self) {
         let activation = &self.0;
         drop(activation.caller.take());
+        // Whether the engine suspended a guest that waits is known only once
+        // its slice is over: until then it may be running on, refused, and
+        // keeps its store. `check` unwinds it if it was suspended.
+        let unconfirmed = activation.state.get() == State::Waiting && !activation.accepted.get();
         match activation.state.get() {
             State::Done => return,
             // The guest will not run again: it is woken with a trap, also if
             // it was about to be given its results. So the host future goes
             // now, and with it everything that keeps the store from being
             // taken back.
-            State::Waiting => activation.unwind(),
+            State::Waiting if !unconfirmed => activation.unwind(),
             State::Woken if shim_cancel_wake(activation.token) => activation.unwind(),
             // A guest that was given its results is running: it keeps the
             // store until it leaves the stack or calls an async import, which
@@ -703,7 +800,7 @@ impl Drop for Call {
             _ => {}
         }
         activation.cancelled.set(true);
-        if activation.state.get() != State::Running {
+        if activation.state.get() != State::Running && !unconfirmed {
             drop(activation.lock.take());
             drop(activation.store.take());
         }

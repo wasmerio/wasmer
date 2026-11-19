@@ -514,6 +514,12 @@ mod javascript_functions {
     export function returningASymbol() {
       return function () { return Symbol(); };
     }
+    export function returningABigInt() {
+      return function () { return 1n; };
+    }
+    export function returningAnObjectThatThrows() {
+      return function () { return { valueOf() { throw new Error("valueOf threw"); } }; };
+    }
     export function withItsOwnCall(f) {
       Object.defineProperty(f, "call", { value() { throw new Error("its own call"); } });
       return f;
@@ -524,6 +530,10 @@ mod javascript_functions {
         fn receiver_of() -> JsValue;
         #[wasm_bindgen(js_name = returningASymbol)]
         fn returning_a_symbol() -> JsValue;
+        #[wasm_bindgen(js_name = returningABigInt)]
+        fn returning_a_big_int() -> JsValue;
+        #[wasm_bindgen(js_name = returningAnObjectThatThrows)]
+        fn returning_an_object_that_throws() -> JsValue;
         #[wasm_bindgen(js_name = withItsOwnCall)]
         fn with_its_own_call(f: JsValue) -> JsValue;
     }
@@ -560,5 +570,25 @@ mod javascript_functions {
         assert!(f.call(&mut store, &[Value::I32(1)]).unwrap().is_empty());
         let typed: TypedFunction<i32, ()> = f.typed(&store).unwrap();
         typed.call(&mut store, 1).unwrap();
+    }
+
+    /// A result that is no number becomes one as WebAssembly makes one of
+    /// what an import returns. Where that throws, the call fails with what
+    /// was thrown, as any call into JavaScript that throws does.
+    #[wasm_bindgen_test]
+    fn a_result_that_cannot_be_a_number_fails_the_call() {
+        let mut store = Store::default();
+        let ty = FunctionType::new([], [Type::I32]);
+        for (value, message) in [
+            (returning_a_big_int(), "BigInt"),
+            (returning_an_object_that_throws(), "valueOf threw"),
+        ] {
+            let f = function(&mut store, ty.clone(), &value);
+            let error = f.call(&mut store, &[]).unwrap_err();
+            assert!(error.message().contains(message), "{error}");
+            let typed: TypedFunction<(), i32> = f.typed(&store).unwrap();
+            let error = typed.call(&mut store).unwrap_err();
+            assert!(error.message().contains(message), "{error}");
+        }
     }
 }

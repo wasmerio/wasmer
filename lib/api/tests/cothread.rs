@@ -115,16 +115,16 @@ impl Guest {
         self.cothread = None;
         let store_ptr: *mut Store = &mut *self.store;
         let (env, run) = (self.env.clone(), self.run.clone());
-        self.cothread = Some(Cothread::new(Coroutine::new(
-            move |suspend: &Suspend, ()| {
-                // Safety: the store is boxed and outlives the coroutine.
-                // While the coroutine is suspended, the test uses the store
-                // only to start a call in place of a forgotten one.
-                let store = unsafe { &mut *store_ptr };
-                env.as_mut(store).0 = suspend;
-                run.call(store, how)
-            },
-        )));
+        let coroutine = Coroutine::new(move |suspend: &Suspend, ()| {
+            // Safety: the store is boxed and outlives the coroutine. While
+            // the coroutine is suspended, the test uses the store only to
+            // start a call in place of a forgotten one.
+            let store = unsafe { &mut *store_ptr };
+            env.as_mut(store).0 = suspend;
+            run.call(store, how)
+        });
+        // Safety: the `Cothread` owns the `Coroutine`.
+        self.cothread = Some(unsafe { Cothread::new(coroutine) });
     }
 
     /// Resumes the coroutine: `None` if it suspended again, or what the call

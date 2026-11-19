@@ -136,13 +136,6 @@ impl AsJs for Imports {
         let imports_object = js_sys::Object::new();
         for (namespace, name, extern_) in self.iter() {
             let value = extern_.as_jsvalue(&store.as_store_ref());
-            // An async host function is imported in its suspending form, as
-            // `Instance::new` imports it.
-            #[cfg(feature = "experimental-async")]
-            let value = match extern_ {
-                Extern::Function(_) => crate::js::jspi::import(&value),
-                _ => value,
-            };
             let val = unsafe { js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap() };
             if !val.is_undefined() {
                 // If the namespace is already set
@@ -212,7 +205,7 @@ impl AsJs for Extern {
     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         match self {
             Self::Memory(memory) => memory.as_js().handle.memory.clone().into(),
-            Self::Function(function) => function.as_js().handle.function.clone().into(),
+            Self::Function(function) => function.as_jsvalue(_store),
             Self::Table(table) => table.as_js().handle.table.clone().into(),
             Self::Global(global) => global.as_js().handle.global.clone().into(),
             Self::Tag(tag) => tag.as_js().handle.tag.clone().into(),
@@ -296,15 +289,25 @@ impl AsJs for Memory {
 impl AsJs for Function {
     type DefinitionType = crate::FunctionType;
 
+    /// The function, or the `WebAssembly.Suspending` form of an async host
+    /// function, which is what a guest imports: the function itself only
+    /// works for a guest that Wasmer instantiated.
     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
-        self.as_js().handle.function.clone().into()
+        let function: JsValue = self.as_js().handle.function.clone().into();
+        #[cfg(feature = "experimental-async")]
+        let function = crate::js::jspi::import(&function);
+        function
     }
 
+    /// Takes the `WebAssembly.Suspending` form of an async host function, as
+    /// `as_jsvalue` gives it, for that function.
     fn from_jsvalue(
         store: &mut impl AsStoreMut,
         function_type: &Self::DefinitionType,
         value: &JsValue,
     ) -> Result<Self, JsError> {
+        #[cfg(feature = "experimental-async")]
+        let value = &crate::js::jspi::host_of(value);
         if value.is_instance_of::<JsFunction>() {
             Ok(Self::from_vm_extern(
                 store,
