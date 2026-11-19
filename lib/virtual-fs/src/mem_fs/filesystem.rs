@@ -418,13 +418,26 @@ impl crate::FileSystem for FileSystem {
             (inode_of_parent, name_of_directory)
         };
 
-        if self.read_dir(path).is_ok() {
-            return Err(FsError::AlreadyExists);
-        }
-
         {
             // Write lock.
             let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+            // An existing child of any kind (not just a directory) reserves
+            // the name. Checking under the same lock as the insert stops two
+            // concurrent `create_dir` calls from both adding it.
+            let name_taken = match fs.storage.get(inode_of_parent) {
+                Some(Node::Directory(DirectoryNode { children, .. })) => {
+                    children.iter().any(|child| {
+                        fs.storage
+                            .get(*child)
+                            .is_some_and(|node| node.name() == name_of_directory.as_os_str())
+                    })
+                }
+                _ => false,
+            };
+            if name_taken {
+                return Err(FsError::AlreadyExists);
+            }
 
             // Creating the directory in the storage.
             let inode_of_directory = fs.storage.vacant_entry().key();
@@ -1241,6 +1254,27 @@ mod test_filesystem {
     }
 
     #[tokio::test]
+    async fn test_create_dir_beside_existing_file() {
+        let fs = FileSystem::default();
+        let file = fs
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(path!("/foo"))
+            .expect("failed to create a file");
+        drop(file);
+
+        assert_eq!(
+            fs.create_dir(path!("/foo")),
+            Err(FsError::AlreadyExists),
+            "a directory must not be created beside a file of the same name",
+        );
+
+        let fs_inner = fs.inner.read().unwrap();
+        assert_eq!(fs_inner.storage.len(), 2, "no duplicate inode was added");
+    }
+
+    #[tokio::test]
     async fn test_create_dir() {
         let fs = FileSystem::default();
 
@@ -1284,6 +1318,12 @@ mod test_filesystem {
                 "the new directory is well-defined",
             );
         }
+
+        assert_eq!(
+            fs.create_dir(path!("/foo")),
+            Err(FsError::AlreadyExists),
+            "creating a directory that already exists",
+        );
 
         assert_eq!(
             fs.create_dir(path!("/foo/bar")),
@@ -2285,6 +2325,65 @@ mod test_filesystem {
             fs.inner.read().unwrap().storage.len(),
             2 + names.len(),
             "no node leaked",
+        );
+    }
+
+    /// `create_dir` checks for an existing name and inserts the new directory
+    /// under one write lock, so concurrent calls cannot both add it.
+    #[test]
+    fn test_concurrent_create_dir_adds_one_directory() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        const THREADS: usize = 8;
+        const ROUNDS: usize = 100;
+
+        let fs = FileSystem::default();
+
+        for round in 0..ROUNDS {
+            let path = path!(buf format!("/shared-{round}"));
+            let barrier = std::sync::Barrier::new(THREADS);
+            let successes = AtomicUsize::new(0);
+
+            std::thread::scope(|scope| {
+                for _ in 0..THREADS {
+                    let fs = &fs;
+                    let barrier = &barrier;
+                    let successes = &successes;
+                    let path = &path;
+                    scope.spawn(move || {
+                        barrier.wait();
+                        match fs.create_dir(path) {
+                            Ok(()) => {
+                                successes.fetch_add(1, Ordering::SeqCst);
+                            }
+                            Err(FsError::AlreadyExists) => {}
+                            Err(err) => panic!("creating the directory failed: {err:?}"),
+                        }
+                    });
+                }
+            });
+
+            assert_eq!(
+                successes.load(Ordering::SeqCst),
+                1,
+                "exactly one concurrent create_dir must succeed (round {round})",
+            );
+            assert_eq!(
+                fs.inner.read().unwrap().storage.len(),
+                2,
+                "exactly one directory was added (round {round})",
+            );
+
+            match fs.remove_dir(&path) {
+                Ok(()) | Err(FsError::EntryNotFound) => {}
+                Err(err) => panic!("removing the directory failed: {err:?}"),
+            }
+        }
+
+        assert_eq!(
+            fs.inner.read().unwrap().storage.len(),
+            1,
+            "no directory leaked",
         );
     }
 }
