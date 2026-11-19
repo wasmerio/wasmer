@@ -142,7 +142,8 @@ impl Function {
             ty: func_ty.clone(),
             store_id: store.objects_mut().id(),
         });
-        let function = jspi::host_function(&func_ty, &host.start());
+        let (start, takes_array) = host.start();
+        let function = jspi::host_function(&func_ty, &start, takes_array);
         let vm_function = VMFunction::new(function, func_ty);
         Self::from_vm_extern(
             &mut store.as_store_mut(),
@@ -694,6 +695,14 @@ mod tests {
     }
 }
 
+/// The arguments of a call of an async host function, as they arrived.
+#[cfg(feature = "experimental-async")]
+enum Arguments {
+    Array(Array),
+    /// Parameters that are all numbers.
+    Numbers(numeric::Numbers),
+}
+
 /// An async host function, as the body of its import needs it.
 #[cfg(feature = "experimental-async")]
 struct AsyncHost<T, F> {
@@ -714,18 +723,30 @@ where
     /// the arguments in an array: it returns the promise the guest waits on.
     /// Nothing of the host function runs here: the future is polled by the
     /// call, once the guest waits and the store is free.
-    fn start(self: Rc<Self>) -> JsValue {
+    ///
+    /// Parameters that are all numbers arrive as they are, with no array in
+    /// between; the body is then the function itself. Returns the body, and
+    /// whether it takes an array.
+    fn start(self: Rc<Self>) -> (JsValue, bool) {
         let id = self.store_id;
-        Closure::wrap(Box::new(move |args: Array| {
-            let host = Rc::clone(&self);
+        if numeric::takes_numbers(&self.ty) {
+            let arity = self.ty.params().len();
+            let start = numeric::closure_returning_any(arity, move |numbers| {
+                let (host, args) = (Rc::clone(&self), Arguments::Numbers(numeric::copy(numbers)));
+                jspi::start(id, move |store| host.import(args, store))
+            });
+            return (start.into(), false);
+        }
+        let start = Closure::wrap(Box::new(move |args: Array| {
+            let (host, args) = (Rc::clone(&self), Arguments::Array(args));
             jspi::start(id, move |store| host.import(args, store))
-        }) as Box<dyn Fn(Array) -> Result<JsValue, JsValue>>)
-        .into_js_value()
+        }) as Box<dyn Fn(Array) -> Result<JsValue, JsValue>>);
+        (start.into_js_value(), true)
     }
 
     /// The host's half of one call of the import: the host function, and
     /// what it awaits. `store` is the store of the call the guest belongs to.
-    fn import(self: Rc<Self>, args: Array, store: StoreAsync) -> jspi::ImportFuture {
+    fn import(self: Rc<Self>, args: Arguments, store: StoreAsync) -> jspi::ImportFuture {
         Box::pin(async move {
             let future = {
                 let mut write_lock = store.write_lock().await;
@@ -749,11 +770,19 @@ where
         })
     }
 
-    fn arguments(&self, store: &mut impl AsStoreMut, args: &Array) -> Vec<Value> {
-        let types = self.ty.params().iter().enumerate();
-        types
-            .map(|(index, ty)| js_value_to_wasmer(store, ty, &args.get(index as u32)))
-            .collect()
+    fn arguments(&self, store: &mut impl AsStoreMut, args: &Arguments) -> Vec<Value> {
+        let types = self.ty.params();
+        match args {
+            Arguments::Array(args) => {
+                let types = types.iter().enumerate();
+                types
+                    .map(|(index, ty)| js_value_to_wasmer(store, ty, &args.get(index as u32)))
+                    .collect()
+            }
+            Arguments::Numbers((numbers, arity)) => {
+                numeric::values(types, &numbers[..*arity])[..*arity].to_vec()
+            }
+        }
     }
 
     fn env(&self, store: StoreAsync) -> AsyncFunctionEnvMut<T> {

@@ -135,6 +135,14 @@ impl AsJs for Imports {
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         let imports_object = js_sys::Object::new();
         for (namespace, name, extern_) in self.iter() {
+            let value = extern_.as_jsvalue(&store.as_store_ref());
+            // An async host function is imported in its suspending form, as
+            // `Instance::new` imports it.
+            #[cfg(feature = "experimental-async")]
+            let value = match extern_ {
+                Extern::Function(_) => crate::js::jspi::import(&value),
+                _ => value,
+            };
             let val = unsafe { js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap() };
             if !val.is_undefined() {
                 // If the namespace is already set
@@ -142,24 +150,14 @@ impl AsJs for Imports {
                 // Annotation is here to prevent spurious IDE warnings.
                 #[allow(unused_unsafe)]
                 unsafe {
-                    js_sys::Reflect::set(
-                        &val,
-                        &name.into(),
-                        &extern_.as_jsvalue(&store.as_store_ref()),
-                    )
-                    .unwrap();
+                    js_sys::Reflect::set(&val, &name.into(), &value).unwrap();
                 }
             } else {
                 // If the namespace doesn't exist
                 let import_namespace = js_sys::Object::new();
                 #[allow(unused_unsafe)]
                 unsafe {
-                    js_sys::Reflect::set(
-                        &import_namespace,
-                        &name.into(),
-                        &extern_.as_jsvalue(&store.as_store_ref()),
-                    )
-                    .unwrap();
+                    js_sys::Reflect::set(&import_namespace, &name.into(), &value).unwrap();
                     js_sys::Reflect::set(
                         &imports_object,
                         &namespace.into(),

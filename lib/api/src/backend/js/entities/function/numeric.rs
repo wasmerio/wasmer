@@ -33,6 +33,13 @@ fn is_number(ty: &Type) -> bool {
     matches!(ty, Type::I32 | Type::F32 | Type::F64)
 }
 
+/// Whether the parameters of functions of type `ty` are passed as numbers:
+/// those of an async host function, whose results reach the guest through a
+/// promise.
+pub(crate) fn takes_numbers(ty: &FunctionType) -> bool {
+    ty.params().len() <= MAX_ARITY && ty.params().iter().all(is_number)
+}
+
 /// Whether functions of type `ty` are called on the numeric lane.
 pub(crate) fn is_numeric(ty: &FunctionType) -> bool {
     ty.params().len() <= MAX_ARITY
@@ -98,12 +105,32 @@ pub(crate) fn result(results: &[Value]) -> f64 {
 }
 
 macro_rules! closure {
-    ($body:ident; $( $argument:ident ),*) => {
+    ($result:ty; $body:ident; $( $argument:ident ),*) => {
         Closure::wrap(Box::new(move |$( $argument: f64 ),*| $body(&[$( $argument ),*]))
-            as Box<dyn Fn($( closure!(@f64 $argument) ),*) -> Result<f64, JsValue>>)
+            as Box<dyn Fn($( closure!(@f64 $argument) ),*) -> Result<$result, JsValue>>)
         .into_js_value()
     };
     (@f64 $argument:ident) => { f64 };
+}
+
+/// A closure of `arity` numbers that returns a `$result`, as a JavaScript
+/// function.
+macro_rules! closure_of_arity {
+    ($result:ty; $arity:expr, $body:ident) => {{
+        let closure = match $arity {
+            0 => closure!($result; $body;),
+            1 => closure!($result; $body; a),
+            2 => closure!($result; $body; a, b),
+            3 => closure!($result; $body; a, b, c),
+            4 => closure!($result; $body; a, b, c, d),
+            5 => closure!($result; $body; a, b, c, d, e),
+            6 => closure!($result; $body; a, b, c, d, e, f),
+            7 => closure!($result; $body; a, b, c, d, e, f, g),
+            8 => closure!($result; $body; a, b, c, d, e, f, g, h),
+            _ => unreachable!("the numeric lane ends at {MAX_ARITY} parameters"),
+        };
+        closure.unchecked_into::<JsFunction>()
+    }};
 }
 
 /// A JavaScript function of `arity` numbers that calls `body` with them. For
@@ -112,19 +139,17 @@ pub(crate) fn closure(
     arity: usize,
     body: impl Fn(&[f64]) -> Result<f64, JsValue> + 'static,
 ) -> JsFunction {
-    let closure = match arity {
-        0 => closure!(body;),
-        1 => closure!(body; a),
-        2 => closure!(body; a, b),
-        3 => closure!(body; a, b, c),
-        4 => closure!(body; a, b, c, d),
-        5 => closure!(body; a, b, c, d, e),
-        6 => closure!(body; a, b, c, d, e, f),
-        7 => closure!(body; a, b, c, d, e, f, g),
-        8 => closure!(body; a, b, c, d, e, f, g, h),
-        _ => unreachable!("the numeric lane ends at {MAX_ARITY} parameters"),
-    };
-    closure.unchecked_into()
+    closure_of_arity!(f64; arity, body)
+}
+
+/// A JavaScript function of `arity` numbers that calls `body` with them, and
+/// returns any value: the body of an async host function's import.
+#[cfg(feature = "experimental-async")]
+pub(crate) fn closure_returning_any(
+    arity: usize,
+    body: impl Fn(&[f64]) -> Result<JsValue, JsValue> + 'static,
+) -> JsFunction {
+    closure_of_arity!(JsValue; arity, body)
 }
 
 // Calls through a `Reflect.apply` taken when the module is loaded, as the

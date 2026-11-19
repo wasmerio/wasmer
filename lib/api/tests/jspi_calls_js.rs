@@ -625,12 +625,12 @@ async fn two_stores_overlap_on_one_thread() {
     assert!(store.into_store().is_ok());
 }
 
-/// The host future of an async import is polled by the future of the call:
-/// nothing else drives it, and it is woken through the caller's own waker.
-/// The caller is woken to run the host function once the guest is known to
-/// wait in it, and again when the guest has finished.
+/// The host future of an async import is polled with the caller's own
+/// waker: first in the microtask that sees the guest wait, then by the future
+/// of the call whenever the host future wakes it. The caller is woken again
+/// when the guest has finished, and for nothing else.
 #[wasm_bindgen_test]
-async fn the_caller_drives_the_host_function() {
+async fn the_host_future_is_polled_with_the_callers_waker() {
     let wakes = Arc::new(Wakes(AtomicUsize::new(0)));
     let waker = Waker::from(wakes.clone());
     let mut cx = Context::from_waker(&waker);
@@ -639,24 +639,23 @@ async fn the_caller_drives_the_host_function() {
     let guest = guest();
     let mut call = guest.call("once", &[7]);
     assert!(call.poll_unpin(&mut cx).is_pending());
-    settle().await;
-    assert_eq!(wakes(), 1, "the waiting guest woke its caller");
     assert!(
         !guest.gate.waiting(7),
-        "the host function ran without its caller"
+        "the host function ran before the guest waited"
     );
-    assert!(call.poll_unpin(&mut cx).is_pending());
-    assert!(guest.gate.waiting(7), "the caller ran the host function");
+    settle().await;
+    assert!(guest.gate.waiting(7), "the host function did not run");
+    assert_eq!(wakes(), 0, "the caller was woken for nothing");
 
     guest.gate.release(7);
-    assert_eq!(wakes(), 2, "the host future woke its caller");
+    assert_eq!(wakes(), 1, "the host future did not wake its caller");
     settle().await;
     assert_eq!(guest.log().len(), 2, "the guest went on without its caller");
 
     assert!(call.poll_unpin(&mut cx).is_pending());
     settle().await;
     assert_eq!(guest.log().last().unwrap(), "2: async, locked");
-    assert_eq!(wakes(), 3, "the finished guest woke its caller");
+    assert_eq!(wakes(), 2, "the finished guest did not wake its caller");
     assert!(call.poll_unpin(&mut cx).is_ready());
     guest.into_store();
 }
@@ -1087,6 +1086,131 @@ async fn a_guard_held_while_waiting_stays_with_the_future() {
     assert!(store.into_store().is_ok());
 }
 
+// --- what this backend cannot follow -----------------------------------------
+
+/// JavaScript that suspends a guest outside of Wasmer.
+mod foreign {
+    use wasm_bindgen::prelude::wasm_bindgen;
+
+    #[wasm_bindgen(inline_js = r#"
+    export function foreignSuspending() {
+      let resolve;
+      const promise = new Promise((r) => { resolve = r; });
+      return [new WebAssembly.Suspending(() => promise), resolve];
+    }
+    export function relay(bytes, suspending) {
+      const module = new WebAssembly.Module(bytes);
+      return new WebAssembly.Instance(module, { h: { s: suspending } }).exports.s;
+    }
+    "#)]
+    extern "C" {
+        /// A `WebAssembly.Suspending` function of nothing that returns an
+        /// `i32`, and the function that resolves what it waits for.
+        #[wasm_bindgen(js_name = foreignSuspending)]
+        pub(super) fn foreign_suspending() -> js_sys::Array;
+        /// The export `s` of `bytes`, instantiated with `suspending` as its
+        /// import `h.s`.
+        pub(super) fn relay(
+            bytes: &[u8],
+            suspending: &wasm_bindgen::JsValue,
+        ) -> wasm_bindgen::JsValue;
+    }
+}
+
+/// A guest suspended in a `WebAssembly.Suspending` function that Wasmer did
+/// not make, which another module's export calls, keeps its store: nothing
+/// tells this backend when it goes on.
+#[wasm_bindgen_test]
+async fn a_guest_suspended_outside_wasmer_keeps_its_store() {
+    let pair = foreign::foreign_suspending();
+    let relay = wat::parse_str(
+        r#"(module
+          (import "h" "s" (func $s (result i32)))
+          (func (export "s") (result i32) (call $s)))"#,
+    )
+    .unwrap();
+    let suspending = foreign::relay(&relay, &pair.get(0));
+    let resolve: js_sys::Function = pair.get(1).unchecked_into();
+
+    let mut store = Store::default();
+    let ty = FunctionType::new([], [Type::I32]);
+    let s = Function::from_jsvalue(&mut store, &ty, &suspending).unwrap();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (import "h" "s" (func $s (result i32)))
+          (func (export "run") (result i32) (i32.add (call $s) (i32.const 1))))"#,
+    )
+    .unwrap();
+    let instance = Instance::new(&mut store, &module, &imports! { "h" => { "s" => s } }).unwrap();
+    let run = instance.exports.get_function("run").unwrap().clone();
+    let store = store.into_async();
+
+    let mut call: Call = Box::pin(run.call_async(&store, vec![]));
+    assert!(poll_once(&mut call).is_pending());
+    settle().await;
+    assert!(
+        locked(&store),
+        "the store was given up while the guest waits"
+    );
+    resolve
+        .call1(&JsValue::UNDEFINED, &JsValue::from(5))
+        .unwrap();
+    assert_eq!(i32_of(call.await), 6);
+    assert!(!locked(&store));
+    assert!(store.into_store().is_ok());
+}
+
+/// An async host function cannot give a guest a thenable: the promise the
+/// guest waits on would wait for it, and give the guest what it settles
+/// with. The import fails instead, and the guest is unwound as when the host
+/// function fails.
+#[wasm_bindgen_test]
+async fn a_thenable_result_of_an_async_import_fails_it() {
+    let mut store = Store::default();
+    let ty = FunctionType::new([], [Type::ExternRef]);
+    let thenable = externref_results::thenable(true);
+    let thenable = Value::from_jsvalue(&mut store, &Type::ExternRef, &thenable).unwrap();
+    let f = Function::new_async(&mut store, ty, move |_| {
+        let thenable = thenable.clone();
+        async move { Ok(vec![thenable]) }
+    });
+    let module = Module::new(&store, signature_guest(&[], &[Type::ExternRef])).unwrap();
+    let caught = Rc::new(Cell::new(0));
+    let imports = imports! { "host" => { "f" => f, "caught" => counter(&mut store, &caught) } };
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
+    let run = instance.exports.get_function("run").unwrap().clone();
+    let store = store.into_async();
+
+    let error = run.call_async(&store, vec![]).await.unwrap_err();
+    assert!(error.message().contains("thenable"), "{error}");
+    assert_eq!(caught.get(), 0, "the guest caught the failure");
+    assert!(store.into_store().is_ok());
+}
+
+/// `Imports::as_jsvalue` gives an async host function in the form a guest
+/// imports it in, as `Instance::new` does: the `WebAssembly.Suspending`
+/// function the host function keeps. Any other function is given as it is.
+#[wasm_bindgen_test]
+fn imports_as_a_javascript_object_suspend_where_instances_do() {
+    let mut store = Store::default();
+    let wait = Function::new_typed_async(&mut store, async |value: i32| value);
+    let plain = Function::new_typed(&mut store, |value: i32| value);
+    let suspending = js_sys::Reflect::get(
+        &wait.as_jsvalue(&store),
+        &js_sys::Symbol::for_("wasmer.suspending"),
+    )
+    .unwrap();
+    assert!(!suspending.is_undefined());
+    let plain_function = plain.as_jsvalue(&store);
+    let imports = imports! { "h" => { "wait" => wait, "plain" => plain } };
+    let object = imports.as_jsvalue(&store);
+    let namespace = js_sys::Reflect::get(&object, &"h".into()).unwrap();
+    let get = |name: &str| js_sys::Reflect::get(&namespace, &name.into()).unwrap();
+    assert!(js_sys::Object::is(&get("wait"), &suspending));
+    assert!(js_sys::Object::is(&get("plain"), &plain_function));
+}
+
 // --- signatures --------------------------------------------------------------
 
 fn wat_types(types: &[Type]) -> String {
@@ -1392,7 +1516,7 @@ async fn a_funcref_result_reaches_the_guest() {
             vec![Type::FuncRef]
         };
         let outcomes = outcomes.clone();
-        let get = Function::new_async(store, FunctionType::new([], results), move |_| {
+        Function::new_async(store, FunctionType::new([], results), move |_| {
             let outcome = outcomes.borrow_mut().take().unwrap();
             async move {
                 let function = Value::FuncRef(outcome.await.unwrap().map_err(Box::from)?);
@@ -1402,8 +1526,7 @@ async fn a_funcref_result_reaches_the_guest() {
                     vec![function]
                 })
             }
-        });
-        get
+        })
     };
     let imports = imports! {
         "host" => {
@@ -1583,15 +1706,16 @@ mod externref_results {
     }
     "#)]
     extern "C" {
-        fn thenable(settles: bool) -> JsValue;
+        pub(super) fn thenable(settles: bool) -> JsValue;
         fn returning(value: &JsValue) -> JsValue;
     }
 
     /// A guest that returns a thenable, which a promise may take for one. V8
     /// gives the thenable back as it is; JavaScriptCore, as the JSPI
     /// specification says, waits for it, and the call ends with what it
-    /// settles with, if it ever does. Either way the store is free once the
-    /// guest has returned.
+    /// settles with, if it ever does. Nothing tells this backend that the
+    /// guest has returned before then, so the guest keeps its store until the
+    /// call ends.
     #[wasm_bindgen_test]
     async fn a_guest_that_returns_a_thenable() {
         for settles in [false, true] {
@@ -1614,7 +1738,6 @@ mod externref_results {
             let mut call: Call = Box::pin(run.call_async(&store, vec![]));
             let _ = poll_once(&mut call);
             settle().await;
-            assert!(!locked(&store), "settles: {settles}: the store is held");
             match poll_once(&mut call) {
                 Poll::Ready(results) => {
                     let results = results.unwrap();
@@ -1624,9 +1747,15 @@ mod externref_results {
                     let settled = settles && returned == JsValue::from_str("settled");
                     assert!(itself || settled, "settles: {settles}: {returned:?}");
                 }
-                Poll::Pending => assert!(!settles, "the thenable settled"),
+                // The call never ends, and the store stays with it.
+                Poll::Pending => {
+                    assert!(!settles, "the thenable settled");
+                    assert!(locked(&store), "the store was given up");
+                    continue;
+                }
             }
             drop(call);
+            assert!(!locked(&store), "settles: {settles}: the store is held");
             assert!(store.into_store().is_ok(), "settles: {settles}");
         }
     }
