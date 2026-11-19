@@ -157,7 +157,10 @@ thread_local! {
 }
 
 // The JavaScript half: promises can only be made and settled there. It is
-// static JavaScript, not made from a string: some hosts forbid that.
+// static JavaScript, not made from a string: some hosts forbid that. An async
+// host function and its `WebAssembly.Suspending` form find each other in
+// maps of this module, which run no code of the values they are given, as
+// reading a property of a `Proxy` would.
 //
 // `wait` makes the promise the guest of a token waits on, which `wake`
 // resolves with the results of its import, and `unwind` rejects with the
@@ -184,25 +187,22 @@ export function jspiTrapError() {
   }
   return trapError;
 }
-const SUSPENDING = Symbol.for("wasmer.suspending"), HOST = Symbol.for("wasmer.host");
+const suspendingOf = new WeakMap(), hostOf = new WeakMap();
 export function jspiHost(start, array) {
   const host = array ? (...args) => start(args) : start;
   const suspending = new WebAssembly.Suspending(host);
-  host[SUSPENDING] = suspending;
-  suspending[HOST] = host;
+  suspendingOf.set(host, suspending);
+  hostOf.set(suspending, host);
   return host;
 }
 export function jspiHostOf(value) {
-  const host = (typeof value === "object" || typeof value === "function") && value !== null
-    ? value[HOST] : undefined;
-  return host === undefined ? value : host;
+  return hostOf.get(value) ?? value;
 }
 export function jspiIsHost(value) {
-  return typeof value === "function" && value[SUSPENDING] !== undefined;
+  return suspendingOf.has(value);
 }
 export function jspiImport(value) {
-  const suspending = typeof value === "function" ? value[SUSPENDING] : undefined;
-  return suspending === undefined ? value : suspending;
+  return suspendingOf.get(value) ?? value;
 }
 export function jspiWait(token) {
   return new Promise((resolve, reject) => { resolvers[token] = resolve; rejecters[token] = reject; });
@@ -306,7 +306,10 @@ pub(crate) fn results(values: &[Value], store: &impl AsStoreRef) -> JsValue {
 /// JavaScript, which may throw. It runs before the store is taken back for
 /// the guest, and may drop the call. The promise reads `then` again when it
 /// is resolved; an object that answers differently, as a `Proxy` can, is
-/// taken for what it answers then.
+/// taken for what it answers then. If that is a thenable, the guest waits for
+/// it with its store, also once its call is dropped: the engine resumes the
+/// guest when the thenable settles, and nothing can stop that, so the store
+/// is not given up before.
 fn deliverable(values: &[Value]) -> Result<(), RuntimeError> {
     let value: JsValue = match values {
         [Value::ExternRef(Some(reference))] => match &reference.0 {
@@ -469,8 +472,9 @@ impl Activation {
         self.driving.set(false);
         if self.redrive.take() && self.state.get() == State::Waiting {
             // A wake that came during the poll was taken by a poll of the call
-            // that did nothing: whoever is waiting for it is woken again.
-            cx.waker().wake_by_ref();
+            // that did nothing: whoever polls the call now, which that poll
+            // may have changed, is woken again.
+            self.wake_caller();
         }
     }
 
@@ -618,12 +622,15 @@ pub(crate) fn refusal(error: &JsValue) -> Option<RuntimeError> {
 /// The engine refuses to suspend a guest that was entered by a synchronous
 /// call since, or that has any other JavaScript frame on the stack since it
 /// was entered. Some engines refuse before the body of the import runs, and
-/// others after. A guest entered by a synchronous call of this crate refuses
-/// itself here, before it makes a wait. One beneath another JavaScript frame
-/// makes it: the wait is forgotten once the guest goes on, and the store,
-/// which the activation holds until the wait is confirmed, is never given up
-/// for it. That guest is taken to wait if it is suspended next somewhere
-/// else, before its slice is over: nothing tells the two apart.
+/// others after. A guest entered by a synchronous call of this crate, or from
+/// inside a host function it made, refuses itself here, before it makes a
+/// wait. Only JavaScript this crate did not make, an import of the embedder's
+/// own that calls an export directly, can enter a guest that makes a wait the
+/// engine then refuses. That wait is forgotten once the guest goes on, and
+/// the store, which the activation holds until the wait is confirmed, is
+/// never given up for it, unless the guest is suspended next somewhere else
+/// before its slice is over: nothing tells that from a wait. Entering guests
+/// from such JavaScript while a guest of the store runs is not supported.
 fn suspendable(id: StoreId) -> Result<Rc<Activation>, JsValue> {
     if entered_synchronously() {
         return Err(cannot_suspend());

@@ -34,6 +34,11 @@ thread_local! {
 /// of an async import before they refuse to suspend such a guest; the body
 /// refuses itself instead (see `jspi`). Without `experimental-async` there is
 /// nothing to mark.
+///
+/// Synchronous calls of this crate mark the guest they enter, and the host
+/// functions it makes mark whatever they run: a guest entered from inside
+/// one, also by JavaScript that calls an export directly, is beneath a
+/// JavaScript frame.
 #[inline]
 pub(crate) fn enter_sync() -> EnteredGuest {
     EnteredGuest::new(true)
@@ -347,6 +352,7 @@ impl Function {
             let arity = function_type.params().len();
             let function = numeric::closure(arity, move |numbers| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let _entered = enter_sync();
                 let arguments = numeric::values(function_type.params(), numbers);
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &arguments[..numbers.len()]).map_err(trap_value)?;
@@ -361,6 +367,7 @@ impl Function {
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let _entered = enter_sync();
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -377,6 +384,7 @@ impl Function {
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let _entered = enter_sync();
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -393,6 +401,7 @@ impl Function {
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let _entered = enter_sync();
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -996,6 +1005,7 @@ macro_rules! impl_host_function {
                 // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                 let func: &Func = unsafe { &*(&() as *const () as *const Func) };
                 let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
+                let _entered = enter_sync();
 
                 let result = panic::catch_unwind(AssertUnwindSafe(|| {
                     func($(
@@ -1039,6 +1049,7 @@ macro_rules! impl_host_function {
             {
                 let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
                 let mut store2 = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
+                let _entered = enter_sync();
 
                 let result = {
                     // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };

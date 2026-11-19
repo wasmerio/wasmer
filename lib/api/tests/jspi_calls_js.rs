@@ -1098,6 +1098,10 @@ mod foreign {
       const promise = new Promise((r) => { resolve = r; });
       return [new WebAssembly.Suspending(() => promise), resolve];
     }
+    export function throwingProxy() {
+      const trap = () => { throw new Error("a trap ran"); };
+      return new Proxy(function () {}, { get: trap, has: trap, getOwnPropertyDescriptor: trap });
+    }
     export function relay(bytes, suspending) {
       const module = new WebAssembly.Module(bytes);
       return new WebAssembly.Instance(module, { h: { s: suspending } }).exports.s;
@@ -1114,6 +1118,9 @@ mod foreign {
             bytes: &[u8],
             suspending: &wasm_bindgen::JsValue,
         ) -> wasm_bindgen::JsValue;
+        /// A function whose `Proxy` traps throw.
+        #[wasm_bindgen(js_name = throwingProxy)]
+        pub(super) fn throwing_proxy() -> wasm_bindgen::JsValue;
     }
 }
 
@@ -1161,6 +1168,86 @@ async fn a_guest_suspended_outside_wasmer_keeps_its_store() {
     assert!(store.into_store().is_ok());
 }
 
+/// A guest re-entered by JavaScript that a host function calls, which calls
+/// an async import there, and then is suspended in a `WebAssembly.Suspending`
+/// function that Wasmer did not make. The import refuses before it makes a
+/// wait, on engines that run its body before refusing too: nothing runs the
+/// host function, and the guest keeps its store while it is suspended.
+#[wasm_bindgen_test]
+async fn a_refused_reentry_then_a_foreign_suspension_keeps_the_store() {
+    let pair = foreign::foreign_suspending();
+    let relay = wat::parse_str(
+        r#"(module
+          (import "h" "s" (func $s (result i32)))
+          (func (export "s") (result i32) (call $s)))"#,
+    )
+    .unwrap();
+    let suspending = foreign::relay(&relay, &pair.get(0));
+    let resolve: js_sys::Function = pair.get(1).unchecked_into();
+
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (import "host" "wait" (func $wait (param i32) (result i32)))
+          (import "host" "call_inner_raw" (func $call_inner_raw (param i32) (result i32)))
+          (import "host" "s" (func $s (result i32)))
+          (func (export "inner") (param i32) (result i32) (call $wait (local.get 0)))
+          (func (export "run") (result i32)
+            (i32.add (call $call_inner_raw (i32.const 99)) (call $s))))"#,
+    )
+    .unwrap();
+    let log: Log = Rc::default();
+    let gate = Gate::new(&log);
+    let env = FunctionEnv::new(
+        &mut store,
+        Host {
+            log: log.clone(),
+            inner: None,
+            errors: Vec::new(),
+        },
+    );
+    let ty = FunctionType::new([], [Type::I32]);
+    let imports = imports! {
+        "host" => {
+            "wait" => gate.import(&mut store),
+            "call_inner_raw" => Function::new_typed_with_env(&mut store, &env, call_inner_raw),
+            "s" => Function::from_jsvalue(&mut store, &ty, &suspending).unwrap(),
+        }
+    };
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
+    env.as_mut(&mut store).inner = instance.exports.get_function("inner").ok().cloned();
+    let run = instance.exports.get_function("run").unwrap().clone();
+    let store = store.into_async();
+
+    let mut call: Call = Box::pin(run.call_async(&store, vec![]));
+    assert!(poll_once(&mut call).is_pending());
+    settle().await;
+    assert!(poll_once(&mut call).is_pending());
+    assert!(
+        locked(&store),
+        "the store was given up while the guest waits"
+    );
+    assert!(log.borrow().is_empty(), "the refused host function ran");
+    resolve
+        .call1(&JsValue::UNDEFINED, &JsValue::from(5))
+        .unwrap();
+    // The re-entry failed with -1.
+    assert_eq!(i32_of(call.await), 4);
+    let errors = {
+        let lock = store.read_lock().await;
+        env.as_ref(&lock).errors.clone()
+    };
+    assert_eq!(errors.len(), 1);
+    assert_eq!(
+        errors[0].clone().to_trap(),
+        Some(TrapCode::YieldOutsideAsyncContext)
+    );
+    assert_eq!(gate.dropped(), 0);
+    env.as_mut(&mut store.write_lock().await).inner = None;
+    assert!(store.into_store().is_ok());
+}
+
 /// An async host function cannot give a guest a thenable: the promise the
 /// guest waits on would wait for it, and give the guest what it settles
 /// with. The import fails instead, and the guest is unwound as when the host
@@ -1199,19 +1286,19 @@ async fn a_thenable_result_of_an_async_import_fails_it() {
 /// `Extern::as_jsvalue` and `Imports::as_jsvalue` alike, since the function
 /// itself works only for a guest Wasmer instantiated. `Function::from_jsvalue`
 /// takes that form for the host function. Any other function is given as it
-/// is.
+/// is. Nothing of what JavaScript is given is read to tell them apart: a
+/// `Proxy` whose traps throw goes through as it is.
 #[wasm_bindgen_test]
 async fn async_host_functions_are_given_to_javascript_as_imports() {
     let mut store = Store::default();
     let wait = Function::new_typed_async(&mut store, async |value: i32| value + 1);
     let plain = Function::new_typed(&mut store, |value: i32| value);
     let suspending = wait.as_jsvalue(&store);
-    let host = js_sys::Reflect::get(&suspending, &js_sys::Symbol::for_("wasmer.host")).unwrap();
-    assert!(host.is_function() && !js_sys::Object::is(&host, &suspending));
     let extern_ = wasmer::Extern::Function(wait.clone()).as_jsvalue(&store);
     assert!(js_sys::Object::is(&extern_, &suspending));
     let plain_function = plain.as_jsvalue(&store);
     assert!(plain_function.is_function());
+    assert!(!js_sys::Object::is(&suspending, &plain_function));
 
     let imports = imports! { "h" => { "wait" => wait, "plain" => plain } };
     let object = imports.as_jsvalue(&store);
@@ -1221,6 +1308,9 @@ async fn async_host_functions_are_given_to_javascript_as_imports() {
     assert!(js_sys::Object::is(&get("plain"), &plain_function));
 
     let ty = FunctionType::new([Type::I32], [Type::I32]);
+    let hostile = foreign::throwing_proxy();
+    let taken = Function::from_jsvalue(&mut store, &ty, &hostile).unwrap();
+    assert!(js_sys::Object::is(&taken.as_jsvalue(&store), &hostile));
     let wait = Function::from_jsvalue(&mut store, &ty, &suspending).unwrap();
     let store = store.into_async();
     let results = wait.call_async(&store, vec![Value::I32(1)]).await.unwrap();
@@ -1797,6 +1887,87 @@ async fn a_waker_that_polls_the_call_at_once() {
         assert_eq!(guest.gate.dropped(), 0, "{id}: a host future was dropped");
         guest.into_store();
     }
+}
+
+/// A waker that, woken during the first poll of a host future, polls the call
+/// at once with another waker, and does nothing when it is woken again. The
+/// wake that poll could not act on reaches the waker that polls the call now.
+#[wasm_bindgen_test]
+async fn a_wake_during_the_first_poll_reaches_the_latest_waker() {
+    type Slot = Rc<RefCell<Option<Call>>>;
+    type Outcome = Rc<RefCell<Option<Result<Box<[Value]>, RuntimeError>>>>;
+    fn poll_with(call: &Slot, outcome: &Outcome, waker: &Waker) {
+        let Ok(mut slot) = call.try_borrow_mut() else {
+            return;
+        };
+        let Some(future) = slot.as_mut() else {
+            return;
+        };
+        if let Poll::Ready(result) = future.as_mut().poll(&mut Context::from_waker(waker)) {
+            *outcome.borrow_mut() = Some(result);
+            *slot = None;
+        }
+    }
+    /// Polls the call with itself whenever it is woken.
+    struct Latest(Slot, Outcome);
+    /// Polls the call with `Latest`, the first time it is woken.
+    struct First(Slot, Outcome, Waker, Cell<bool>);
+    // The tests run on one thread; a waker has to be `Send` and `Sync`.
+    unsafe impl Send for Latest {}
+    unsafe impl Sync for Latest {}
+    unsafe impl Send for First {}
+    unsafe impl Sync for First {}
+    impl Wake for Latest {
+        fn wake(self: Arc<Self>) {
+            self.wake_by_ref();
+        }
+        fn wake_by_ref(self: &Arc<Self>) {
+            poll_with(&self.0, &self.1, &Waker::from(self.clone()));
+        }
+    }
+    impl Wake for First {
+        fn wake(self: Arc<Self>) {
+            self.wake_by_ref();
+        }
+        fn wake_by_ref(self: &Arc<Self>) {
+            if !self.3.replace(true) {
+                poll_with(&self.0, &self.1, &self.2);
+            }
+        }
+    }
+
+    let guest = guest();
+    let (call, outcome): (Slot, Outcome) = Default::default();
+    *call.borrow_mut() = Some(guest.call("twice", &[YIELD]));
+    let latest = Waker::from(Arc::new(Latest(call.clone(), outcome.clone())));
+    let first = Arc::new(First(
+        call.clone(),
+        outcome.clone(),
+        latest,
+        Cell::new(false),
+    ));
+    let first = Waker::from(first);
+    // The first poll enters the guest, with `First` for its waker.
+    assert!(
+        call.borrow_mut()
+            .as_mut()
+            .unwrap()
+            .as_mut()
+            .poll(&mut Context::from_waker(&first))
+            .is_pending()
+    );
+    for _ in 0..20 {
+        if outcome.borrow().is_some() {
+            break;
+        }
+        macrotask().await;
+    }
+    let result = outcome.borrow_mut().take();
+    assert_eq!(
+        i32_of(result.expect("the call finished")),
+        YIELD + YIELD + 1
+    );
+    guest.into_store();
 }
 
 /// Guests whose result JavaScript could take for a promise.

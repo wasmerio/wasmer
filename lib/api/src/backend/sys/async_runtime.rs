@@ -709,3 +709,60 @@ mod stack_pool {
         assert_eq!(pooled().len(), 1);
     }
 }
+
+#[cfg(test)]
+mod instantiation {
+    use std::{
+        future::Future,
+        pin::Pin,
+        task::{Context, Poll},
+    };
+
+    use super::*;
+    use crate::{Function, FunctionEnv, FunctionEnvMut, FunctionType, Imports, Instance, Module};
+
+    /// The instances the store owns.
+    fn instances(store: &Store) -> usize {
+        let objects = store.as_store_ref().objects().as_sys();
+        <wasmer_vm::VMInstance as wasmer_vm::StoreObject>::list(objects).len()
+    }
+
+    /// An instance whose start function waits is the store's already: if the
+    /// call that instantiates is cancelled while it waits, the instance is
+    /// left to the store, which frees it with itself, rather than to nobody.
+    #[test]
+    fn a_cancelled_start_function_leaves_its_instance_to_the_store() {
+        let mut store = sys_store();
+        let module = Module::new(
+            &store,
+            r#"(module
+              (import "h" "wait" (func $wait))
+              (func $start (call $wait))
+              (start $start))"#,
+        )
+        .unwrap();
+        let unit = FunctionType::new(vec![], vec![]);
+        let wait = Function::new_async(&mut store, unit.clone(), |_| std::future::pending());
+        let env = FunctionEnv::new(&mut store, ());
+        let instantiate = Function::new_with_env(&mut store, &env, unit, {
+            move |mut env: FunctionEnvMut<()>, _: &[Value]| {
+                let mut imports = Imports::new();
+                imports.define("h", "wait", wait.clone());
+                Instance::new(&mut env, &module, &imports)
+                    .map_err(|error| RuntimeError::new(error.to_string()))?;
+                Ok(vec![])
+            }
+        });
+        let before = instances(&store);
+        let store = store.into_async();
+        let mut call: Pin<Box<dyn Future<Output = CallResult>>> =
+            Box::pin(instantiate.call_async(&store, vec![]));
+        let waker = futures::task::noop_waker();
+        assert!(call.as_mut().poll(&mut Context::from_waker(&waker)).is_pending());
+        drop(call);
+        let Ok(store) = store.into_store() else {
+            panic!("the store is still shared");
+        };
+        assert_eq!(instances(&store), before + 1, "the instance is not the store's");
+    }
+}

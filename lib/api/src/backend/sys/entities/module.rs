@@ -171,7 +171,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &[crate::Extern],
-    ) -> Result<VMInstance, InstantiationError> {
+    ) -> Result<StoreHandle<wasmer_vm::VMInstance>, InstantiationError> {
         if !self.artifact.allocated() {
             // Return an error mentioning that the artifact is compiled for a different
             // platform.
@@ -198,6 +198,17 @@ impl Module {
                 objects.as_sys_mut(),
             )?;
 
+            // The store owns the instance from here on, also if finishing it
+            // fails or unwinds: its elements may put its functions into tables
+            // of the store, and an unwind, through a host panic or the
+            // cancellation of a `call_async` that the start function suspended,
+            // may not use the store. It is finished through a copy of its
+            // handle that is never dropped: the store frees the instance, with
+            // the store.
+            let handle = StoreHandle::new(objects.as_sys_mut(), instance_handle);
+            let mut instance =
+                std::mem::ManuallyDrop::new(std::ptr::read(handle.get(objects.as_sys())));
+
             let store_id = objects.id();
             #[cfg(feature = "experimental-host-interrupt")]
             let interrupt_guard = match interrupt_registry::install(store_id) {
@@ -212,39 +223,24 @@ impl Module {
             let store_install_guard = StoreContext::install(store_ptr);
 
             // After the instance handle is created, we need to initialize
-            // the data, call the start function and so. However, if any
-            // of this steps traps, we still need to keep the instance alive
-            // as some of the Instance elements may have placed in other
-            // instance tables.
+            // the data, call the start function and so. If any of these steps
+            // traps, the instance stays with the store.
             //
             // The store is paused while the start function runs, as for any
             // other entry into Wasm: an async import it calls can then
             // suspend the call of a host function that instantiates.
-            //
-            // An unwind through the start function, a host panic or the
-            // cancellation of the `call_async` it suspended, must not drop the
-            // instance either, and may not use the store to keep it: the
-            // instance is leaked then.
-            let mut unwinding = LeakOnUnwind(Some(instance_handle));
             let finished = {
                 let _pause_guard = StoreContext::pause(store_id);
-                let instance_handle = unwinding.0.as_mut().expect("not taken yet");
                 self.artifact
-                    .finish_instantiation(config, signal_handler, instance_handle)
+                    .finish_instantiation(config, signal_handler, &mut instance)
             };
-            let instance_handle = unwinding.0.take().expect("not taken yet");
-            if let Err(err) = finished {
-                // Keep the partially initialized instance alive: its funcrefs may already
-                // have been written into imported tables.
-                let _ = StoreHandle::new(objects.as_sys_mut(), instance_handle);
-                return Err(err.into());
-            }
+            finished?;
 
             drop(store_install_guard);
             #[cfg(feature = "experimental-host-interrupt")]
             drop(interrupt_guard);
 
-            Ok(VMInstance::Sys(instance_handle))
+            Ok(handle)
         }
     }
 
@@ -316,19 +312,6 @@ impl crate::Module {
             BackendModule::Sys(ref s) => Some(&s.artifact),
             #[allow(unreachable_patterns)]
             _ => None,
-        }
-    }
-}
-
-/// An instance being finished, which is leaked rather than dropped if what
-/// finishes it unwinds: tables of other instances may already hold its
-/// functions.
-struct LeakOnUnwind(Option<wasmer_vm::VMInstance>);
-
-impl Drop for LeakOnUnwind {
-    fn drop(&mut self) {
-        if let Some(instance) = self.0.take() {
-            std::mem::forget(instance);
         }
     }
 }
