@@ -1176,6 +1176,9 @@ mod foreign {
     export function identity() {
       return (value) => value;
     }
+    export function returning(value) {
+      return () => value;
+    }
     export function relay(bytes, suspending) {
       const module = new WebAssembly.Module(bytes);
       return new WebAssembly.Instance(module, { h: { s: suspending } }).exports.s;
@@ -1225,6 +1228,8 @@ mod foreign {
         pub(super) fn incrementing() -> wasm_bindgen::JsValue;
         /// A JavaScript function that returns what it is given.
         pub(super) fn identity() -> wasm_bindgen::JsValue;
+        /// A JavaScript function that returns `value`.
+        pub(super) fn returning(value: &wasm_bindgen::JsValue) -> wasm_bindgen::JsValue;
     }
 }
 
@@ -1713,6 +1718,110 @@ async fn a_javascript_function_given_back_takes_its_new_type() {
         Instance::new(&mut store, &module, &imports! { "h" => { "f" => taken } }).unwrap();
     let run = instance.exports.get_function("run").unwrap();
     assert_eq!(run.call(&mut store, &[]).unwrap()[0].unwrap_i32(), 7);
+}
+
+/// A JavaScript function an embedder gives is called directly as it is:
+/// what it returns is read as an array of several results, and a number for
+/// an `i64`, by `Function::call`, a typed call and `call_async` alike. A guest
+/// that imports it is given the function that converts what it returns as
+/// the engine does, which fails on that number.
+#[wasm_bindgen_test]
+async fn a_javascript_function_is_called_directly_as_it_is() {
+    let mut store = Store::default();
+    let pair_type = FunctionType::new([], [Type::I32, Type::I32]);
+    let pair = js_sys::Array::of2(&7.into(), &11.into());
+    let pair = Function::from_jsvalue(&mut store, &pair_type, &foreign::returning(&pair)).unwrap();
+    let wide_type = FunctionType::new([], [Type::I64]);
+    let wide =
+        Function::from_jsvalue(&mut store, &wide_type, &foreign::returning(&5.into())).unwrap();
+
+    let pair_values = [Value::I32(7), Value::I32(11)];
+    assert_eq!(&*pair.call(&mut store, &[]).unwrap(), &pair_values);
+    let typed = pair.typed::<(), (i32, i32)>(&store).unwrap();
+    assert_eq!(typed.call(&mut store).unwrap(), (7, 11));
+    assert_eq!(&*wide.call(&mut store, &[]).unwrap(), &[Value::I64(5)]);
+    assert_eq!(
+        wide.typed::<(), i64>(&store)
+            .unwrap()
+            .call(&mut store)
+            .unwrap(),
+        5
+    );
+
+    let module = Module::new(
+        &store,
+        r#"(module
+          (import "h" "pair" (func $pair (result i32 i32)))
+          (import "h" "wide" (func $wide (result i64)))
+          (func (export "pair") (result i32) (i32.add (call $pair)))
+          (func (export "wide") (result i64) (call $wide)))"#,
+    )
+    .unwrap();
+    let imports = imports! { "h" => { "pair" => pair.clone(), "wide" => wide.clone() } };
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
+    let guest_pair = instance.exports.get_function("pair").unwrap().clone();
+    let guest_wide = instance.exports.get_function("wide").unwrap().clone();
+    assert_eq!(
+        guest_pair.call(&mut store, &[]).unwrap()[0].unwrap_i32(),
+        18
+    );
+    guest_wide.call(&mut store, &[]).unwrap_err();
+    // Instantiating gives the guest another function: the embedder's own is
+    // still what is called directly.
+    assert_eq!(&*pair.call(&mut store, &[]).unwrap(), &pair_values);
+
+    let store = store.into_async();
+    let results = pair.call_async(&store, vec![]).await.unwrap();
+    assert_eq!(&*results, &pair_values);
+    let results = wide.call_async(&store, vec![]).await.unwrap();
+    assert_eq!(&*results, &[Value::I64(5)]);
+    assert_eq!(i32_of(guest_pair.call_async(&store, vec![]).await), 18);
+    assert!(store.into_store().is_ok());
+}
+
+/// An async host function called directly gives its results to no guest:
+/// `call_async` returns them as the host function returned them, whatever
+/// JavaScript would make of them. A null `funcref`, a function that is not a
+/// WebAssembly one, or a thenable, which a guest could not be given, come
+/// back as they are.
+#[wasm_bindgen_test]
+async fn an_async_host_function_called_directly_returns_its_results_as_they_are() {
+    let mut store = Store::default();
+    let exporting = Module::new(&store, r#"(module (func (export "g")))"#).unwrap();
+    let exporting = Instance::new(&mut store, &exporting, &imports! {}).unwrap();
+    let wasm = exporting.exports.get_function("g").unwrap().clone();
+    let sync = Function::new_typed(&mut store, || {});
+    let thenable = externref_results::thenable(true);
+    let thenable = Value::from_jsvalue(&mut store, &Type::ExternRef, &thenable).unwrap();
+    let cases = [
+        ("null", Value::FuncRef(None)),
+        ("wasm", Value::FuncRef(Some(wasm))),
+        ("sync", Value::FuncRef(Some(sync))),
+        ("thenable", thenable),
+    ];
+    let functions: Vec<_> = cases
+        .iter()
+        .map(|(_, value)| {
+            let ty = FunctionType::new([], [value.ty()]);
+            let value = value.clone();
+            Function::new_async(&mut store, ty, move |_| {
+                let value = value.clone();
+                async move { Ok(vec![value]) }
+            })
+        })
+        .collect();
+    let store = store.into_async();
+    for ((name, value), function) in cases.iter().zip(&functions) {
+        let results = function.call_async(&store, vec![]).await.unwrap();
+        let [result] = &*results else {
+            panic!("{name}: {results:?}");
+        };
+        assert_eq!(result.ty(), value.ty(), "{name}");
+        let lock = store.write_lock().await;
+        let same = js_sys::Object::is(&result.as_jsvalue(&lock), &value.as_jsvalue(&lock));
+        assert!(same, "{name}: {result:?}");
+    }
+    assert!(store.into_store().is_ok());
 }
 
 /// A host function this crate makes reaches the store it was made for

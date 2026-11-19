@@ -143,6 +143,14 @@ thread_local! {
     static STORE_CONTEXT_STACK: RefCell<Vec<StoreContext>> = const { RefCell::new(Vec::new()) };
 }
 
+#[cfg(feature = "unsafe-cothread")]
+thread_local! {
+    /// How many entries of the store context stack lie beneath the
+    /// [`Cothread`] that runs: they belong to the calls of whatever resumed
+    /// it, which the coroutine does not run in.
+    static COTHREAD_BASE: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 impl StoreContext {
     /// Whether `id`'s entry is the active one.
     pub(crate) fn is_active(id: StoreId) -> bool {
@@ -220,7 +228,10 @@ impl StoreContext {
         })
     }
 
-    /// Whether the active entry is `id`'s, held by an async context.
+    /// Whether the active entry is `id`'s, held by an async context that the
+    /// running coroutine can lend: not one beneath a [`Cothread`] that was
+    /// resumed since, whose frames would otherwise borrow the store through
+    /// an entry the coroutine does not take with it when it suspends.
     fn active_is_async(id: StoreId) -> bool {
         STORE_CONTEXT_STACK.with(|cell| {
             let stack = cell.borrow();
@@ -228,6 +239,10 @@ impl StoreContext {
                 return false;
             };
             if top.id != id {
+                return false;
+            }
+            #[cfg(feature = "unsafe-cothread")]
+            if stack.len() <= COTHREAD_BASE.get() {
                 return false;
             }
             match unsafe { top.entry.get().as_ref().unwrap() } {
@@ -259,7 +274,11 @@ impl StoreContext {
     /// re-acquisition re-derives from that guard rather than from a caller's
     /// borrow (see `AsyncCallStoreMut`), so there is no borrow to nest under.
     /// Shadowing it would also hide the guard from async host functions, which
-    /// reach it by inspecting the active entry.
+    /// reach it by inspecting the active entry. One beneath a [`Cothread`]
+    /// that was resumed since is shadowed all the same: the coroutine's calls
+    /// need an entry of their own, which it takes with it when it suspends,
+    /// and the call that holds the guard cannot be suspended from the
+    /// coroutine's stack.
     ///
     /// # Safety
     /// `store_ptr` must be derived from a mutable borrow of the store that
@@ -456,6 +475,14 @@ impl StoreContext {
 /// must be a `Cothread`, and be resumed only through [`Cothread::resume`].
 /// A `Cothread` stays on the thread that made it.
 ///
+/// The coroutine runs on no `Function::call_async` coroutine but those it
+/// starts itself, also when it is resumed from a host function of one: an
+/// async import it calls runs as one called synchronously does, and fails
+/// with `YieldOutsideAsyncContext` if it has to wait. It enters a store that a
+/// call beneath the resume holds, which it may be lent, as a call from a host
+/// function does: with an entry of its own, whichever kind of call holds the
+/// store, which goes with the coroutine when it suspends.
+///
 /// ```ignore
 /// // Safety: the `Coroutine` is owned by the `Cothread`.
 /// let mut cothread = unsafe {
@@ -483,6 +510,12 @@ struct CothreadState {
     entries: Vec<StoreContext>,
     /// The trap handler and active stores of those calls.
     activation: wasmer_vm::ActivationState,
+    /// The `call_async` coroutine the thread runs on, as the coroutine left
+    /// it: none until it starts one of its own. While the coroutine runs,
+    /// that of whatever resumed it, which cannot be suspended from the
+    /// coroutine's stack.
+    #[cfg(feature = "experimental-async")]
+    coroutine: crate::backend::sys::async_runtime::CoroutineSlot,
 }
 
 #[cfg(feature = "unsafe-cothread")]
@@ -525,10 +558,17 @@ impl CothreadState {
             stack.extend(self.entries.drain(..));
             base
         });
+        let outer_base = COTHREAD_BASE.replace(base);
         // Safety: the first of a pair; the guard swaps again as soon as
         // control is back from the coroutine, however it comes back.
         unsafe { self.activation.swap() };
-        InstalledCothreadState { state: self, base }
+        #[cfg(feature = "experimental-async")]
+        self.coroutine.swap();
+        InstalledCothreadState {
+            state: self,
+            base,
+            outer_base,
+        }
     }
 }
 
@@ -540,6 +580,8 @@ struct InstalledCothreadState<'a> {
     state: &'a mut CothreadState,
     /// Where the coroutine's entries start on the store context stack.
     base: usize,
+    /// [`COTHREAD_BASE`] for whatever resumed the coroutine.
+    outer_base: usize,
 }
 
 #[cfg(feature = "unsafe-cothread")]
@@ -547,6 +589,9 @@ impl Drop for InstalledCothreadState<'_> {
     fn drop(&mut self) {
         // Safety: the second of the pair `install` started.
         unsafe { self.state.activation.swap() };
+        #[cfg(feature = "experimental-async")]
+        self.state.coroutine.swap();
+        COTHREAD_BASE.set(self.outer_base);
         // Whatever is left above `base` belongs to the calls the coroutine
         // is suspended in. A coroutine that returned or unwound left nothing
         // behind: each of its calls took its entry and its trap handler off

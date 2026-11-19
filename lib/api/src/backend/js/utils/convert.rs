@@ -130,15 +130,18 @@ impl AsJs for Value {
 
 /// What a guest imports for `extern_`: with `experimental-async`, the
 /// `WebAssembly.Suspending` form of an async host function, and for a
-/// JavaScript function an embedder gave, the function that marks what it
-/// runs; anything else as `as_jsvalue` gives it. `as_jsvalue` gives a single
-/// function in the form JavaScript calls it in, the embedder's own function
-/// for one it gave; an import object, and instantiation, need this one.
+/// JavaScript function an embedder gave, a function that marks what it runs
+/// (see `jspi::import`); anything else as `as_jsvalue` gives it. `as_jsvalue`
+/// gives a single function in the form JavaScript calls it in, the embedder's
+/// own function for one it gave; an import object, and instantiation, need
+/// this one. It is made here, for imports only: what a direct call of the
+/// function returns is read as the function returns it.
 pub(crate) fn import_jsvalue(extern_: &Extern, store: &impl AsStoreRef) -> JsValue {
     match extern_ {
         #[cfg(feature = "experimental-async")]
         Extern::Function(function) => {
-            crate::js::jspi::import(&function.as_js().handle.function.clone().into())
+            let handle = &function.as_js().handle;
+            crate::js::jspi::import(&handle.function.clone().into(), &handle.ty)
         }
         _ => extern_.as_jsvalue(&store.as_store_ref()),
     }
@@ -320,20 +323,19 @@ impl AsJs for Function {
 
     /// Takes the `WebAssembly.Suspending` form of an async host function, as
     /// `as_jsvalue` gives it, for that function. With `experimental-async`, a
-    /// guest calls a JavaScript function given here through one that marks
+    /// guest imports a JavaScript function given here through one that marks
     /// what it runs as entered synchronously: a guest it enters cannot be
     /// suspended, and an async import refuses to before it runs (see
-    /// `Function::call_async`). `as_jsvalue` gives the function itself back.
+    /// `Function::call_async`). That one, as an import object gives it, is
+    /// taken for the function itself, which a direct call calls, and which
+    /// `as_jsvalue` gives back.
     fn from_jsvalue(
         store: &mut impl AsStoreMut,
         function_type: &Self::DefinitionType,
         value: &JsValue,
     ) -> Result<Self, JsError> {
         #[cfg(feature = "experimental-async")]
-        let value = &crate::js::jspi::embedder_function(
-            &crate::js::jspi::host_of(value),
-            function_type,
-        );
+        let value = &crate::js::jspi::host_of(value);
         Self::from_js_function(store, function_type, value)
     }
 }

@@ -1,7 +1,7 @@
 pub(crate) mod env;
 pub(crate) mod numeric;
 pub(crate) mod typed;
-use std::{cell::RefCell, collections::HashMap, marker::PhantomData};
+use std::marker::PhantomData;
 #[cfg(feature = "experimental-async")]
 use std::{future::Future, pin::Pin, rc::Rc, sync::Arc, task::Poll};
 
@@ -651,10 +651,16 @@ impl Function {
                 == AsRef::<JsValue>::as_ref(&*function.handle.function);
             // The guest runs with the write lock, in this span and in every
             // later one. Dropping this future while it waits cancels the call.
-            let result = jspi::Call::enter(&store, write_lock, direct, || {
+            let returned = jspi::Call::enter(&store, write_lock, direct, || {
                 Reflect::apply(&promising, &JsValue::NULL, &arguments)
             })
             .await?;
+            let result = match returned {
+                // What an async host function called directly returned, as
+                // it returned it, which its signature was checked against.
+                jspi::Returned::Host(values) => return Ok(values.into_boxed_slice()),
+                jspi::Returned::Guest(result) => result,
+            };
             let mut write_lock = store.write_lock().await;
             let function_type = &function.handle.ty;
             match function_type.results().len() {
@@ -721,26 +727,76 @@ impl Function {
     }
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(inline_js = r#"
+export function leading1(f, l, arity) {
+  switch (arity) {
+    case 0: return () => f(l);
+    case 1: return (a) => f(l, a);
+    case 2: return (a, b) => f(l, a, b);
+    case 3: return (a, b, c) => f(l, a, b, c);
+    case 4: return (a, b, c, d) => f(l, a, b, c, d);
+    case 5: return (a, b, c, d, e) => f(l, a, b, c, d, e);
+    case 6: return (a, b, c, d, e, g) => f(l, a, b, c, d, e, g);
+    case 7: return (a, b, c, d, e, g, h) => f(l, a, b, c, d, e, g, h);
+    case 8: return (a, b, c, d, e, g, h, i) => f(l, a, b, c, d, e, g, h, i);
+    case 9: return (a, b, c, d, e, g, h, i, j) => f(l, a, b, c, d, e, g, h, i, j);
+    case 10: return (a, b, c, d, e, g, h, i, j, k) => f(l, a, b, c, d, e, g, h, i, j, k);
+    case 11: return (a, b, c, d, e, g, h, i, j, k, n) => f(l, a, b, c, d, e, g, h, i, j, k, n);
+    case 12: return (a, b, c, d, e, g, h, i, j, k, n, o) =>
+      f(l, a, b, c, d, e, g, h, i, j, k, n, o);
+    case 13: return (a, b, c, d, e, g, h, i, j, k, n, o, p) =>
+      f(l, a, b, c, d, e, g, h, i, j, k, n, o, p);
+    case 14: return (a, b, c, d, e, g, h, i, j, k, n, o, p, q) =>
+      f(l, a, b, c, d, e, g, h, i, j, k, n, o, p, q);
+    case 15: return (a, b, c, d, e, g, h, i, j, k, n, o, p, q, r) =>
+      f(l, a, b, c, d, e, g, h, i, j, k, n, o, p, q, r);
+    case 16: return (a, b, c, d, e, g, h, i, j, k, n, o, p, q, r, s) =>
+      f(l, a, b, c, d, e, g, h, i, j, k, n, o, p, q, r, s);
+  }
+}
+export function leading2(f, l, m, arity) {
+  switch (arity) {
+    case 0: return () => f(l, m);
+    case 1: return (a) => f(l, m, a);
+    case 2: return (a, b) => f(l, m, a, b);
+    case 3: return (a, b, c) => f(l, m, a, b, c);
+    case 4: return (a, b, c, d) => f(l, m, a, b, c, d);
+    case 5: return (a, b, c, d, e) => f(l, m, a, b, c, d, e);
+    case 6: return (a, b, c, d, e, g) => f(l, m, a, b, c, d, e, g);
+    case 7: return (a, b, c, d, e, g, h) => f(l, m, a, b, c, d, e, g, h);
+    case 8: return (a, b, c, d, e, g, h, i) => f(l, m, a, b, c, d, e, g, h, i);
+    case 9: return (a, b, c, d, e, g, h, i, j) => f(l, m, a, b, c, d, e, g, h, i, j);
+    case 10: return (a, b, c, d, e, g, h, i, j, k) => f(l, m, a, b, c, d, e, g, h, i, j, k);
+    case 11: return (a, b, c, d, e, g, h, i, j, k, n) =>
+      f(l, m, a, b, c, d, e, g, h, i, j, k, n);
+    case 12: return (a, b, c, d, e, g, h, i, j, k, n, o) =>
+      f(l, m, a, b, c, d, e, g, h, i, j, k, n, o);
+    case 13: return (a, b, c, d, e, g, h, i, j, k, n, o, p) =>
+      f(l, m, a, b, c, d, e, g, h, i, j, k, n, o, p);
+    case 14: return (a, b, c, d, e, g, h, i, j, k, n, o, p, q) =>
+      f(l, m, a, b, c, d, e, g, h, i, j, k, n, o, p, q);
+    case 15: return (a, b, c, d, e, g, h, i, j, k, n, o, p, q, r) =>
+      f(l, m, a, b, c, d, e, g, h, i, j, k, n, o, p, q, r);
+    case 16: return (a, b, c, d, e, g, h, i, j, k, n, o, p, q, r, s) =>
+      f(l, m, a, b, c, d, e, g, h, i, j, k, n, o, p, q, r, s);
+  }
+}
+"#)]
 extern "C" {
-    /// `new Function(parameters, body)`, which a host may forbid.
-    #[wasm_bindgen(js_name = Function)]
-    type EvaluatedFunction;
-    #[wasm_bindgen(constructor, js_class = "Function", catch)]
-    fn new(parameters: &str, body: &str) -> Result<EvaluatedFunction, JsValue>;
+    /// A function of `arity` parameters, up to [`ARROW_ARITY`], that calls
+    /// `f` with `l` and then its own arguments; `undefined` for more. Static
+    /// JavaScript, not made from a string: some hosts forbid that.
+    fn leading1(f: &JsFunction, l: &JsValue, arity: usize) -> JsValue;
+    /// [`leading1`], with two leading arguments.
+    fn leading2(f: &JsFunction, l: &JsValue, m: &JsValue, arity: usize) -> JsValue;
 }
 
-thread_local! {
-    /// What makes the functions of `with_leading_arguments`, by number of
-    /// leading arguments and of parameters. `None` where the host does not
-    /// let functions be made from text.
-    static LEADING_ARGUMENTS: RefCell<HashMap<(usize, usize), Option<JsFunction>>> =
-        RefCell::new(HashMap::new());
-}
+/// The most parameters [`leading1`] and [`leading2`] make a function of.
+const ARROW_ARITY: usize = 16;
 
 /// A function of `arity` parameters that calls `function` with `leading` and
 /// then its own arguments: `function.bind(undefined, ...leading)`, as a plain
-/// arrow function of that many parameters where the host allows making one.
+/// arrow function of that many parameters for up to [`ARROW_ARITY`] of them.
 /// Engines call such an arrow faster than a bound function when the caller is
 /// WebAssembly and `function` is too: JavaScriptCore several times faster.
 fn with_leading_arguments(function: &JsFunction, leading: &[JsValue], arity: usize) -> JsFunction {
@@ -753,28 +809,12 @@ fn arrow_with_leading_arguments(
     leading: &[JsValue],
     arity: usize,
 ) -> Option<JsFunction> {
-    let maker = LEADING_ARGUMENTS.with(|makers| {
-        let mut makers = makers.borrow_mut();
-        let maker = makers.entry((leading.len(), arity)).or_insert_with(|| {
-            let names = |prefix: &str, count: usize| -> Vec<String> {
-                (0..count).map(|index| format!("{prefix}{index}")).collect()
-            };
-            let (leading, arguments) = (names("l", leading.len()), names("a", arity));
-            let parameters = [vec!["f".to_owned()], leading.clone()].concat().join(", ");
-            let all = [leading, arguments.clone()].concat().join(", ");
-            let body = format!("return ({}) => f({all});", arguments.join(", "));
-            Some(
-                EvaluatedFunction::new(&parameters, &body)
-                    .ok()?
-                    .unchecked_into(),
-            )
-        });
-        maker.clone()
-    })?;
-    let mut arguments = Array::of1(function);
-    arguments.extend(leading.iter().cloned());
-    let made = maker.apply(&JsValue::UNDEFINED, &arguments).ok()?;
-    Some(made.unchecked_into())
+    let made = match leading {
+        [l] => leading1(function, l, arity),
+        [l, m] => leading2(function, l, m, arity),
+        _ => unreachable!("typed host functions have one or two leading arguments"),
+    };
+    made.dyn_into().ok()
 }
 
 fn bound_with_leading_arguments(function: &JsFunction, leading: &[JsValue]) -> JsFunction {
@@ -791,9 +831,36 @@ mod tests {
     use super::*;
     use wasm_bindgen_test::wasm_bindgen_test;
 
+    #[wasm_bindgen(inline_js = r#"
+    export function countFunctionsFromText() {
+      const original = globalThis.Function;
+      const counter = { count: 0, restore() { globalThis.Function = original; } };
+      globalThis.Function = new Proxy(original, {
+        construct(target, args, newTarget) {
+          counter.count++;
+          return Reflect.construct(target, args, newTarget);
+        },
+        apply(target, receiver, args) {
+          counter.count++;
+          return Reflect.apply(target, receiver, args);
+        },
+      });
+      return counter;
+    }
+    "#)]
+    extern "C" {
+        /// Counts the functions made from text, with `Function`, until
+        /// `restore` is called.
+        #[wasm_bindgen(js_name = countFunctionsFromText)]
+        fn count_functions_from_text() -> JsValue;
+    }
+
     /// The arrow that stands in for a bound function passes the same
-    /// arguments in the same order, whatever their number and kind. A host
-    /// that does not make functions from text gets the bound function.
+    /// arguments in the same order, whatever their number and kind, up to
+    /// the most it is made for, and one is made for every number up to that;
+    /// for more, the bound function stands for itself. Nothing is made from
+    /// text: the hosts that forbid it, and report every attempt, make the
+    /// same arrows.
     #[wasm_bindgen_test]
     fn an_arrow_with_leading_arguments_calls_as_a_bound_function_does() {
         let to_string: JsFunction = js_sys::Reflect::get(&js_sys::global(), &"String".into())
@@ -808,9 +875,10 @@ mod tests {
         }) as Box<dyn Fn(Array) -> JsValue>)
         .into_js_value();
         let join = variadic(&join);
+        let counter = count_functions_from_text();
         let leading = [JsValue::from(-1), JsValue::from(2.5)];
         for leading in [&leading[..1], &leading[..]] {
-            for arity in [0, 1, 3, 26] {
+            for arity in 0..=ARROW_ARITY + 2 {
                 let arguments = Array::new();
                 for index in 0..arity {
                     arguments.push(&match index % 3 {
@@ -824,15 +892,21 @@ mod tests {
                     joined.unwrap().as_string().unwrap()
                 };
                 let Some(arrow) = arrow_with_leading_arguments(&join, leading, arity) else {
-                    assert!(js_sys::eval("0").is_err(), "this host makes functions from text");
-                    return;
+                    assert!(arity > ARROW_ARITY, "no arrow of {arity} parameters");
+                    continue;
                 };
+                assert!(arity <= ARROW_ARITY, "an arrow of {arity} parameters");
+                assert_eq!(arrow.length() as usize, arity);
                 let arrow = call(&arrow);
                 assert_eq!(arrow, call(&bound_with_leading_arguments(&join, leading)));
                 assert_eq!(arrow.split(' ').count(), leading.len() + arity);
                 assert!(arrow.starts_with("-1"), "{arrow}");
             }
         }
+        let made = js_sys::Reflect::get(&counter, &"count".into()).unwrap();
+        let restore = js_sys::Reflect::get(&counter, &"restore".into()).unwrap();
+        restore.unchecked_into::<JsFunction>().call0(&counter).unwrap();
+        assert_eq!(made.as_f64(), Some(0.0), "functions were made from text");
     }
 }
 

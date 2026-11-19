@@ -126,6 +126,29 @@ thread_local! {
     static CURRENT_COROUTINE: Cell<*const CoroutineContext> = const { Cell::new(ptr::null()) };
 }
 
+/// A [`CURRENT_COROUTINE`] while it is off the thread: that of a coroutine
+/// that is not running, kept for when it runs again, or the thread's own,
+/// kept while the coroutine runs. Empty at first: a coroutine that has not
+/// started runs on no `call_async` coroutine, whatever the thread that starts
+/// it runs on, and a host function on its stack must not suspend that one
+/// from there.
+pub(crate) struct CoroutineSlot(*const CoroutineContext);
+
+impl Default for CoroutineSlot {
+    fn default() -> Self {
+        Self(ptr::null())
+    }
+}
+
+impl CoroutineSlot {
+    /// Exchanges the slot with the thread's [`CURRENT_COROUTINE`]: once when
+    /// the thread switches to the coroutine the slot belongs to, and again
+    /// when it switches back.
+    pub(crate) fn swap(&mut self) {
+        CURRENT_COROUTINE.with(|cell| self.0 = cell.replace(self.0));
+    }
+}
+
 /// The thread-local state that belongs to one `call_async`: kept here while
 /// its coroutine is suspended, and exchanged with the thread's by
 /// [`AsyncCallFuture::switch_to_coroutine`], the only place where the thread
@@ -139,7 +162,7 @@ struct Activation {
     /// registry's active stores.
     vm: ActivationState,
     /// [`CURRENT_COROUTINE`].
-    coroutine: *const CoroutineContext,
+    coroutine: CoroutineSlot,
 }
 
 impl Activation {
@@ -147,7 +170,7 @@ impl Activation {
     /// See [`ActivationState::swap`].
     unsafe fn swap(&mut self) {
         unsafe { self.vm.swap() };
-        CURRENT_COROUTINE.with(|cell| self.coroutine = cell.replace(self.coroutine));
+        self.coroutine.swap();
     }
 }
 
@@ -231,7 +254,7 @@ impl AsyncCallFuture {
             store,
             activation: Activation {
                 vm: ActivationState::new(),
-                coroutine: ptr::null(),
+                coroutine: CoroutineSlot::default(),
             },
         }
     }
@@ -259,7 +282,7 @@ impl AsyncCallFuture {
                 if !self.suspended {
                     // The coroutine returned or was unwound: nothing may be
                     // left pointing into a stack that is gone.
-                    self.activation.coroutine = ptr::null();
+                    self.activation.coroutine = CoroutineSlot::default();
                     debug_assert!(self.activation.vm.is_empty());
                 }
             }

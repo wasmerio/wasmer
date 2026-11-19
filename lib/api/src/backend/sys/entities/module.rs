@@ -198,6 +198,19 @@ impl Module {
                 objects.as_sys_mut(),
             )?;
 
+            let store_id = objects.id();
+            // Before the store takes the instance: one refused here has put
+            // nothing anywhere, and is dropped.
+            #[cfg(feature = "experimental-host-interrupt")]
+            let interrupt_guard = match interrupt_registry::install(store_id) {
+                Ok(x) => x,
+                Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
+                    return Err(InstantiationError::Start(
+                        Trap::lib(TrapCode::HostInterrupt).into(),
+                    ));
+                }
+            };
+
             // The store owns the instance from here on, also if finishing it
             // fails or unwinds: its elements may put its functions into tables
             // of the store, and an unwind, through a host panic or the
@@ -208,17 +221,6 @@ impl Module {
             let handle = StoreHandle::new(objects.as_sys_mut(), instance_handle);
             let mut instance =
                 std::mem::ManuallyDrop::new(std::ptr::read(handle.get(objects.as_sys())));
-
-            let store_id = objects.id();
-            #[cfg(feature = "experimental-host-interrupt")]
-            let interrupt_guard = match interrupt_registry::install(store_id) {
-                Ok(x) => x,
-                Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                    return Err(InstantiationError::Start(
-                        Trap::lib(TrapCode::HostInterrupt).into(),
-                    ));
-                }
-            };
 
             let store_install_guard = StoreContext::install(store_ptr);
 

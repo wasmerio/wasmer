@@ -268,6 +268,209 @@ fn dropped_where_its_store_is_in_use(ending_name: &str) {
     assert!(no_store_context_left());
 }
 
+/// A coroutine resumed from a host function of a call that `call_async`
+/// runs: it runs on its own stack, not on the call's coroutine.
+#[cfg(feature = "experimental-async")]
+mod inside_call_async {
+    use std::{
+        cell::Cell,
+        future::Future,
+        pin::{Pin, pin},
+        task::{Context, Poll, Waker},
+    };
+
+    use wasmer::{AsStoreMut, FunctionType, StoreAsync, StoreMut};
+
+    use super::*;
+
+    const WAT: &str = r#"
+    (module
+      (import "h" "resume" (func $resume))
+      (import "h" "wait" (func $wait))
+      (import "h" "suspend" (func $suspend))
+      ;; Starts the coroutine, then waits in an async import itself.
+      (func (export "outer") (result i32)
+        (call $resume)
+        (call $wait)
+        (i32.const 1))
+      (func (export "waits") (result i32)
+        (call $wait)
+        (i32.const 42))
+      (func (export "suspends") (result i32)
+        (call $suspend)
+        (i32.const 42)))
+    "#;
+
+    /// Pending once.
+    struct YieldOnce(bool);
+    impl Future for YieldOnce {
+        type Output = ();
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+            if std::mem::replace(&mut self.0, true) {
+                return Poll::Ready(());
+            }
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }
+
+    /// Polls `future` until it is ready: what it waits for is ready when it
+    /// is polled again.
+    fn drive<F: Future>(future: F) -> F::Output {
+        let mut future = pin!(future);
+        let mut cx = Context::from_waker(Waker::noop());
+        loop {
+            if let Poll::Ready(output) = future.as_mut().poll(&mut cx) {
+                return output;
+            }
+        }
+    }
+
+    /// What the coroutine does.
+    #[derive(Clone)]
+    enum Run {
+        /// Calls an export of the store of the call that resumes it.
+        Export(TypedFunction<(), i32>),
+        /// Calls, with `call_async`, `suspends` of the store in [`SECOND`].
+        Second,
+    }
+
+    thread_local! {
+        static SUSPEND: Cell<*const Suspend> = const { Cell::new(ptr::null()) };
+        static COTHREAD: RefCell<Option<Cothread<Call>>> = const { RefCell::new(None) };
+        static RETURNED: RefCell<Option<Result<i32, RuntimeError>>> = const { RefCell::new(None) };
+        static SECOND: RefCell<Option<(StoreAsync, TypedFunction<(), i32>)>> =
+            const { RefCell::new(None) };
+    }
+
+    fn suspend_import(store: &mut Store) -> Function {
+        Function::new_typed(store, || {
+            // Safety: set by the coroutine, which this suspends.
+            unsafe { &*SUSPEND.get() }.suspend(())
+        })
+    }
+
+    /// A store whose `outer` starts a coroutine that does `run`, given the
+    /// name of an export or none, and keeps it if it suspends.
+    fn guest(run: Option<&str>) -> (StoreAsync, Function) {
+        struct Runs(Option<Run>);
+        let mut store = Store::default();
+        let env = FunctionEnv::new(&mut store, Runs(None));
+        let resume =
+            Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<Runs>| {
+                let run = env.data().0.clone().unwrap_or(Run::Second);
+                // Safety: the store outlives the coroutine, which uses it
+                // while nothing else does.
+                let mut store: StoreMut<'static> =
+                    unsafe { std::mem::transmute(env.as_store_mut()) };
+                let coroutine = Coroutine::new(move |suspend: &Suspend, ()| {
+                    SUSPEND.set(suspend);
+                    match run {
+                        Run::Export(export) => export.call(&mut store),
+                        Run::Second => SECOND.with_borrow(|second| {
+                            let (store, suspends) = second.as_ref().unwrap();
+                            drive(suspends.call_async(store))
+                        }),
+                    }
+                });
+                // Safety: the `Cothread` owns the `Coroutine`.
+                let mut cothread = unsafe { Cothread::new(coroutine) };
+                // Safety: resumes the coroutine, on the thread that made it.
+                match unsafe { cothread.resume(|coroutine| coroutine.resume(())) } {
+                    CoroutineResult::Return(result) => RETURNED.set(Some(result)),
+                    CoroutineResult::Yield(()) => COTHREAD.set(Some(cothread)),
+                }
+            });
+        let wait = Function::new_async(&mut store, FunctionType::new([], []), |_| async {
+            YieldOnce(false).await;
+            Ok(vec![])
+        });
+        let module = Module::new(&store, WAT).unwrap();
+        let imports = imports! { "h" => {
+            "resume" => resume,
+            "wait" => wait,
+            "suspend" => suspend_import(&mut store),
+        } };
+        let instance = Instance::new(&mut store, &module, &imports).unwrap();
+        let get = |name: &str| instance.exports.get_typed_function(&store, name).unwrap();
+        env.as_mut(&mut store).0 = run.map(|name| Run::Export(get(name)));
+        let outer = instance.exports.get_function("outer").unwrap().clone();
+        (store.into_async(), outer)
+    }
+
+    /// Runs `outer` with `call_async`: it returns once the coroutine has
+    /// returned or suspended, and its own async import has waited.
+    fn run_outer(store: &StoreAsync, outer: &Function) {
+        let results = drive(outer.call_async(store, vec![])).unwrap();
+        assert_eq!(results[0].unwrap_i32(), 1);
+    }
+
+    /// Resumes the coroutine `outer` left suspended, at the top of the
+    /// thread, to its end.
+    fn finish_coroutine() -> Result<i32, RuntimeError> {
+        let mut cothread = COTHREAD.take().expect("the coroutine suspended");
+        // Safety: resumes the coroutine, on the thread that made it.
+        match unsafe { cothread.resume(|coroutine| coroutine.resume(())) } {
+            CoroutineResult::Return(result) => result,
+            CoroutineResult::Yield(()) => panic!("the coroutine suspended again"),
+        }
+    }
+
+    pub(super) fn run(scenario: &str) {
+        match scenario {
+            // An async import the coroutine calls cannot suspend the call
+            // that resumed it, from the coroutine's stack: it waits, and so
+            // fails as in a synchronous call.
+            "async_import" => {
+                let (store, outer) = guest(Some("waits"));
+                run_outer(&store, &outer);
+                let error = RETURNED.take().expect("returned").unwrap_err();
+                assert_eq!(error.to_trap(), Some(TrapCode::YieldOutsideAsyncContext));
+            }
+            // The coroutine suspends inside a call on the store the call that
+            // resumed it holds: what its frames borrow goes with it, and the
+            // call goes on, suspends and returns without it. The coroutine is
+            // then resumed to its end.
+            "suspended" => {
+                let (store, outer) = guest(Some("suspends"));
+                run_outer(&store, &outer);
+                assert!(RETURNED.with_borrow(Option::is_none));
+                assert_eq!(finish_coroutine().unwrap(), 42);
+                drop(store);
+            }
+            // The coroutine suspends inside a `call_async` coroutine it runs
+            // itself, on another store: the call that resumed it is on its
+            // own coroutine again when it goes on, and suspends there.
+            "nested_call_async" => {
+                let mut second = Store::default();
+                let module = Module::new(
+                    &second,
+                    r#"(module
+                      (import "h" "suspend" (func $suspend))
+                      (func (export "suspends") (result i32)
+                        (call $suspend)
+                        (i32.const 42)))"#,
+                )
+                .unwrap();
+                let imports = imports! { "h" => { "suspend" => suspend_import(&mut second) } };
+                let instance = Instance::new(&mut second, &module, &imports).unwrap();
+                let suspends = instance
+                    .exports
+                    .get_typed_function(&second, "suspends")
+                    .unwrap();
+                SECOND.set(Some((second.into_async(), suspends)));
+                let (store, outer) = guest(None);
+                run_outer(&store, &outer);
+                assert!(RETURNED.with_borrow(Option::is_none));
+                assert_eq!(finish_coroutine().unwrap(), 42);
+                drop(SECOND.take());
+            }
+            other => panic!("unknown scenario {other}"),
+        }
+        assert!(no_store_context_left());
+    }
+}
+
 const SCENARIO_ENV: &str = "WASMER_COTHREAD_SCENARIO";
 const SCENARIO_COMPLETED: &str = "scenario completed:";
 const SCENARIO_TIMEOUT: Duration = Duration::from_secs(60);
@@ -287,6 +490,8 @@ fn child_scenario() {
         "drop_inside" => from_inside_another_host_function("drop", ending),
         "resume_inside" => from_inside_another_host_function("resume", ending),
         "dropped_in_use" => dropped_where_its_store_is_in_use(ending),
+        #[cfg(feature = "experimental-async")]
+        "inside_call_async" => inside_call_async::run(ending),
         other => panic!("unknown scenario {other}"),
     }
     println!("{SCENARIO_COMPLETED} {scenario}");
@@ -393,4 +598,27 @@ fn a_coroutine_can_be_resumed_from_another_ones_host_function() {
 #[test]
 fn a_coroutine_dropped_where_its_store_is_in_use_is_forgotten() {
     run_children("dropped_in_use");
+}
+
+/// A coroutine resumed from a host function of a call that `call_async`
+/// runs is not on that call's coroutine: an async import it calls does not
+/// suspend that call, from the coroutine's stack; a call of the coroutine on
+/// that call's store borrows it through an entry of its own, which goes with
+/// the coroutine when it suspends; and a `call_async` coroutine it suspends
+/// in goes with it too.
+#[cfg(feature = "experimental-async")]
+#[test]
+fn a_coroutine_resumed_inside_call_async_runs_on_its_own() {
+    let mut failures = Vec::new();
+    for scenario in ["async_import", "suspended", "nested_call_async"] {
+        let scenario = format!("inside_call_async:{scenario}");
+        match run_child(&scenario) {
+            Ok(()) => eprintln!("{scenario}: ok"),
+            Err(how) => {
+                eprintln!("{scenario}: {how}");
+                failures.push(scenario);
+            }
+        }
+    }
+    assert!(failures.is_empty(), "failed: {failures:?}");
 }

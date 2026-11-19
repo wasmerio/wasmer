@@ -389,7 +389,11 @@ impl Function {
     /// On the `js` backend the engine suspends the guest's stack (JSPI). A
     /// function that is neither a WebAssembly function nor an async host
     /// function, a synchronous host function or JavaScript an embedder gave,
-    /// is called as [`Function::call`] calls it. The
+    /// is called as [`Function::call`] calls it, and an async host function
+    /// called directly returns the values its future returned, as they are.
+    /// The first call on a thread compiles a small WebAssembly module, whose
+    /// trap unwinds a guest that must not run again: on a host that refuses
+    /// to compile it, the call fails before it enters anything. The
     /// call holds the store's write lock while its guest runs, and gives it
     /// up while the guest waits in an async host function. Dropping the call
     /// while its guest waits unwinds the guest, which runs no more code, and

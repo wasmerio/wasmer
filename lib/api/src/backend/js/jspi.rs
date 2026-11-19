@@ -9,7 +9,8 @@
 //!   which a guest imports as a `WebAssembly.Suspending` function. Its body,
 //!   [`start`], runs on the guest's stack: it keeps the host future, and
 //!   returns the promise the guest waits on. Called directly by `call_async`,
-//!   the function itself stands for the guest's promising function.
+//!   the function itself stands for the guest's promising function, and the
+//!   call returns what the host future returned, as it is.
 //! * The store's write lock is held by the activation while its guest runs:
 //!   taken by the call, given up once the guest waits, and taken back before
 //!   the guest is woken with its results. The store is free while the guest
@@ -94,6 +95,9 @@ enum State {
 struct Activation {
     token: i32,
     store_id: StoreId,
+    /// The call is of an async host function, which it calls itself: no
+    /// guest is given its results, which the call returns as they are.
+    direct: bool,
     state: Cell<State>,
     /// The call was dropped: its guest must not run again.
     cancelled: Cell<bool>,
@@ -105,6 +109,8 @@ struct Activation {
     import: RefCell<Option<ImportFuture>>,
     /// The results of the import, while the guest waits for its store.
     results: RefCell<Option<Vec<Value>>>,
+    /// The results of the host function of a direct call, as it returned them.
+    returned: RefCell<Option<Vec<Value>>>,
     /// Takes the store back for the guest, when it was not free.
     relock: RefCell<Option<LockFuture>>,
     /// The error of a host function, kept as it is across the guest's trap.
@@ -152,6 +158,8 @@ thread_local! {
     /// The activation of a direct call of an async host function, while
     /// [`Call::enter`] calls it: the body runs for that call, and no other.
     static DIRECT: RefCell<Option<Rc<Activation>>> = const { RefCell::new(None) };
+    /// The error of a trap was made: see [`prepare_trap`].
+    static TRAP_READY: Cell<bool> = const { Cell::new(false) };
     /// Hands the JavaScript half its Rust callbacks, once per thread.
     static SHIM: () = shim_init(
         &Closure::wrap(Box::new(done) as Box<dyn Fn(i32, i32, JsValue)>).into_js_value(),
@@ -172,6 +180,9 @@ thread_local! {
 // error of a trap. A trap's error is the one thing a guest's exception
 // handlers do not catch, also when JavaScript throws it; the module that
 // makes one is a constant, `(module (func (export "trap") unreachable))`.
+// It is made before the first guest is entered: a host may refuse to compile
+// WebAssembly after it compiled the guest, and the call then fails before it
+// enters it, rather than when its guest has to be unwound.
 //
 // A guest suspended at a `WebAssembly.Suspending` import resumes in a
 // microtask once its promise is resolved. A microtask queued two hops after
@@ -183,14 +194,18 @@ const pendingWakes = [], pendingValues = [];
 export function jspiInit(d, c, m) {
   done = d; check = c; mark = m;
 }
+export function jspiPrepareTrap() {
+  if (trapError !== undefined) return;
+  const bytes = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0,
+    7, 8, 1, 4, 116, 114, 97, 112, 0, 0, 10, 5, 1, 3, 0, 0, 11]);
+  const { trap } = new WebAssembly.Instance(new WebAssembly.Module(bytes)).exports;
+  try { trap(); } catch (error) { trapError = error; }
+}
 export function jspiTrapError() {
-  if (trapError === undefined) {
-    const bytes = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0,
-      7, 8, 1, 4, 116, 114, 97, 112, 0, 0, 10, 5, 1, 3, 0, 0, 11]);
-    const { trap } = new WebAssembly.Instance(new WebAssembly.Module(bytes)).exports;
-    try { trap(); } catch (error) { trapError = error; }
-  }
   return trapError;
+}
+export function jspiForgetTrap() {
+  trapError = undefined;
 }
 const suspendingOf = new WeakMap(), hostOf = new WeakMap(), storeOf = new WeakMap();
 export function jspiHost(start, array, store) {
@@ -205,16 +220,16 @@ export function jspiOwn(value, store) {
   storeOf.set(value, store);
 }
 export function jspiOwner(value) {
-  return storeOf.get(embedderOf.get(value) ?? value);
+  return storeOf.get(value);
 }
 export function jspiHostOf(value) {
-  return hostOf.get(value) ?? value;
+  return hostOf.get(value) ?? embedderOf.get(value) ?? value;
 }
 export function jspiIsHost(value) {
   return suspendingOf.has(value);
 }
-export function jspiImport(value) {
-  return suspendingOf.get(value) ?? value;
+export function jspiImport(value, kinds) {
+  return suspendingOf.get(value) ?? embedderFunction(value, kinds);
 }
 const apply = Reflect.apply, markedOf = new WeakMap(), embedderOf = new WeakMap();
 const wasmFunctions = new WeakSet();
@@ -240,10 +255,13 @@ function tuple(values) {
   const results = { __proto__: null, next };
   return { __proto__: null, [iterator]: () => results };
 }
-export function jspiEmbedderFunction(value, kinds) {
-  if (typeof value !== "function" || suspendingOf.has(value)) return value;
-  // A function this made, given back: the embedder's own, for these results.
-  value = embedderOf.get(value) ?? value;
+// What a guest imports for a JavaScript function an embedder gave: one that
+// marks what it runs, converting the results inside the marked region. Only
+// imports are given it: a direct call of the function reads what the
+// function returns itself.
+function embedderFunction(value, kinds) {
+  // The functions this crate makes mark what they run themselves.
+  if (typeof value !== "function" || storeOf.has(value)) return value;
   let byKinds = markedOf.get(value);
   let marked = byKinds?.get(kinds);
   if (marked === undefined) {
@@ -277,7 +295,7 @@ export function jspiIsWasmFunction(value) {
   return isWasmFunction(value);
 }
 export function jspiPublic(value) {
-  return suspendingOf.get(value) ?? embedderOf.get(value) ?? value;
+  return suspendingOf.get(value) ?? value;
 }
 export function jspiWait(token) {
   return new Promise((resolve, reject) => { resolvers[token] = resolve; rejecters[token] = reject; });
@@ -290,7 +308,7 @@ export function jspiWake(token, value) {
 export function jspiUnwind(token) {
   const reject = rejecters[token];
   resolvers[token] = rejecters[token] = undefined;
-  if (reject !== undefined) reject(jspiTrapError());
+  if (reject !== undefined) reject(trapError);
 }
 export function jspiWakeLater(token, value) {
   const wake = ++wakes;
@@ -333,8 +351,14 @@ export function jspiSettle(promise, token) {
 extern "C" {
     #[wasm_bindgen(js_name = jspiInit)]
     fn shim_init(done: &JsValue, check: &JsValue, mark: &JsValue);
+    #[wasm_bindgen(js_name = jspiPrepareTrap, catch)]
+    fn shim_prepare_trap() -> Result<(), JsValue>;
     #[wasm_bindgen(js_name = jspiTrapError)]
     fn trap_error() -> JsValue;
+    /// Forgets the error of a trap, for it to be made again.
+    #[cfg(test)]
+    #[wasm_bindgen(js_name = jspiForgetTrap)]
+    fn shim_forget_trap();
     #[wasm_bindgen(js_name = jspiHost)]
     fn shim_host(start: &JsValue, array: bool, store: f64) -> Function;
     #[wasm_bindgen(js_name = jspiOwn)]
@@ -346,11 +370,9 @@ extern "C" {
     #[wasm_bindgen(js_name = jspiIsHost)]
     fn shim_is_host(value: &JsValue) -> bool;
     #[wasm_bindgen(js_name = jspiImport)]
-    fn shim_import(value: &JsValue) -> JsValue;
+    fn shim_import(value: &JsValue, kinds: &str) -> JsValue;
     #[wasm_bindgen(js_name = jspiHostOf)]
     fn shim_host_of(value: &JsValue) -> JsValue;
-    #[wasm_bindgen(js_name = jspiEmbedderFunction)]
-    fn shim_embedder_function(value: &JsValue, kinds: &str) -> JsValue;
     #[wasm_bindgen(js_name = jspiPublic)]
     fn shim_public(value: &JsValue) -> JsValue;
     #[wasm_bindgen(js_name = jspiWait)]
@@ -490,29 +512,20 @@ pub(crate) fn foreign_store_error() -> RuntimeError {
     RuntimeError::new("a host function was called with a store it does not belong to")
 }
 
-/// What a guest imports for `value`: the `WebAssembly.Suspending` form of an
-/// async host function, and anything else as it is. This is what a function
-/// is given to JavaScript as: the function itself returns a promise to a
-/// guest that calls it, and fails outside of one.
-pub(crate) fn import(value: &JsValue) -> JsValue {
-    shim_import(value)
-}
-
-/// The async host function whose `WebAssembly.Suspending` form `value` is, as
-/// [`import`] gives it; anything else as it is.
-pub(crate) fn host_of(value: &JsValue) -> JsValue {
-    shim_host_of(value)
-}
-
-/// A JavaScript function an embedder gives, `value`, as a guest is to call
-/// it with the type `ty`: a function that marks what it runs as entered
+/// What a guest imports for `value`, a function of the type `ty`: the
+/// `WebAssembly.Suspending` form of an async host function; for a JavaScript
+/// function an embedder gave, a function that marks what it runs as entered
 /// synchronously (see [`suspendable`]), calls `value` with its receiver and
 /// arguments, and makes of what it returns the primitives the engine takes
-/// for the results of `ty`. All the JavaScript the call runs, the engine's
-/// conversion of the results included (`valueOf`, iteration), runs marked.
-/// The same one for the same function and results. WebAssembly functions,
-/// and the functions of this crate, are given as they are.
-pub(crate) fn embedder_function(value: &JsValue, ty: &FunctionType) -> JsValue {
+/// for the results of `ty`, so that all the JavaScript the call runs, the
+/// engine's conversion of the results included (`valueOf`, iteration), runs
+/// marked; anything else, a WebAssembly function or a host function of this
+/// crate, which marks what it runs itself, as it is.
+///
+/// Only a guest is given that function, the same one for the same function
+/// and results: a direct call of `value` reads what it returns itself, as an
+/// array of several results, and converts it as a direct call does.
+pub(crate) fn import(value: &JsValue, ty: &FunctionType) -> JsValue {
     SHIM.with(|_| ());
     // The conversion each result takes from the engine: to a number, to a
     // BigInt, or none, which runs no JavaScript.
@@ -525,7 +538,15 @@ pub(crate) fn embedder_function(value: &JsValue, ty: &FunctionType) -> JsValue {
             _ => 'r',
         })
         .collect();
-    shim_embedder_function(value, &kinds)
+    shim_import(value, &kinds)
+}
+
+/// The function `value` stands for, given to this crate: the async host
+/// function whose `WebAssembly.Suspending` form it is, as [`public`] gives
+/// it, or the embedder's own function for one [`import`] made; anything else
+/// as it is.
+pub(crate) fn host_of(value: &JsValue) -> JsValue {
+    shim_host_of(value)
 }
 
 /// Whether `function` is a WebAssembly function, or an async host function:
@@ -536,8 +557,8 @@ pub(crate) fn enters_a_guest(function: &JsValue) -> bool {
 }
 
 /// What a function is given to JavaScript as: the `WebAssembly.Suspending`
-/// form of an async host function, and the embedder's own function for one
-/// [`embedder_function`] made.
+/// form of an async host function, which is what works outside a guest
+/// Wasmer instantiated, and anything else as it is.
 pub(crate) fn public(value: &JsValue) -> JsValue {
     shim_public(value)
 }
@@ -663,14 +684,17 @@ impl Activation {
             }
             match outcome {
                 Poll::Ready(Ok(results)) => {
-                    let deliverable = deliverable(&results);
-                    if self.state.get() != State::Waiting {
-                        // Reading the results dropped the call.
-                        return;
-                    }
-                    if let Err(error) = deliverable {
-                        *self.error.borrow_mut() = Some(error);
-                        return self.unwind();
+                    // A direct call returns them as they are, to no guest.
+                    if !self.direct {
+                        let deliverable = deliverable(&results);
+                        if self.state.get() != State::Waiting {
+                            // Reading the results dropped the call.
+                            return;
+                        }
+                        if let Err(error) = deliverable {
+                            *self.error.borrow_mut() = Some(error);
+                            return self.unwind();
+                        }
                     }
                     *self.results.borrow_mut() = Some(results);
                 }
@@ -707,10 +731,17 @@ impl Activation {
         }
     }
 
-    /// Wakes the guest with the results of its import, with its store.
+    /// Wakes the guest with the results of its import, with its store. Those
+    /// of a direct call are kept for the call, which returns them as they are:
+    /// JavaScript would take some for others, or not take them at all.
     fn resume(self: &Rc<Self>, lock: StoreAsyncWriteLock, now: bool) {
         let values = self.results.take().unwrap_or_default();
-        let value = results(&values, &lock);
+        let value = if self.direct {
+            *self.returned.borrow_mut() = Some(values);
+            JsValue::UNDEFINED
+        } else {
+            results(&values, &lock)
+        };
         self.switch_in(lock);
         self.accepted.set(false);
         self.wake(&value, now);
@@ -871,6 +902,24 @@ fn done(token: i32, rejected: i32, value: JsValue) {
     }
 }
 
+/// Makes the error of a trap, the first time: compiling its module is the one
+/// thing an unwind needs that can fail.
+fn prepare_trap() -> Result<(), JsValue> {
+    if !TRAP_READY.get() {
+        shim_prepare_trap()?;
+        TRAP_READY.set(true);
+    }
+    Ok(())
+}
+
+/// What a call returns.
+pub(crate) enum Returned {
+    /// What the promise of the guest settled with.
+    Guest(JsValue),
+    /// What the host function of a direct call returned.
+    Host(Vec<Value>),
+}
+
 /// The caller's side of an activation. Dropping it cancels the call.
 pub(crate) struct Call(Rc<Activation>);
 
@@ -880,6 +929,9 @@ impl Call {
     ///
     /// With `direct`, `enter` calls an async host function itself, which
     /// returns the promise it waits on as a guest would.
+    ///
+    /// The error of a trap, which unwinds a guest, is made first: the call
+    /// fails without entering anything if it cannot be.
     pub(crate) fn enter(
         store: &StoreAsync,
         lock: StoreAsyncWriteLock,
@@ -896,12 +948,14 @@ impl Call {
             let activation = Rc::new(Activation {
                 token,
                 store_id: store.id,
+                direct,
                 state: Cell::new(State::Running),
                 cancelled: Cell::new(false),
                 store: RefCell::new(Some(store.store())),
                 lock: RefCell::new(None),
                 import: RefCell::new(None),
                 results: RefCell::new(None),
+                returned: RefCell::new(None),
                 relock: RefCell::new(None),
                 error: RefCell::new(None),
                 result: RefCell::new(None),
@@ -919,14 +973,23 @@ impl Call {
         // A promising function returns a promise, or throws before it enters
         // the guest. The reaction is attached here, before anything else can
         // run: a rejection nobody handles ends the process on some hosts.
-        let entered = {
-            let _entered = enter_async();
-            if direct {
-                DIRECT.with(|slot| *slot.borrow_mut() = Some(activation.clone()));
+        let entered = match prepare_trap() {
+            Ok(()) => {
+                let _entered = enter_async();
+                if direct {
+                    DIRECT.with(|slot| *slot.borrow_mut() = Some(activation.clone()));
+                }
+                let entered = enter();
+                DIRECT.with(|slot| slot.borrow_mut().take());
+                entered
             }
-            let entered = enter();
-            DIRECT.with(|slot| slot.borrow_mut().take());
-            entered
+            Err(error) => {
+                *activation.error.borrow_mut() = Some(RuntimeError::new(format!(
+                    "the error of a trap, which unwinds a guest, cannot be made: {}",
+                    RuntimeError::from(error).message()
+                )));
+                Err(JsValue::UNDEFINED)
+            }
         };
         match entered {
             Ok(promise) => shim_settle(&promise, activation.token),
@@ -946,7 +1009,7 @@ impl Call {
 }
 
 impl Future for Call {
-    type Output = Result<JsValue, RuntimeError>;
+    type Output = Result<Returned, RuntimeError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let activation = &self.0;
@@ -958,10 +1021,14 @@ impl Future for Call {
         }
         activation.drive(cx, false);
         match activation.result.take() {
-            Some(result) => Poll::Ready(result.map_err(|error| {
-                // The trap of a failed host function stands for its error.
-                activation.error.take().unwrap_or_else(|| error.into())
+            Some(Ok(value)) => Poll::Ready(Ok(match activation.returned.take() {
+                Some(values) => Returned::Host(values),
+                None => Returned::Guest(value),
             })),
+            // The trap of a failed host function stands for its error.
+            Some(Err(error)) => {
+                Poll::Ready(Err(activation.error.take().unwrap_or_else(|| error.into())))
+            }
             None => Poll::Pending,
         }
     }
@@ -1101,6 +1168,70 @@ mod tests {
         assert_eq!(live(), (1, 1), "returned without waiting");
         assert_eq!(call.await.unwrap().to_vec(), [Value::I32(7)]);
         assert_eq!(live(), (0, 0));
+    }
+
+    #[wasm_bindgen(inline_js = r#"
+    let compile;
+    export function denyCompilation(deny) {
+      if (deny) {
+        compile = WebAssembly.Module;
+        WebAssembly.Module = function () {
+          throw new WebAssembly.CompileError("compilation denied");
+        };
+      } else {
+        WebAssembly.Module = compile;
+      }
+    }
+    "#)]
+    extern "C" {
+        /// Has `new WebAssembly.Module` throw, as in a host that compiled the
+        /// guest and refuses to compile anything since, or not.
+        #[wasm_bindgen(js_name = denyCompilation)]
+        fn deny_compilation(deny: bool);
+    }
+
+    /// A host may refuse to compile WebAssembly once the guest is compiled.
+    /// The error of a trap, which unwinds a guest, is then made before a call
+    /// enters anything, and a call that cannot make it fails there, with its
+    /// store free, rather than when its guest has to be unwound, as one whose
+    /// host function fails does, past every handler.
+    #[cfg(feature = "wat")]
+    #[wasm_bindgen_test]
+    async fn a_call_that_cannot_make_a_trap_fails_before_it_enters() {
+        let mut store = Store::default();
+        let ty = FunctionType::new([], []);
+        let fail = Function::new_async(&mut store, ty, |_| async {
+            tick().await;
+            Err(RuntimeError::new("failed"))
+        });
+        let module = crate::Module::new(
+            &store,
+            r#"(module (import "h" "f" (func $f)) (func (export "run") (call $f)))"#,
+        )
+        .unwrap();
+        let imports = crate::imports! { "h" => { "f" => fail.clone() } };
+        let instance = crate::Instance::new(&mut store, &module, &imports).unwrap();
+        let run = instance.exports.get_function("run").unwrap().clone();
+        let store = store.into_async();
+
+        shim_forget_trap();
+        TRAP_READY.set(false);
+        deny_compilation(true);
+        let through_guest = run.call_async(&store, vec![]).await;
+        let direct = fail.call_async(&store, vec![]).await;
+        deny_compilation(false);
+        for result in [through_guest, direct] {
+            let error = result.unwrap_err();
+            assert!(error.message().contains("cannot be made"), "{error}");
+            assert!(error.message().contains("compilation denied"), "{error}");
+        }
+        assert_eq!(live(), (0, 0));
+
+        // The host compiles again: the guest fails as its host function does.
+        let error = run.call_async(&store, vec![]).await.unwrap_err();
+        assert!(error.message().contains("failed"), "{error}");
+        assert!(!error.message().contains("cannot be made"), "{error}");
+        assert!(store.into_store().is_ok());
     }
 
     /// `WebAssembly.promising` is called for the first `call_async` of a
