@@ -514,7 +514,10 @@ pub enum AsyncRuntimeError {
     RuntimeError(RuntimeError),
 }
 
-pub(crate) fn block_on_host_future(future: HostFuture) -> Result<Vec<Value>, AsyncRuntimeError> {
+pub(crate) fn block_on_host_future(
+    future: HostFuture,
+    eager: bool,
+) -> Result<Vec<Value>, AsyncRuntimeError> {
     match CoroutineContext::get_current() {
         None => {
             // If there is no async context or we haven't entered it,
@@ -526,7 +529,7 @@ pub(crate) fn block_on_host_future(future: HostFuture) -> Result<Vec<Value>, Asy
         // store, called by a host function) is a sync context too.
         Some(_) if !StoreContext::top_is_async() => run_immediate(future),
         Some(context) => unsafe { context.as_ref().expect("valid context pointer") }
-            .block_on_future(future)
+            .block_on_future(future, eager)
             .map_err(AsyncRuntimeError::RuntimeError),
     }
 }
@@ -594,10 +597,11 @@ impl CoroutineContext {
     /// Waits for a host future on behalf of the guest, which called an async
     /// import.
     ///
-    /// Most host futures are ready the first time they are polled, so the
-    /// future is polled once right here, on the coroutine, and the coroutine
-    /// suspends only if it is pending. The future has to find what it finds
-    /// when the poller polls it:
+    /// The future of an eager host function (see [`crate::Function::eager`])
+    /// is polled once right here, on the coroutine, and the coroutine
+    /// suspends only if it is pending; that of any other host function is
+    /// handed to the poller unpolled. A future polled here has to find what
+    /// it finds when the poller polls it:
     ///
     /// - the store unlocked and not installed, as it is while the coroutine
     ///   is suspended, so that the future can lock it. The coroutine lends it
@@ -630,10 +634,14 @@ impl CoroutineContext {
     ///   pending here and does the same in a later poll, made by this call's
     ///   poller on the outer call's coroutine, the import suspends the outer
     ///   call.
-    fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
+    fn block_on_future(&self, future: HostFuture, eager: bool) -> Result<Vec<Value>, RuntimeError> {
         let cx = POLL_CONTEXT.with(|cell| cell.get());
         let lent = if cx.is_null() {
             // The coroutine is being unwound.
+            None
+        } else if !eager {
+            // Only an eager host function is polled here. The future of any
+            // other is polled by the poller, on the executor's stack.
             None
         } else {
             StoreContext::lend_async(self.store_id)
@@ -921,7 +929,8 @@ mod first_poll {
         let ty = FunctionType::new(vec![], vec![]);
         let panics = Function::new_async(&mut store, ty.clone(), |_| async {
             panic!("host future panicked")
-        });
+        })
+        .eager();
         let seen = Arc::new(Mutex::new(None));
         let env = FunctionEnv::new(&mut store, ());
         let outer = Function::new_with_env(&mut store, &env, ty, {
@@ -974,7 +983,8 @@ mod first_poll {
                 lock: Box::pin(async move { env.write().await }),
                 held: None,
             },
-        );
+        )
+        .eager();
         let seen = Arc::new(Mutex::new(None));
         let outer = Function::new_with_env(&mut store, &env, ty, {
             let seen = seen.clone();
@@ -1090,5 +1100,41 @@ mod first_poll {
     #[test]
     fn a_panic_dropping_a_future_that_handed_the_store_over_goes_on_once_the_store_is_back() {
         after_handing_the_store_over(PanicsIn::Drop);
+    }
+
+    /// Where an async host function's future is polled first: inside the
+    /// import call, on the stack of the call, if the function is eager, and
+    /// by the future of the call, on the executor's stack, if not.
+    #[test]
+    fn only_an_eager_host_future_is_polled_inside_the_import() {
+        #[inline(never)]
+        fn stack_position() -> usize {
+            let local = 0u8;
+            std::hint::black_box(ptr::from_ref(&local) as usize)
+        }
+        for eager in [false, true] {
+            let mut store = sys_store();
+            let (body, poll) = (Rc::new(Cell::new(0)), Rc::new(Cell::new(0)));
+            let f = Function::new_async(&mut store, FunctionType::new(vec![], vec![]), {
+                let (body, poll) = (body.clone(), poll.clone());
+                move |_| {
+                    body.set(stack_position());
+                    let poll = poll.clone();
+                    std::future::poll_fn(move |_| {
+                        poll.set(stack_position());
+                        Poll::Ready(Ok(vec![]))
+                    })
+                }
+            });
+            let f = if eager { f.eager() } else { f };
+            let store = store.into_async();
+            let mut call = Box::pin(f.call_async(&store, vec![]));
+            let waker = futures::task::noop_waker();
+            let poll_result = call.as_mut().poll(&mut Context::from_waker(&waker));
+            assert!(matches!(poll_result, Poll::Ready(Ok(_))));
+            let here = stack_position();
+            let on_the_stack_of_the_call = body.get().abs_diff(poll.get()) < here.abs_diff(poll.get());
+            assert_eq!(on_the_stack_of_the_call, eager, "eager: {eager}");
+        }
     }
 }

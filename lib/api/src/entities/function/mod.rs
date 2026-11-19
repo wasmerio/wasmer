@@ -235,10 +235,10 @@ impl Function {
     /// the import call itself, on the guest's stack.
     ///
     /// A guest that calls an async host function is normally suspended while
-    /// the future of [`Function::call_async`] polls the host future. On the
-    /// `js` backend that costs a trip through the event loop even when the
-    /// host function has nothing to wait for. An eager host function is polled
-    /// once before the guest is suspended:
+    /// the future of [`Function::call_async`] polls the host future. That
+    /// costs a switch of stacks, and on the `js` backend a trip through the
+    /// event loop, even when the host function has nothing to wait for. An
+    /// eager host function is polled once before the guest is suspended:
     ///
     /// * If the future is ready, the guest goes on with its results at once,
     ///   and is never suspended. That also works where a guest cannot be
@@ -262,12 +262,18 @@ impl Function {
     /// A guest that only ever calls eager host functions that are ready
     /// never gives the event loop a turn: nothing forces it to.
     ///
+    /// On the `sys` backend the poll inside the import call runs on the
+    /// stack of the call's coroutine, a fixed 1 MiB (see
+    /// [`Function::call_async`]), where the future of a host function that
+    /// is not eager is polled by the future of the call, on the executor's
+    /// stack. A future that needs more stack than is left there runs into
+    /// the stack's guard page, and the process is killed. Where the guest
+    /// cannot be suspended, `sys` polls the future of every async host
+    /// function once inside the import call, eager or not.
+    ///
     /// This returns the eager function and leaves existing clones of the
     /// original as they are. It has no effect on a function that is not an
-    /// async host function, and none on backends other than `js`: on `sys`, a
-    /// host future that is ready never makes the call wait in the first
-    /// place, and outside an async call it is polled once and dropped at its
-    /// first `Pending` all the same.
+    /// async host function, and none on backends other than `sys` and `js`.
     ///
     /// ```ignore
     /// let now = Function::new_typed_async(&mut store, async || clock.now()).eager();
@@ -415,6 +421,13 @@ impl Function {
     /// coroutine stack. Host functions created with [`Function::new_async`] may
     /// suspend execution by awaiting futures, and their completion will resume
     /// the Wasm instance according to the JSPI proposal.
+    ///
+    /// On the `sys` backend that coroutine has a fixed stack of 1 MiB. The
+    /// host functions the guest calls run on it, and so does the poll of an
+    /// eager host function's future inside the import call (see
+    /// [`Function::eager`]); one that needs more stack runs into the stack's
+    /// guard page, and the process is killed. The guest's own frames are on a
+    /// stack of their own, whose size `wasmer_vm::set_stack_size` sets.
     #[must_use = "This function spawns a future that must be awaited to produce results"]
     #[cfg(feature = "experimental-async")]
     pub fn call_async(

@@ -929,12 +929,15 @@ mod host_future_first_poll {
             let module = Module::new(&store, WAT).unwrap();
             let env = FunctionEnv::new(&mut store, Env::default());
             let returns_i32 = FunctionType::new(vec![], vec![Type::I32]);
+            // Both async imports are eager: their futures are polled first
+            // inside the import call, which is what these tests are about.
             let f = Function::new_with_env_async(
                 &mut store,
                 &env,
                 returns_i32.clone(),
                 move |env, _| f(env),
-            );
+            )
+            .eager();
             let wait = Rc::new(Wait::default());
             let wait_import = Function::new_async(&mut store, FunctionType::new(vec![], vec![]), {
                 let wait = wait.clone();
@@ -949,7 +952,8 @@ mod host_future_first_poll {
                         Poll::Pending
                     })
                 }
-            });
+            })
+            .eager();
             let nested_f = Function::new_with_env(
                 &mut store,
                 &env,
@@ -1312,7 +1316,8 @@ mod caught_panics {
 
     /// The host functions that panic, by the export that calls them: a
     /// dynamic one, a typed one, an async one in its body and an async one
-    /// in its future's first poll. `wait` does not panic: it is pending.
+    /// in its future's first poll, inside the import call: the async ones
+    /// are eager. `wait` does not panic: it is pending.
     /// `drop_sync` does not either: it drops the call in `TO_DROP_SYNC`.
     const NESTED: [&str; 6] = [
         "sync",
@@ -1360,17 +1365,20 @@ mod caught_panics {
                 |_: AsyncFunctionEnvMut<Env>, _: &[Value]| -> std::future::Ready<_> {
                     panic!("async host function")
                 },
-            );
+            )
+            .eager();
             let async_future = Function::new_with_env_async(
                 &mut store,
                 &env,
                 unit.clone(),
                 |_: AsyncFunctionEnvMut<Env>, _: &[Value]| async { panic!("host future") },
-            );
+            )
+            .eager();
             let wait = Function::new_async(&mut store, unit.clone(), |_| async {
                 Gate(Rc::new(Cell::new(false))).await;
                 Ok(vec![])
-            });
+            })
+            .eager();
             // Calls the export `NESTED[i]` and catches a panic from it. Returns
             // how many times it went on after catching one, or -1 if there was
             // none to catch.
