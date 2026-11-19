@@ -717,7 +717,13 @@ mod stack_pool {
     }
 }
 
-#[cfg(test)]
+/// These compile a module: not on a build without a compiler, such as the
+/// Windows test lane, whose `sys` backend is there beside V8's.
+#[cfg(all(
+    test,
+    feature = "wat",
+    any(feature = "cranelift", feature = "llvm", feature = "singlepass")
+))]
 mod instantiation {
     use std::{
         future::Future,
