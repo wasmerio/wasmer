@@ -228,6 +228,18 @@ impl<T: StoreObject> PartialEq for StoreHandle<T> {
 
 impl<T: StoreObject> Eq for StoreHandle<T> {}
 
+/// The panic of a [`StoreHandle`] used with another store's objects. Out of
+/// line, and given the ids by value: an `assert_eq!` in place would take their
+/// addresses, which keeps whatever holds the handle in memory on every lookup.
+#[cold]
+#[inline(never)]
+#[track_caller]
+fn wrong_context(handle: StoreId, ctx: StoreId) -> ! {
+    panic!(
+        "object used with the wrong context: the handle is of {handle:?}, the objects are {ctx:?}"
+    )
+}
+
 impl<T: StoreObject> StoreHandle<T> {
     /// Moves the given object into a context and returns a handle to it.
     pub fn new(ctx: &mut StoreObjects, val: T) -> Self {
@@ -238,14 +250,20 @@ impl<T: StoreObject> StoreHandle<T> {
     }
 
     /// Returns a reference to the object that this handle points to.
+    #[inline]
     pub fn get<'a>(&self, ctx: &'a StoreObjects) -> &'a T {
-        assert_eq!(self.id, ctx.id, "object used with the wrong context");
+        if self.id != ctx.id {
+            wrong_context(self.id, ctx.id);
+        }
         self.internal.get(ctx)
     }
 
     /// Returns a mutable reference to the object that this handle points to.
+    #[inline]
     pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects) -> &'a mut T {
-        assert_eq!(self.id, ctx.id, "object used with the wrong context");
+        if self.id != ctx.id {
+            wrong_context(self.id, ctx.id);
+        }
         self.internal.get_mut(ctx)
     }
 
@@ -384,5 +402,34 @@ where
                 write!(f, ")")
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn objects() -> StoreObjects {
+        StoreObjects::new(
+            StoreId::default(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        )
+    }
+
+    #[test]
+    #[should_panic(expected = "object used with the wrong context")]
+    fn a_handle_used_with_other_objects_panics() {
+        let mut ours = objects();
+        let theirs = objects();
+        let handle = StoreHandle::new(&mut ours, VMFunctionEnvironment::new(1u8));
+        handle.get(&theirs);
     }
 }
