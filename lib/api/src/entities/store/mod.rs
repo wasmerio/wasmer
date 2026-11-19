@@ -152,17 +152,32 @@ impl Store {
         Some(f(&mut store.as_mut()))
     }
 
-    /// Installs this store's context for the duration of a coroutine resume.
-    /// The guard removes the context when dropped; hold it for exactly the
-    /// duration of the resume() call.
+    /// Puts the thread state of a coroutine that runs Wasm on this store onto
+    /// the thread for one resume of the coroutine, and takes it off again
+    /// when the guard is dropped.
+    ///
+    /// This is for embedders that run calls on coroutines they switch
+    /// themselves, and suspend them inside host functions. A call keeps state
+    /// on its thread while it runs: the entry its host functions find the
+    /// store through, and the trap handler the signal handler consults. A
+    /// coroutine suspended inside a call has to take that state with it, or
+    /// a call resumed in another order than the calls entered Wasm finds
+    /// another call's: its traps are handled on the wrong stack. Hold a guard
+    /// for exactly the duration of every resume of the coroutine, from the
+    /// first one on, including the one that unwinds it when it is dropped
+    /// while suspended. Between resumes, the state of the coroutine is kept
+    /// on its thread, with the store it was made for.
     ///
     /// # Panics
     /// Panics if the store is anywhere on the current thread's context stack
-    /// (active or suspended).
+    /// (active or suspended), as it is while a call on it runs outside the
+    /// coroutine.
     ///
     /// # Safety
-    /// Exactly one `StorePtrWrapper` derived from this store must be alive on
-    /// the suspended coroutine's stack for the duration of the guard.
+    /// At most one coroutine that runs Wasm on this store may be suspended at
+    /// a time. It must be resumed, and dropped, on the thread it suspended
+    /// on, each time under a guard of this store held for exactly the
+    /// duration of the resume.
     #[cfg(feature = "unsafe-cothread")]
     pub unsafe fn coroutine_store_guard(&mut self) -> CoroutineStoreGuard<'_> {
         unsafe { CoroutineStoreGuard::new(self.inner.as_mut()) }

@@ -329,7 +329,7 @@ endif
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 # Features used by the workspace test suite.
-test_all_features := experimental-async,experimental-host-interrupt
+test_all_features := experimental-async,experimental-host-interrupt,unsafe-cothread
 test_all_default_features :=
 test_wast_features :=
 ifeq ($(IS_WINDOWS), 1)
