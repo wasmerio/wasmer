@@ -70,10 +70,11 @@ enum StoreContextEntry {
 impl StoreContextEntry {
     #[cfg(feature = "experimental-async")]
     fn new_async(mut guard: LocalRwLockWriteGuard<Box<StoreInner>>) -> Self {
-        // A raw pointer to the box's contents, not a reference to them: it
-        // stays valid when something else borrows the store through the lock,
-        // as a future does while the store is lent out, so a borrow paused
-        // across that can be picked up again.
+        // A raw pointer to the box's contents, taken once: every borrow the
+        // entry hands out comes from it. Unlike those of a synchronous entry,
+        // which come from the caller's own borrow (see `install`), they are
+        // siblings of one another, and of the borrows taken through the entry
+        // made when the call resumes: none of them nests in another.
         let ptr: *mut StoreInner = &raw mut **guard;
         Self::Async { guard, ptr }
     }
@@ -151,12 +152,26 @@ impl StoreContext {
         })
     }
 
-    fn is_suspended(id: StoreId) -> bool {
-        !Self::is_active(id)
-            && STORE_CONTEXT_STACK.with(|cell| {
-                let stack = cell.borrow();
-                stack.iter().rev().skip(1).any(|ctx| ctx.id == id)
-            })
+    /// Whether `id` has an entry on the thread's stack, active or not: a call
+    /// on this thread, beneath whatever runs, holds the store.
+    #[cfg(all(
+        feature = "sys",
+        any(feature = "experimental-async", feature = "unsafe-cothread")
+    ))]
+    pub(crate) fn is_held(id: StoreId) -> bool {
+        STORE_CONTEXT_STACK.with(|cell| cell.borrow().iter().any(|ctx| ctx.id == id))
+    }
+
+    /// Whether the thread still has what unwinding a call suspended in Wasm
+    /// needs of it: false once its thread locals are being destroyed, as it
+    /// exits. A call suspended then is forgotten rather than unwound.
+    #[cfg(all(
+        feature = "sys",
+        any(feature = "experimental-async", feature = "unsafe-cothread")
+    ))]
+    pub(crate) fn thread_can_unwind() -> bool {
+        STORE_CONTEXT_STACK.try_with(|_| ()).is_ok()
+            && wasmer_vm::ActivationState::thread_is_usable()
     }
 
     fn push(id: StoreId, entry: StoreContextEntry) {
@@ -432,7 +447,10 @@ impl StoreContext {
 /// installed for another coroutine. Dropping a `Cothread` drops the
 /// coroutine, which unwinds it if it is suspended, with its state installed;
 /// forgetting one forgets the state with the coroutine. So the `Cothread`
-/// must own the coroutine (see [`Cothread::new`]).
+/// must own the coroutine (see [`Cothread::new`]). A suspended coroutine that
+/// cannot be unwound when its `Cothread` is dropped, because a store of the
+/// calls it is suspended in is in use on the thread, or because the thread is
+/// exiting, is forgotten instead, with its stack and its state.
 ///
 /// Every coroutine that can suspend while a call into Wasm is on its stack
 /// must be a `Cothread`, and be resumed only through [`Cothread::resume`].
@@ -471,6 +489,16 @@ struct CothreadState {
 impl CothreadState {
     fn is_empty(&self) -> bool {
         self.entries.is_empty() && self.activation.is_empty()
+    }
+
+    /// Whether [`Self::install`] can put the state on the thread: none of
+    /// its stores is in use there, and the thread is not exiting.
+    fn can_install(&self) -> bool {
+        StoreContext::thread_can_unwind()
+            && !self
+                .entries
+                .iter()
+                .any(|entry| StoreContext::is_held(entry.id))
     }
 
     /// Puts the state on the thread until the returned guard is dropped.
@@ -585,10 +613,18 @@ impl<C> Cothread<C> {
 impl<C> Drop for Cothread<C> {
     fn drop(&mut self) {
         // A coroutine suspended inside a call is unwound by dropping it,
-        // which runs the frames of the call: they need their own state.
+        // which runs the frames of the call: they need their own state. If
+        // that cannot be installed, the coroutine is forgotten: `install`
+        // would panic, in a destructor.
+        if self.state.is_empty() {
+            return unsafe { std::mem::ManuallyDrop::drop(&mut self.coroutine) };
+        }
+        if !self.state.can_install() {
+            return;
+        }
         // Safety: dropping the coroutine is what runs while the state is
         // installed, and the coroutine is not used again.
-        let _installed = (!self.state.is_empty()).then(|| unsafe { self.state.install() });
+        let _installed = unsafe { self.state.install() };
         unsafe { std::mem::ManuallyDrop::drop(&mut self.coroutine) };
     }
 }

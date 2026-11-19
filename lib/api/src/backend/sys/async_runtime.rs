@@ -213,7 +213,7 @@ impl AsyncCallFuture {
             move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
                 assert!(matches!(resume, AsyncResume::Start));
 
-                let ctx_state = CoroutineContext { yielder, store_id };
+                let ctx_state = CoroutineContext { yielder };
                 CURRENT_COROUTINE.with(|cell| cell.set(&ctx_state));
                 let mut store_mut = AsyncCallStoreMut { store_id };
                 function.call(&mut store_mut, &params)
@@ -421,15 +421,24 @@ impl Drop for AsyncCallFuture {
             .as_ref()
             .is_some_and(|c| c.started() && !c.done())
         {
+            if !StoreContext::thread_can_unwind() {
+                // The thread is exiting, and what the unwind needs of it is
+                // gone: the coroutine is forgotten, with its stack.
+                std::mem::forget(self.coroutine.take());
+                return;
+            }
             self.switch_to_coroutine(None);
         }
     }
 }
 
 async fn install_store_context(store: StoreAsync) -> ForcedStoreInstallGuard {
-    // Looks at the active entry without borrowing it: a borrow taken here
-    // would still be taken after the panic below is caught.
-    match crate::StoreContext::is_active(store.id) {
+    // Looks at the thread's entries without borrowing them: a borrow taken
+    // here would still be taken after the panic below is caught. A store with
+    // an entry is held by a call beneath whatever polls this, on this thread,
+    // which cannot give the store up before that returns: the active one, or
+    // one that entered another store since.
+    match crate::StoreContext::is_held(store.id) {
         false => {
             // We always need to acquire a new write lock on the store.
             let store_guard = store.inner.write().await;
@@ -501,8 +510,6 @@ pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
 /// on the coroutine's own stack.
 struct CoroutineContext {
     yielder: *const Yielder<AsyncResume, AsyncYield>,
-    /// The store the call was made on.
-    store_id: StoreId,
 }
 
 impl CoroutineContext {

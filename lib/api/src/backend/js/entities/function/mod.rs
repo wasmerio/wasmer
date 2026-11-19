@@ -88,10 +88,10 @@ impl EnteredGuest {
     }
 }
 
-#[cfg(feature = "experimental-async")]
 impl Drop for EnteredGuest {
     #[inline]
     fn drop(&mut self) {
+        #[cfg(feature = "experimental-async")]
         ENTERED_SYNCHRONOUSLY.set(self.previous);
     }
 }
@@ -217,8 +217,9 @@ impl Function {
             ty: func_ty.clone(),
             store_id: store.objects_mut().id(),
         });
+        let store_id = host.store_id;
         let (start, takes_array) = host.start();
-        let function = jspi::host_function(&func_ty, &start, takes_array);
+        let function = jspi::host_function(&func_ty, store_id, &start, takes_array);
         let vm_function = VMFunction::new(function, func_ty);
         Self::from_vm_extern(
             &mut store.as_store_mut(),
@@ -366,7 +367,7 @@ impl Function {
                 let results = func(env, &arguments[..numbers.len()]).map_err(trap_value)?;
                 Ok(match function_type.results() {
                     [] => 0.0,
-                    _ => numeric::result(&results),
+                    _ => numeric::result(&results)?,
                 })
             });
             let vm_function = VMFunction::new(function, func_ty);
@@ -586,7 +587,28 @@ impl Function {
         let function = self.clone();
         let store = store.store();
         Box::pin(async move {
-            let write_lock = store.write_lock().await;
+            // As on other backends: an async host function, which this calls
+            // directly, could not take them, and nothing converts them.
+            let signature = &function.handle.ty;
+            if params.len() != signature.params().len()
+                || params
+                    .iter()
+                    .zip(signature.params())
+                    .any(|(param, ty)| param.ty() != *ty)
+            {
+                let types: Vec<String> =
+                    params.iter().map(|param| param.ty().to_string()).collect();
+                return Err(RuntimeError::new(format!(
+                    "Parameters of type [{}] did not match signature {signature}",
+                    types.join(", "),
+                )));
+            }
+            let mut write_lock = store.write_lock().await;
+            if !jspi::enters_a_guest(&function.handle.function) {
+                // JavaScript that runs to the end: a host function, or one an
+                // embedder gave. It is called as `call` calls it.
+                return function.call(&mut write_lock, &params);
+            }
             let arguments = Array::new_with_length(params.len() as u32);
             for (index, param) in params.iter().enumerate() {
                 arguments.set(index as u32, param.as_jsvalue(&write_lock));
@@ -657,6 +679,12 @@ impl Function {
 
     /// Checks whether this `Function` can be used with the given context.
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+        #[cfg(feature = "experimental-async")]
+        return jspi::belongs_to(
+            &self.handle.function,
+            _store.as_store_ref().objects().id(),
+        );
+        #[cfg(not(feature = "experimental-async"))]
         true
     }
 }

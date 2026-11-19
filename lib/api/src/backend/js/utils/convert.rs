@@ -104,7 +104,8 @@ impl AsJs for Value {
             Self::F32(f) => JsValue::from(*f),
             Self::F64(f) => JsValue::from(*f),
             Self::V128(v) => JsValue::from(*v),
-            Self::FuncRef(Some(func)) => func.as_js().handle.function.clone().into(),
+            // In the form JavaScript calls it in, as `Function::as_jsvalue`.
+            Self::FuncRef(Some(func)) => func.as_jsvalue(_store),
             Self::FuncRef(None) => JsValue::null(),
             Self::ExternRef(Some(reference)) => match &reference.0 {
                 crate::BackendExternRef::Js(reference) => reference.as_js_value(),
@@ -127,15 +128,33 @@ impl AsJs for Value {
     }
 }
 
+/// What a guest imports for `extern_`: with `experimental-async`, the
+/// `WebAssembly.Suspending` form of an async host function, and for a
+/// JavaScript function an embedder gave, the function that marks what it
+/// runs; anything else as `as_jsvalue` gives it. `as_jsvalue` gives a single
+/// function in the form JavaScript calls it in, the embedder's own function
+/// for one it gave; an import object, and instantiation, need this one.
+pub(crate) fn import_jsvalue(extern_: &Extern, store: &impl AsStoreRef) -> JsValue {
+    match extern_ {
+        #[cfg(feature = "experimental-async")]
+        Extern::Function(function) => {
+            crate::js::jspi::import(&function.as_js().handle.function.clone().into())
+        }
+        _ => extern_.as_jsvalue(&store.as_store_ref()),
+    }
+}
+
 impl AsJs for Imports {
     type DefinitionType = crate::module::Module;
 
+    /// The import object of these imports, as `Instance::new` gives one to
+    /// `WebAssembly.Instance` (see `import_jsvalue`).
     // Annotation is here to prevent spurious IDE warnings.
     #[allow(unused_unsafe)]
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         let imports_object = js_sys::Object::new();
         for (namespace, name, extern_) in self.iter() {
-            let value = extern_.as_jsvalue(&store.as_store_ref());
+            let value = import_jsvalue(extern_, store);
             let val = unsafe { js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap() };
             if !val.is_undefined() {
                 // If the namespace is already set
@@ -311,7 +330,10 @@ impl AsJs for Function {
         value: &JsValue,
     ) -> Result<Self, JsError> {
         #[cfg(feature = "experimental-async")]
-        let value = &crate::js::jspi::embedder_function(&crate::js::jspi::host_of(value));
+        let value = &crate::js::jspi::embedder_function(
+            &crate::js::jspi::host_of(value),
+            function_type,
+        );
         Self::from_js_function(store, function_type, value)
     }
 }

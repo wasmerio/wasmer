@@ -240,6 +240,27 @@ fn from_inside_another_host_function(what: &'static str, ending_name: &str) {
     assert!(no_store_context_left());
 }
 
+/// A suspends; a host function of a call on A's own store drops it. A cannot
+/// be unwound there, where its store is in use: it is forgotten, and the
+/// store goes on.
+fn dropped_where_its_store_is_in_use(ending_name: &str) {
+    thread_local! {
+        static TO_DROP: RefCell<Option<Cothread<Call>>> = const { RefCell::new(None) };
+    }
+    let (how, trap) = ending(ending_name);
+    let mut a = Guest::new(how);
+    expect_suspended("a", &mut a);
+    TO_DROP.set(a.cothread.take());
+    let dropper = Function::new_typed(&mut *a.store, || drop(TO_DROP.take()));
+    dropper.call(&mut *a.store, &[]).unwrap();
+    assert!(TO_DROP.with_borrow(Option::is_none));
+    assert!(no_store_context_left());
+    a.start(how);
+    expect_suspended("a's new call", &mut a);
+    expect_ending("a's new call", &mut a, trap);
+    assert!(no_store_context_left());
+}
+
 const SCENARIO_ENV: &str = "WASMER_COTHREAD_SCENARIO";
 const SCENARIO_COMPLETED: &str = "scenario completed:";
 const SCENARIO_TIMEOUT: Duration = Duration::from_secs(60);
@@ -258,6 +279,7 @@ fn child_scenario() {
         "forgotten" => forgotten_then_a_new_call_on_its_store(ending),
         "drop_inside" => from_inside_another_host_function("drop", ending),
         "resume_inside" => from_inside_another_host_function("resume", ending),
+        "dropped_in_use" => dropped_where_its_store_is_in_use(ending),
         other => panic!("unknown scenario {other}"),
     }
     println!("{SCENARIO_COMPLETED} {scenario}");
@@ -359,4 +381,9 @@ fn a_coroutine_can_be_dropped_from_another_ones_host_function() {
 #[test]
 fn a_coroutine_can_be_resumed_from_another_ones_host_function() {
     run_children("resume_inside");
+}
+
+#[test]
+fn a_coroutine_dropped_where_its_store_is_in_use_is_forgotten() {
+    run_children("dropped_in_use");
 }

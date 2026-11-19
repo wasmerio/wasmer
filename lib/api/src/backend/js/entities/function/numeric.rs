@@ -92,16 +92,17 @@ pub(crate) fn numbers(ty: &FunctionType, values: &[Value]) -> Option<Numbers> {
 
 /// What a host function returned, as the number to hand to the engine: what
 /// the general path hands it for a function with one result, where the engine
-/// then makes a number of whatever it got.
-pub(crate) fn result(results: &[Value]) -> f64 {
-    match &results[0] {
+/// then makes a number of whatever it got. That runs JavaScript for a value
+/// of another type, which may throw: what it throws is returned, caught.
+pub(crate) fn result(results: &[Value]) -> Result<f64, JsValue> {
+    Ok(match &results[0] {
         Value::I32(value) => *value as f64,
         Value::I64(value) => *value as f64,
         Value::F32(value) => *value as f64,
         Value::F64(value) => *value,
         Value::V128(value) => *value as f64,
-        other => wasmer_value_to_js(other).unchecked_into_f64(),
-    }
+        other => to_number(&wasmer_value_to_js(other))?,
+    })
 }
 
 macro_rules! closure {
@@ -160,6 +161,7 @@ pub(crate) fn closure_returning_any(
 // call with no result does not look at what it returns.
 #[wasm_bindgen(inline_js = r#"
 const apply = Reflect.apply;
+export function toNumber(value) { return +value; }
 export function call0(target, r) { return +apply(target, r, []); }
 export function callVoid0(target, r) { apply(target, r, []); }
 export function call1(target, r, a) { return +apply(target, r, [a]); }
@@ -180,6 +182,8 @@ export function call8(target, r, a, b, c, d, e, f, g, h) { return +apply(target,
 export function callVoid8(target, r, a, b, c, d, e, f, g, h) { apply(target, r, [a, b, c, d, e, f, g, h]); }
 "#)]
 extern "C" {
+    #[wasm_bindgen(catch, js_name = toNumber)]
+    fn to_number(value: &JsValue) -> Result<f64, JsValue>;
     #[wasm_bindgen(catch)]
     fn call0(target: &JsFunction, receiver: &JsValue) -> Result<f64, JsValue>;
     #[wasm_bindgen(catch, js_name = callVoid0)]

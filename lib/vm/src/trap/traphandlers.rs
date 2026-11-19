@@ -975,6 +975,17 @@ impl ActivationState {
         self.active_stores.is_interrupted(store_id)
     }
 
+    /// Whether the calling thread still has what swapping a state in, and
+    /// unwinding a stack suspended in Wasm, need of it: false once its thread
+    /// locals are being destroyed, as it exits. A stack suspended then is to
+    /// be forgotten rather than unwound.
+    pub fn thread_is_usable() -> bool {
+        let usable = TLS_STACK.try_with(|_| ()).is_ok();
+        #[cfg(feature = "experimental-host-interrupt")]
+        let usable = usable && interrupt_registry::thread_is_usable();
+        usable
+    }
+
     /// Whether nothing is installed: true before an activation first runs and
     /// after it has finished, when nothing may be left pointing into its stack.
     pub fn is_empty(&self) -> bool {

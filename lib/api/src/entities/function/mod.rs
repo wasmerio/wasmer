@@ -377,7 +377,19 @@ impl Function {
     /// `wasmer_vm::set_stack_size` sets. The future of an async host function
     /// is polled by the future of the call, on the executor's stack.
     ///
-    /// On the `js` backend the engine suspends the guest's stack (JSPI). The
+    /// On `sys`, dropping the call while its guest waits in an async host
+    /// function unwinds the coroutine with a panic: guest frames are
+    /// discarded, and host frames run their destructors, whoever holds the
+    /// store then. Those destructors must not use the store, through a
+    /// `FunctionEnvMut` they keep for instance, and a host function that
+    /// catches the panics of a guest it calls must resume those it does not
+    /// know. A call dropped while its thread exits, from a thread local, is
+    /// forgotten instead, with its stack.
+    ///
+    /// On the `js` backend the engine suspends the guest's stack (JSPI). A
+    /// function that is neither a WebAssembly function nor an async host
+    /// function, a synchronous host function or JavaScript an embedder gave,
+    /// is called as [`Function::call`] calls it. The
     /// call holds the store's write lock while its guest runs, and gives it
     /// up while the guest waits in an async host function. Dropping the call
     /// while its guest waits unwinds the guest, which runs no more code, and

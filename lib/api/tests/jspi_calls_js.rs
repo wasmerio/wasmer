@@ -1124,9 +1124,35 @@ mod foreign {
       };
       return [reenter, holder];
     }
+    export function reenteringByValue() {
+      const holder = {};
+      const reenter = (id) => ({
+        valueOf() {
+          try { return holder.inner(id); } catch (error) { holder.error = error; return -1; }
+        },
+      });
+      return [reenter, holder];
+    }
+    export function instantiate(bytes, imports) {
+      return new WebAssembly.Instance(new WebAssembly.Module(bytes), imports).exports;
+    }
     export function throwingProxy() {
       const trap = () => { throw new Error("a trap ran"); };
       return new Proxy(function () {}, { get: trap, has: trap, getOwnPropertyDescriptor: trap });
+    }
+    export function revokedProxy() {
+      const { proxy, revoke } = Proxy.revocable({}, {});
+      revoke();
+      return proxy;
+    }
+    export function throwing(value) {
+      return () => { throw value; };
+    }
+    export function incrementing() {
+      return (value) => value + 1;
+    }
+    export function identity() {
+      return (value) => value;
     }
     export function relay(bytes, suspending) {
       const module = new WebAssembly.Module(bytes);
@@ -1147,9 +1173,27 @@ mod foreign {
         /// A JavaScript function of an `i32` that calls `holder.inner` with
         /// it, and the holder, where what that throws is kept as `error`.
         pub(super) fn reentering() -> js_sys::Array;
+        /// The same, but the function returns an object whose `valueOf`
+        /// calls `holder.inner`: the engine calls it to make an `i32` of it.
+        #[wasm_bindgen(js_name = reenteringByValue)]
+        pub(super) fn reentering_by_value() -> js_sys::Array;
+        /// The exports of `bytes` instantiated with `imports`.
+        pub(super) fn instantiate(
+            bytes: &[u8],
+            imports: &wasm_bindgen::JsValue,
+        ) -> wasm_bindgen::JsValue;
         /// A function whose `Proxy` traps throw.
         #[wasm_bindgen(js_name = throwingProxy)]
         pub(super) fn throwing_proxy() -> wasm_bindgen::JsValue;
+        /// A `Proxy` that was revoked: looking at it in any way throws.
+        #[wasm_bindgen(js_name = revokedProxy)]
+        pub(super) fn revoked_proxy() -> wasm_bindgen::JsValue;
+        /// A JavaScript function that throws `value`.
+        pub(super) fn throwing(value: &wasm_bindgen::JsValue) -> wasm_bindgen::JsValue;
+        /// A JavaScript function that adds one to what it is given.
+        pub(super) fn incrementing() -> wasm_bindgen::JsValue;
+        /// A JavaScript function that returns what it is given.
+        pub(super) fn identity() -> wasm_bindgen::JsValue;
     }
 }
 
@@ -1280,75 +1324,141 @@ async fn a_refused_reentry_then_a_foreign_suspension_keeps_the_store() {
 /// The same with a JavaScript function of the embedder's own, given with
 /// `Function::from_jsvalue`, that calls the export directly: the guest calls
 /// it through one that marks what it runs, so the import refuses there too.
+/// That holds when the function re-enters the guest from its body, from the
+/// conversion of what it returns (`valueOf`), and when the guest reaches it
+/// through a module instantiated from `Imports::as_jsvalue`.
 #[wasm_bindgen_test]
 async fn an_embedder_reentry_then_a_foreign_suspension_keeps_the_store() {
-    let pair = foreign::foreign_suspending();
-    let relay = wat::parse_str(
-        r#"(module
-          (import "h" "s" (func $s (result i32)))
-          (func (export "s") (result i32) (call $s)))"#,
-    )
-    .unwrap();
-    let suspending = foreign::relay(&relay, &pair.get(0));
-    let resolve: js_sys::Function = pair.get(1).unchecked_into();
-    let reentering = foreign::reentering();
-    let (reenter, holder) = (reentering.get(0), reentering.get(1));
+    for way in ["body", "result", "import object"] {
+        let pair = foreign::foreign_suspending();
+        let relay = wat::parse_str(
+            r#"(module
+              (import "h" "s" (func $s (result i32)))
+              (func (export "s") (result i32) (call $s)))"#,
+        )
+        .unwrap();
+        let suspending = foreign::relay(&relay, &pair.get(0));
+        let resolve: js_sys::Function = pair.get(1).unchecked_into();
+        let reentering = match way {
+            "result" => foreign::reentering_by_value(),
+            _ => foreign::reentering(),
+        };
+        let (reenter, holder) = (reentering.get(0), reentering.get(1));
 
+        let mut store = Store::default();
+        let module = Module::new(
+            &store,
+            r#"(module
+              (import "host" "wait" (func $wait (param i32) (result i32)))
+              (import "host" "reenter" (func $reenter (param i32) (result i32)))
+              (import "host" "s" (func $s (result i32)))
+              (func (export "inner") (param i32) (result i32) (call $wait (local.get 0)))
+              (func (export "run") (result i32)
+                (i32.add (call $reenter (i32.const 99)) (call $s))))"#,
+        )
+        .unwrap();
+        let log: Log = Rc::default();
+        let gate = Gate::new(&log);
+        let unary = FunctionType::new([Type::I32], [Type::I32]);
+        let ty = FunctionType::new([], [Type::I32]);
+        let reenter = Function::from_jsvalue(&mut store, &unary, &reenter).unwrap();
+        let reenter = match way {
+            // A module of the embedder's own, instantiated with the import
+            // object of `Imports`, whose export the guest calls.
+            "import object" => {
+                let object = imports! { "h" => { "f" => reenter } }.as_jsvalue(&store);
+                let bytes = wat::parse_str(
+                    r#"(module
+                      (import "h" "f" (func $f (param i32) (result i32)))
+                      (func (export "g") (param i32) (result i32) (call $f (local.get 0))))"#,
+                )
+                .unwrap();
+                let exports = foreign::instantiate(&bytes, &object);
+                let g = js_sys::Reflect::get(&exports, &"g".into()).unwrap();
+                Function::from_jsvalue(&mut store, &unary, &g).unwrap()
+            }
+            _ => reenter,
+        };
+        let imports = imports! {
+            "host" => {
+                "wait" => gate.import(&mut store),
+                "reenter" => reenter,
+                "s" => Function::from_jsvalue(&mut store, &ty, &suspending).unwrap(),
+            }
+        };
+        let instance = Instance::new(&mut store, &module, &imports).unwrap();
+        let inner = instance
+            .exports
+            .get_function("inner")
+            .unwrap()
+            .as_jsvalue(&store);
+        js_sys::Reflect::set(&holder, &"inner".into(), &inner).unwrap();
+        let run = instance.exports.get_function("run").unwrap().clone();
+        let store = store.into_async();
+
+        let mut call: Call = Box::pin(run.call_async(&store, vec![]));
+        assert!(poll_once(&mut call).is_pending(), "{way}");
+        settle().await;
+        assert!(poll_once(&mut call).is_pending(), "{way}");
+        assert!(
+            locked(&store),
+            "{way}: the store was given up while the guest waits"
+        );
+        assert!(
+            log.borrow().is_empty(),
+            "{way}: the refused host function ran"
+        );
+        resolve
+            .call1(&JsValue::UNDEFINED, &JsValue::from(5))
+            .unwrap();
+        // The re-entry failed with -1.
+        assert_eq!(i32_of(call.await), 4, "{way}");
+        let error = js_sys::Reflect::get(&holder, &"error".into()).unwrap();
+        let error = RuntimeError::from(error);
+        assert_eq!(
+            error.clone().to_trap(),
+            Some(TrapCode::YieldOutsideAsyncContext),
+            "{way}: {error}"
+        );
+        assert_eq!(gate.dropped(), 0, "{way}");
+        assert!(store.into_store().is_ok(), "{way}");
+    }
+}
+
+/// A dynamic host function of numbers that returns a value of another type,
+/// which JavaScript cannot make a number of, throws into its guest what the
+/// conversion threw. A guest that catches it can wait in an async import
+/// right after: nothing of the host function is left marked.
+#[wasm_bindgen_test]
+async fn a_host_result_that_cannot_be_a_number_leaves_its_guest_able_to_wait() {
     let mut store = Store::default();
     let module = Module::new(
         &store,
         r#"(module
+          (import "host" "mistyped" (func $mistyped (result i32)))
           (import "host" "wait" (func $wait (param i32) (result i32)))
-          (import "host" "reenter" (func $reenter (param i32) (result i32)))
-          (import "host" "s" (func $s (result i32)))
-          (func (export "inner") (param i32) (result i32) (call $wait (local.get 0)))
           (func (export "run") (result i32)
-            (i32.add (call $reenter (i32.const 99)) (call $s))))"#,
+            (block $caught
+              (try_table (catch_all $caught)
+                (drop (call $mistyped))))
+            (call $wait (i32.const 1000))))"#,
     )
     .unwrap();
+    let symbol = js_sys::Symbol::for_("not a number");
+    let symbol = Value::from_jsvalue(&mut store, &Type::ExternRef, &symbol.into()).unwrap();
+    let mistyped = Function::new(&mut store, FunctionType::new([], [Type::I32]), move |_| {
+        Ok(vec![symbol.clone()])
+    });
     let log: Log = Rc::default();
     let gate = Gate::new(&log);
-    let unary = FunctionType::new([Type::I32], [Type::I32]);
-    let ty = FunctionType::new([], [Type::I32]);
     let imports = imports! {
-        "host" => {
-            "wait" => gate.import(&mut store),
-            "reenter" => Function::from_jsvalue(&mut store, &unary, &reenter).unwrap(),
-            "s" => Function::from_jsvalue(&mut store, &ty, &suspending).unwrap(),
-        }
+        "host" => { "mistyped" => mistyped, "wait" => gate.import(&mut store) }
     };
     let instance = Instance::new(&mut store, &module, &imports).unwrap();
-    let inner = instance
-        .exports
-        .get_function("inner")
-        .unwrap()
-        .as_jsvalue(&store);
-    js_sys::Reflect::set(&holder, &"inner".into(), &inner).unwrap();
     let run = instance.exports.get_function("run").unwrap().clone();
     let store = store.into_async();
-
-    let mut call: Call = Box::pin(run.call_async(&store, vec![]));
-    assert!(poll_once(&mut call).is_pending());
-    settle().await;
-    assert!(poll_once(&mut call).is_pending());
-    assert!(
-        locked(&store),
-        "the store was given up while the guest waits"
-    );
-    assert!(log.borrow().is_empty(), "the refused host function ran");
-    resolve
-        .call1(&JsValue::UNDEFINED, &JsValue::from(5))
-        .unwrap();
-    // The re-entry failed with -1.
-    assert_eq!(i32_of(call.await), 4);
-    let error = js_sys::Reflect::get(&holder, &"error".into()).unwrap();
-    let error = RuntimeError::from(error);
-    assert_eq!(
-        error.clone().to_trap(),
-        Some(TrapCode::YieldOutsideAsyncContext),
-        "{error}"
-    );
-    assert_eq!(gate.dropped(), 0);
+    let result = run.call_async(&store, vec![]).await;
+    assert_eq!(i32_of(result), AUTO);
     assert!(store.into_store().is_ok());
 }
 
@@ -1357,12 +1467,14 @@ async fn an_embedder_reentry_then_a_foreign_suspension_keeps_the_store() {
 /// with. The import fails instead, and the guest is unwound as when the host
 /// function fails.
 ///
-/// So does one whose result throws when its `then` is read.
+/// So does one whose result throws when its `then` is read, also what
+/// cannot be looked at.
 #[wasm_bindgen_test]
 async fn a_thenable_result_of_an_async_import_fails_it() {
     for (value, message) in [
         (externref_results::thenable(true), "thenable"),
         (externref_results::throwing_then(), "then threw"),
+        (externref_results::revoked_then(), "reading `then`"),
     ] {
         let mut store = Store::default();
         let ty = FunctionType::new([], [Type::ExternRef]);
@@ -1385,13 +1497,224 @@ async fn a_thenable_result_of_an_async_import_fails_it() {
     }
 }
 
+/// Whatever JavaScript throws is an error, also what throws again when it is
+/// looked at: a revoked `Proxy`, or one whose traps throw. It is thrown from
+/// JavaScript called synchronously, directly and by a guest, and from a guest
+/// entered by `call_async`. Nothing of these calls stays behind: a guest
+/// entered by `call_async` then waits, twice, and is woken each time.
+#[wasm_bindgen_test]
+async fn what_javascript_throws_is_an_error_however_it_looks() {
+    for (name, thrown) in [
+        ("revoked", foreign::revoked_proxy()),
+        ("trapping", foreign::throwing_proxy()),
+    ] {
+        let mut store = Store::default();
+        let ty = FunctionType::new([], []);
+        let throw = Function::from_jsvalue(&mut store, &ty, &foreign::throwing(&thrown)).unwrap();
+        let wait = Function::new_typed_async(&mut store, async |value: i32| value + 1);
+        let module = Module::new(
+            &store,
+            r#"(module
+              (import "h" "throw" (func $throw))
+              (import "h" "wait" (func $wait (param i32) (result i32)))
+              (func (export "throw") (call $throw))
+              (func (export "wait") (param i32) (result i32)
+                (call $wait (call $wait (local.get 0)))))"#,
+        )
+        .unwrap();
+        let imports = imports! { "h" => { "throw" => throw.clone(), "wait" => wait } };
+        let instance = Instance::new(&mut store, &module, &imports).unwrap();
+        let guest_throw = instance.exports.get_function("throw").unwrap().clone();
+        let guest_wait = instance.exports.get_function("wait").unwrap().clone();
+
+        throw.call(&mut store, &[]).unwrap_err();
+        guest_throw.call(&mut store, &[]).unwrap_err();
+        let store = store.into_async();
+        let waits = async || {
+            let results = guest_wait.call_async(&store, vec![Value::I32(1)]).await;
+            assert_eq!(i32_of(results), 3, "{name}");
+        };
+        waits().await;
+        guest_throw.call_async(&store, vec![]).await.unwrap_err();
+        waits().await;
+        assert!(store.into_store().is_ok(), "{name}");
+    }
+}
+
+/// The engine gives a guest no function as a `funcref` but a WebAssembly one,
+/// and throws at the guest otherwise. An async host function that returns
+/// another, of Wasmer or of JavaScript, fails, and its guest is unwound with
+/// nothing to catch.
+#[wasm_bindgen_test]
+async fn a_funcref_result_of_an_async_import_is_a_webassembly_function() {
+    let mut store = Store::default();
+    let exporting = Module::new(&store, r#"(module (func (export "g")))"#).unwrap();
+    let exporting = Instance::new(&mut store, &exporting, &imports! {}).unwrap();
+    let wasm = exporting.exports.get_function("g").unwrap().clone();
+    let sync = Function::new_typed(&mut store, || {});
+    let r#async = Function::new_typed_async(&mut store, async || {});
+    let ty = FunctionType::new([], []);
+    let javascript =
+        Function::from_jsvalue(&mut store, &ty, &foreign::throwing(&JsValue::NULL)).unwrap();
+    let cases = [
+        ("null", None, Some(1)),
+        ("wasm", Some(wasm), Some(0)),
+        ("sync", Some(sync), None),
+        ("async", Some(r#async), None),
+        ("javascript", Some(javascript), None),
+    ];
+    for (name, function, expected) in cases {
+        let mut store = Store::default();
+        let ty = FunctionType::new([], [Type::FuncRef]);
+        let value = Value::FuncRef(function);
+        let f = Function::new_async(&mut store, ty, move |_| {
+            let value = value.clone();
+            async move { Ok(vec![value]) }
+        });
+        let module = Module::new(
+            &store,
+            r#"(module
+              (import "host" "f" (func $f (result funcref)))
+              (import "host" "caught" (func $caught))
+              (func (export "run") (result i32)
+                (block $caught
+                  (try_table (catch_all $caught)
+                    (return (ref.is_null (call $f)))))
+                (call $caught)
+                (unreachable)))"#,
+        )
+        .unwrap();
+        let caught = Rc::new(Cell::new(0));
+        let imports = imports! { "host" => { "f" => f, "caught" => counter(&mut store, &caught) } };
+        let instance = Instance::new(&mut store, &module, &imports).unwrap();
+        let run = instance.exports.get_function("run").unwrap().clone();
+        let store = store.into_async();
+
+        let result = run.call_async(&store, vec![]).await;
+        match expected {
+            Some(expected) => assert_eq!(i32_of(result), expected, "{name}"),
+            None => {
+                let error = result.unwrap_err();
+                assert!(
+                    error.message().contains("not a WebAssembly function"),
+                    "{name}: {error}"
+                );
+            }
+        }
+        assert_eq!(caught.get(), 0, "{name}: the guest caught the failure");
+        assert!(store.into_store().is_ok(), "{name}");
+    }
+}
+
+/// `call_async` calls any function: one JavaScript runs to the end, a host
+/// function or one an embedder gave, is called as `call` calls it. Parameters
+/// that do not match the function's signature are refused, as on other
+/// backends, before anything is called.
+#[wasm_bindgen_test]
+async fn call_async_calls_any_function_with_its_parameters() {
+    let mut store = Store::default();
+    let sync = Function::new_typed(&mut store, |value: i32| value + 1);
+    let ty = FunctionType::new([Type::I32], [Type::I32]);
+    let javascript = Function::from_jsvalue(&mut store, &ty, &foreign::incrementing()).unwrap();
+    let r#async = Function::new_typed_async(&mut store, async |value: i32| value + 1);
+    let store = store.into_async();
+    for (name, function) in [
+        ("sync", &sync),
+        ("javascript", &javascript),
+        ("async", &r#async),
+    ] {
+        let results = function.call_async(&store, vec![Value::I32(1)]).await;
+        assert_eq!(i32_of(results), 2, "{name}");
+        for wrong in [
+            vec![],
+            vec![Value::I64(1)],
+            vec![Value::I32(1), Value::I32(2)],
+        ] {
+            let error = function
+                .call_async(&store, wrong.clone())
+                .await
+                .unwrap_err();
+            assert!(
+                error.message().contains("did not match signature"),
+                "{name}: {wrong:?}"
+            );
+        }
+    }
+    assert!(store.into_store().is_ok());
+}
+
+/// A JavaScript function as Wasmer gives it back to JavaScript in an import
+/// object, which marks what it runs, is taken for the embedder's own: it
+/// converts its results for the type it is taken with now, not the one it
+/// was given with first.
+#[wasm_bindgen_test]
+async fn a_javascript_function_given_back_takes_its_new_type() {
+    let mut store = Store::default();
+    let wide = FunctionType::new([Type::I64], [Type::I64]);
+    let identity = Function::from_jsvalue(&mut store, &wide, &foreign::identity()).unwrap();
+    let object = imports! { "h" => { "f" => identity } }.as_jsvalue(&store);
+    let namespace = js_sys::Reflect::get(&object, &"h".into()).unwrap();
+    let given = js_sys::Reflect::get(&namespace, &"f".into()).unwrap();
+    let narrow = FunctionType::new([Type::I32], [Type::I32]);
+    let taken = Function::from_jsvalue(&mut store, &narrow, &given).unwrap();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (import "h" "f" (func $f (param i32) (result i32)))
+          (func (export "run") (result i32) (call $f (i32.const 7))))"#,
+    )
+    .unwrap();
+    let instance =
+        Instance::new(&mut store, &module, &imports! { "h" => { "f" => taken } }).unwrap();
+    let run = instance.exports.get_function("run").unwrap();
+    assert_eq!(run.call(&mut store, &[]).unwrap()[0].unwrap_i32(), 7);
+}
+
+/// An async host function looks for the guest that calls it in the store it
+/// was made in: in another store, it is refused, by `Instance::new` and when
+/// it is called directly. Taking its JavaScript form back into another store
+/// does not make it that store's.
+#[wasm_bindgen_test]
+async fn an_async_host_function_belongs_to_its_store() {
+    let mut first = Store::default();
+    let wait = Function::new_typed_async(&mut first, async |value: i32| value + 1);
+    let form = wait.as_jsvalue(&first);
+    let mut second = Store::default();
+    let ty = FunctionType::new([Type::I32], [Type::I32]);
+    let taken = Function::from_jsvalue(&mut second, &ty, &form).unwrap();
+    assert!(wait.is_from_store(&first));
+    assert!(!taken.is_from_store(&second));
+
+    let module = Module::new(
+        &second,
+        r#"(module (import "h" "wait" (func (param i32) (result i32))))"#,
+    )
+    .unwrap();
+    let imports = imports! { "h" => { "wait" => taken.clone() } };
+    let error = Instance::new(&mut second, &module, &imports).unwrap_err();
+    assert!(error.to_string().contains("different stores"), "{error}");
+
+    let second = second.into_async();
+    let error = taken
+        .call_async(&second, vec![Value::I32(1)])
+        .await
+        .unwrap_err();
+    assert!(error.message().contains("does not belong to"), "{error}");
+    assert!(second.into_store().is_ok());
+    let first = first.into_async();
+    assert_eq!(
+        i32_of(taken.call_async(&first, vec![Value::I32(1)]).await),
+        2
+    );
+}
+
 /// An async host function is given to JavaScript in the form a guest imports
 /// it in, as `Instance::new` imports it: by `Function::as_jsvalue`,
-/// `Extern::as_jsvalue` and `Imports::as_jsvalue` alike, since the function
-/// itself works only for a guest Wasmer instantiated. `Function::from_jsvalue`
-/// takes that form for the host function. Any other function is given as it
-/// is. Nothing of what JavaScript is given is read to tell them apart: a
-/// `Proxy` whose traps throw goes through as it is.
+/// `Extern::as_jsvalue`, `Imports::as_jsvalue` and as a `funcref` alike,
+/// since the function itself works only for a guest Wasmer instantiated.
+/// `Function::from_jsvalue` takes that form for the host function. Any other
+/// function is given as it is. Nothing of what JavaScript is given is read to
+/// tell them apart: a `Proxy` whose traps throw goes through as it is.
 #[wasm_bindgen_test]
 async fn async_host_functions_are_given_to_javascript_as_imports() {
     let mut store = Store::default();
@@ -1404,12 +1727,15 @@ async fn async_host_functions_are_given_to_javascript_as_imports() {
     assert!(plain_function.is_function());
     assert!(!js_sys::Object::is(&suspending, &plain_function));
 
-    let imports = imports! { "h" => { "wait" => wait, "plain" => plain } };
+    let imports = imports! { "h" => { "wait" => wait.clone(), "plain" => plain } };
     let object = imports.as_jsvalue(&store);
     let namespace = js_sys::Reflect::get(&object, &"h".into()).unwrap();
     let get = |name: &str| js_sys::Reflect::get(&namespace, &name.into()).unwrap();
     assert!(js_sys::Object::is(&get("wait"), &suspending));
     assert!(js_sys::Object::is(&get("plain"), &plain_function));
+
+    let funcref = Value::FuncRef(Some(wait.clone())).as_jsvalue(&store);
+    assert!(js_sys::Object::is(&funcref, &suspending));
 
     let ty = FunctionType::new([Type::I32], [Type::I32]);
     let hostile = foreign::throwing_proxy();
@@ -2084,6 +2410,11 @@ mod externref_results {
     export function throwingThen() {
       return { get then() { throw new Error("then threw"); } };
     }
+    export function revokedThen() {
+      const { proxy, revoke } = Proxy.revocable({}, {});
+      revoke();
+      return { get then() { throw proxy; } };
+    }
     export function thenable(settles) {
       return { then(resolve) { if (settles) resolve("settled"); } };
     }
@@ -2095,6 +2426,8 @@ mod externref_results {
         pub(super) fn thenable(settles: bool) -> JsValue;
         #[wasm_bindgen(js_name = throwingThen)]
         pub(super) fn throwing_then() -> JsValue;
+        #[wasm_bindgen(js_name = revokedThen)]
+        pub(super) fn revoked_then() -> JsValue;
         fn returning(value: &JsValue) -> JsValue;
     }
 

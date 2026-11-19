@@ -162,6 +162,12 @@ impl ThreadInterruptState {
     }
 }
 
+/// Whether the thread's interrupt state is still there: it is not once the
+/// thread's locals are being destroyed.
+pub(crate) fn thread_is_usable() -> bool {
+    THREAD_INTERRUPT_STATE.try_with(|_| ()).is_ok()
+}
+
 /// The stores one activation has entered, innermost last. See
 /// [`crate::ActivationState`], which swaps it with the thread's at every
 /// switch so that the signal handler compares an interrupt's target against

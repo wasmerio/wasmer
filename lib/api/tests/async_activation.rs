@@ -495,6 +495,26 @@ fn interrupt_while_another_call_is_suspended(target: &str) {
 
 const SCENARIO_ENV: &str = "WASMER_ACTIVATION_SCENARIO";
 const SCENARIO_COMPLETED: &str = "scenario completed:";
+/// A suspended call kept in a thread local is dropped when its thread exits,
+/// once the thread locals the runtime keeps may be gone: they were made by
+/// the call, after the one that keeps it, and are destroyed before it. The
+/// call is not unwound then, which would need them, and the thread exits.
+fn suspended_call_dropped_as_its_thread_exits() {
+    thread_local! {
+        static KEPT: RefCell<Option<CallFuture>> = const { RefCell::new(None) };
+    }
+    std::thread::spawn(|| {
+        KEPT.with(|_| ());
+        let g = gates();
+        let guest = Guest::new(&g);
+        let mut call = guest.run(0, 0);
+        expect_pending("call", &mut call);
+        KEPT.set(Some(call));
+    })
+    .join()
+    .unwrap();
+}
+
 const SCENARIO_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Runs the scenario named by the environment; does nothing otherwise.
@@ -509,6 +529,7 @@ fn child_scenario() {
         "poller" => poller_in_wasm(parts[1], parts[2]),
         "host_panic_then_sync_call" => host_panic_then_sync_call(),
         "nested_sync_entry" => pending_import_under_nested_sync_entry(),
+        "thread_exit" => suspended_call_dropped_as_its_thread_exits(),
         #[cfg(all(unix, feature = "experimental-host-interrupt"))]
         "interrupt" => interrupt_while_another_call_is_suspended(parts[1]),
         other => panic!("unknown scenario {other}"),
@@ -619,6 +640,11 @@ fn a_caught_host_panic_leaves_no_coroutine_behind() {
 #[test]
 fn a_nested_sync_entry_does_not_suspend() {
     run_children(["nested_sync_entry".to_string()]);
+}
+
+#[test]
+fn a_suspended_call_dropped_as_its_thread_exits_is_forgotten() {
+    run_children(["thread_exit".to_string()]);
 }
 
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]

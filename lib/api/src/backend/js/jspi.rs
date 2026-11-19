@@ -149,6 +149,9 @@ thread_local! {
     /// write lock is exclusive, so there is at most one per store, and a guest
     /// that waits is not in here, so there are few.
     static RUNNING: RefCell<Vec<Rc<Activation>>> = const { RefCell::new(Vec::new()) };
+    /// The activation of a direct call of an async host function, while
+    /// [`Call::enter`] calls it: the body runs for that call, and no other.
+    static DIRECT: RefCell<Option<Rc<Activation>>> = const { RefCell::new(None) };
     /// Hands the JavaScript half its Rust callbacks, once per thread.
     static SHIM: () = shim_init(
         &Closure::wrap(Box::new(done) as Box<dyn Fn(i32, i32, JsValue)>).into_js_value(),
@@ -189,13 +192,17 @@ export function jspiTrapError() {
   }
   return trapError;
 }
-const suspendingOf = new WeakMap(), hostOf = new WeakMap();
-export function jspiHost(start, array) {
+const suspendingOf = new WeakMap(), hostOf = new WeakMap(), storeOf = new WeakMap();
+export function jspiHost(start, array, store) {
   const host = array ? (...args) => start(args) : start;
   const suspending = new WebAssembly.Suspending(host);
   suspendingOf.set(host, suspending);
   hostOf.set(suspending, host);
+  storeOf.set(host, store);
   return host;
+}
+export function jspiHostStore(value) {
+  return storeOf.get(value);
 }
 export function jspiHostOf(value) {
   return hostOf.get(value) ?? value;
@@ -217,21 +224,40 @@ function isWasmFunction(value) {
   wasmFunctions.add(value);
   return true;
 }
-export function jspiEmbedderFunction(value) {
-  if (typeof value !== "function" || suspendingOf.has(value) || embedderOf.has(value)) {
-    return value;
-  }
-  let marked = markedOf.get(value);
+const toResult = (kind, value) =>
+  kind === "n" ? +value : kind === "b" ? BigInt.asIntN(64, value) : value;
+export function jspiEmbedderFunction(value, kinds) {
+  if (typeof value !== "function" || suspendingOf.has(value)) return value;
+  // A function this made, given back: the embedder's own, for these results.
+  value = embedderOf.get(value) ?? value;
+  let byKinds = markedOf.get(value);
+  let marked = byKinds?.get(kinds);
   if (marked === undefined) {
     if (isWasmFunction(value)) return value;
     marked = function (...args) {
       const previous = mark(true);
-      try { return apply(value, this, args); } finally { mark(previous); }
+      try {
+        const result = apply(value, this, args);
+        if (kinds.length === 0) return result;
+        if (kinds.length === 1) return toResult(kinds, result);
+        const values = [];
+        for (const item of result) values.push(item);
+        for (let i = 0; i < values.length && i < kinds.length; i++) {
+          values[i] = toResult(kinds[i], values[i]);
+        }
+        return values;
+      } finally {
+        mark(previous);
+      }
     };
-    markedOf.set(value, marked);
+    if (byKinds === undefined) markedOf.set(value, byKinds = new Map());
+    byKinds.set(kinds, marked);
     embedderOf.set(marked, value);
   }
   return marked;
+}
+export function jspiIsWasmFunction(value) {
+  return isWasmFunction(value);
 }
 export function jspiPublic(value) {
   return suspendingOf.get(value) ?? embedderOf.get(value) ?? value;
@@ -276,7 +302,12 @@ export function jspiCheckLater(token, wait) {
 }
 export function jspiIsSuspendError(value) {
   const SuspendError = WebAssembly.SuspendError;
-  return typeof SuspendError === "function" && value instanceof SuspendError;
+  try {
+    return typeof SuspendError === "function" && value instanceof SuspendError;
+  } catch {
+    // A revoked `Proxy` has no prototype to look at: it is not one.
+    return false;
+  }
 }
 export function jspiSettle(promise, token) {
   promise.then((value) => done(token, 0, value), (error) => done(token, 1, error));
@@ -288,7 +319,11 @@ extern "C" {
     #[wasm_bindgen(js_name = jspiTrapError)]
     fn trap_error() -> JsValue;
     #[wasm_bindgen(js_name = jspiHost)]
-    fn shim_host(start: &JsValue, array: bool) -> Function;
+    fn shim_host(start: &JsValue, array: bool, store: f64) -> Function;
+    #[wasm_bindgen(js_name = jspiHostStore)]
+    fn shim_host_store(value: &JsValue) -> Option<f64>;
+    #[wasm_bindgen(js_name = jspiIsWasmFunction)]
+    fn shim_is_wasm_function(value: &JsValue) -> bool;
     #[wasm_bindgen(js_name = jspiIsHost)]
     fn shim_is_host(value: &JsValue) -> bool;
     #[wasm_bindgen(js_name = jspiImport)]
@@ -296,7 +331,7 @@ extern "C" {
     #[wasm_bindgen(js_name = jspiHostOf)]
     fn shim_host_of(value: &JsValue) -> JsValue;
     #[wasm_bindgen(js_name = jspiEmbedderFunction)]
-    fn shim_embedder_function(value: &JsValue) -> JsValue;
+    fn shim_embedder_function(value: &JsValue, kinds: &str) -> JsValue;
     #[wasm_bindgen(js_name = jspiPublic)]
     fn shim_public(value: &JsValue) -> JsValue;
     #[wasm_bindgen(js_name = jspiWait)]
@@ -346,7 +381,21 @@ pub(crate) fn results(values: &[Value], store: &impl AsStoreRef) -> JsValue {
 /// it with its store, also once its call is dropped: the engine resumes the
 /// guest when the thenable settles, and nothing can stop that, so the store
 /// is not given up before.
+///
+/// The engine gives a guest no function as a `funcref` but a WebAssembly
+/// one, and throws an exception at the guest that the guest can catch
+/// otherwise. That fails the import too.
 fn deliverable(values: &[Value]) -> Result<(), RuntimeError> {
+    for value in values {
+        if let Value::FuncRef(Some(function)) = value
+            && !shim_is_wasm_function(&function.as_js().handle.function)
+        {
+            return Err(RuntimeError::new(
+                "an async host function returned a function that is not a WebAssembly \
+                 function, which a guest cannot be given as a `funcref`",
+            ));
+        }
+    }
     let value: JsValue = match values {
         [Value::ExternRef(Some(reference))] => match &reference.0 {
             crate::BackendExternRef::Js(reference) => reference.as_js_value(),
@@ -371,14 +420,20 @@ fn deliverable(values: &[Value]) -> Result<(), RuntimeError> {
     }
 }
 
-/// The function of an async host function: `start`, which returns the
-/// promise the guest waits on, or, if it takes an `array`, a function that
-/// calls it with its arguments in one. A guest imports it as a
-/// `WebAssembly.Suspending` function, which it keeps (see [`import`]).
+/// The function of an async host function of the store `store`: `start`,
+/// which returns the promise the guest waits on, or, if it takes an `array`,
+/// a function that calls it with its arguments in one. A guest imports it as
+/// a `WebAssembly.Suspending` function, which it keeps (see [`import`]).
 ///
 /// # Panics
-/// Panics if the signature has a type JavaScript has no value of.
-pub(crate) fn host_function(ty: &FunctionType, start: &JsValue, array: bool) -> Function {
+/// Panics if the signature has a type JavaScript has no value of, or takes a
+/// `funcref`, which this backend cannot make a function of.
+pub(crate) fn host_function(
+    ty: &FunctionType,
+    store: StoreId,
+    start: &JsValue,
+    array: bool,
+) -> Function {
     for ty in ty.params().iter().chain(ty.results()) {
         if matches!(ty, Type::V128 | Type::ExceptionRef) {
             panic!(
@@ -387,8 +442,21 @@ pub(crate) fn host_function(ty: &FunctionType, start: &JsValue, array: bool) -> 
             );
         }
     }
+    if ty.params().contains(&Type::FuncRef) {
+        panic!(
+            "an async host function cannot take a `funcref` on the JavaScript backend: \
+             it cannot make a function of what a guest passes"
+        );
+    }
     SHIM.with(|_| ());
-    shim_host(start, array)
+    shim_host(start, array, store.as_raw().get() as f64)
+}
+
+/// Whether `function` can be used with the store `id`: an async host function
+/// with the store it was made in only, since its body looks for the guest
+/// that calls it there; any other function with any store.
+pub(crate) fn belongs_to(function: &JsValue, id: StoreId) -> bool {
+    shim_host_store(function).is_none_or(|store| store == id.as_raw().get() as f64)
 }
 
 /// What a guest imports for `value`: the `WebAssembly.Suspending` form of an
@@ -406,13 +474,34 @@ pub(crate) fn host_of(value: &JsValue) -> JsValue {
 }
 
 /// A JavaScript function an embedder gives, `value`, as a guest is to call
-/// it: a function that marks what it runs as entered synchronously (see
-/// [`suspendable`]), and calls `value` with its receiver and arguments. The
-/// same one for the same function. WebAssembly functions, and the functions
-/// of this crate, are given as they are.
-pub(crate) fn embedder_function(value: &JsValue) -> JsValue {
+/// it with the type `ty`: a function that marks what it runs as entered
+/// synchronously (see [`suspendable`]), calls `value` with its receiver and
+/// arguments, and makes of what it returns the primitives the engine takes
+/// for the results of `ty`. All the JavaScript the call runs, the engine's
+/// conversion of the results included (`valueOf`, iteration), runs marked.
+/// The same one for the same function and results. WebAssembly functions,
+/// and the functions of this crate, are given as they are.
+pub(crate) fn embedder_function(value: &JsValue, ty: &FunctionType) -> JsValue {
     SHIM.with(|_| ());
-    shim_embedder_function(value)
+    // The conversion each result takes from the engine: to a number, to a
+    // BigInt, or none, which runs no JavaScript.
+    let kinds: String = ty
+        .results()
+        .iter()
+        .map(|ty| match ty {
+            Type::I32 | Type::F32 | Type::F64 => 'n',
+            Type::I64 => 'b',
+            _ => 'r',
+        })
+        .collect();
+    shim_embedder_function(value, &kinds)
+}
+
+/// Whether `function` is a WebAssembly function, or an async host function:
+/// one `call_async` enters a guest through. Anything else is JavaScript that
+/// runs to the end.
+pub(crate) fn enters_a_guest(function: &JsValue) -> bool {
+    shim_is_host(function) || shim_is_wasm_function(function)
 }
 
 /// What a function is given to JavaScript as: the `WebAssembly.Suspending`
@@ -704,7 +793,16 @@ pub(crate) fn start(
     id: StoreId,
     import: impl FnOnce(StoreAsync) -> ImportFuture,
 ) -> Result<JsValue, JsValue> {
-    let activation = suspendable(id)?;
+    let activation = match DIRECT.with(|direct| direct.borrow_mut().take()) {
+        Some(activation) if activation.store_id == id => activation,
+        Some(_) => {
+            let error = RuntimeError::new(
+                "an async host function was called with a store it does not belong to",
+            );
+            return Err(Trap::user(Box::new(error)).into());
+        }
+        None => suspendable(id)?,
+    };
     let store = activation.store.borrow().as_ref().map(StoreAsync::store);
     let store = store.expect("a guest that can run has its store");
     *activation.import.borrow_mut() = Some(import(store));
@@ -797,7 +895,12 @@ impl Call {
         // run: a rejection nobody handles ends the process on some hosts.
         let entered = {
             let _entered = enter_async();
-            enter()
+            if direct {
+                DIRECT.with(|slot| *slot.borrow_mut() = Some(activation.clone()));
+            }
+            let entered = enter();
+            DIRECT.with(|slot| slot.borrow_mut().take());
+            entered
         };
         match entered {
             Ok(promise) => shim_settle(&promise, activation.token),
