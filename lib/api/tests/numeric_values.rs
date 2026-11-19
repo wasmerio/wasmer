@@ -25,6 +25,12 @@ fn bits(value: &Value) -> (Type, u64) {
     }
 }
 
+/// The module of a text fixture, parsed here so that the tests do not need the
+/// library's `wat` feature.
+fn module(store: &impl AsEngineRef, text: &str) -> Module {
+    Module::new(store, wat::parse_str(text).unwrap()).unwrap()
+}
+
 fn all_bits(values: &[Value]) -> Vec<(Type, u64)> {
     values.iter().map(bits).collect()
 }
@@ -54,7 +60,7 @@ fn guest(
           (import "host" "host" (func $host (param {params}) (result {result})))
           (func (export "call") (param {params}) (result {result}) (call $host {arguments})))"#
     );
-    let module = Module::new(&store, wat).unwrap();
+    let module = module(&store, &wat);
     let calls = Calls::default();
     let host = Function::new(store, ty.clone(), {
         let calls = calls.clone();
@@ -180,7 +186,7 @@ fn numbers_arrive_as_they_were_sent_by_a_typed_call() -> Result<(), String> {
 #[engine_test]
 fn an_i32_keeps_its_bits() -> Result<(), String> {
     let mut store = Store::default();
-    let module = Module::new(
+    let module = module(
         &store,
         r#"(module
           (import "host" "host" (func $host (param i32) (result i32)))
@@ -188,8 +194,7 @@ fn an_i32_keeps_its_bits() -> Result<(), String> {
           (func (export "ones") (result i32) (call $host (i32.const 0xffffffff)))
           (func (export "shifted") (param i32) (result i32)
             (i32.shr_u (call $host (i32.shl (local.get 0) (i32.const 31))) (i32.const 31))))"#,
-    )
-    .unwrap();
+    );
     let seen = Arc::new(Mutex::new(Vec::new()));
     let host = Function::new(&mut store, FunctionType::new([Type::I32], [Type::I32]), {
         let seen = seen.clone();
@@ -331,13 +336,12 @@ fn other_types_are_not_affected() -> Result<(), String> {
     assert_eq!(bits(&returned[0]), bits(&arguments[2]));
     assert_eq!(*calls.lock().unwrap(), [all_bits(&arguments)]);
 
-    let module = Module::new(
+    let module = module(
         &store,
         r#"(module
           (func (export "i64") (param i64) (result i64) (local.get 0))
           (func (export "both") (param i32 f64) (result f64 i32) (local.get 1) (local.get 0)))"#,
-    )
-    .unwrap();
+    );
     let exports = Instance::new(&mut store, &module, &imports! {})
         .unwrap()
         .exports;
@@ -366,12 +370,11 @@ fn other_types_are_not_affected() -> Result<(), String> {
 )]
 fn references_are_not_affected() -> Result<(), String> {
     let mut store = Store::default();
-    let module = Module::new(
+    let module = module(
         &store,
         r#"(module
           (func (export "reference") (param externref) (result externref) (local.get 0)))"#,
-    )
-    .unwrap();
+    );
     let exports = Instance::new(&mut store, &module, &imports! {})
         .unwrap()
         .exports;
@@ -403,7 +406,7 @@ fn a_dynamic_host_function_can_reenter_its_guest() -> Result<(), String> {
               (func (export "down") (param i32) (result i32)
                 (call $down (local.get 0) {extra_argument})))"#
         );
-        let module = Module::new(&store, wat).unwrap();
+        let module = module(&store, &wat);
         let env = FunctionEnv::new(&mut store, Env(None));
         let mut params = vec![Type::I32];
         params.extend((!extra_type.is_empty()).then_some(Type::I64));
