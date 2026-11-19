@@ -305,6 +305,7 @@ impl PackageDownload {
             let unpack_cmd = super::unpack::PackageUnpack {
                 out_dir,
                 overwrite: false,
+                allow_escape: false,
                 quiet: self.quiet,
                 package_path: out_path,
                 format: super::unpack::Format::Package,
