@@ -77,12 +77,8 @@ impl Store {
         };
 
         let mut inner = Box::new(StoreInner {
-            #[cfg(feature = "js")]
-            clear_slot: crate::backend::js::entities::store::ClearSlotOnDrop::of(&store),
             objects: StoreObjects::from_store_ref(&store),
             store,
-            #[cfg(feature = "sys")]
-            context_mode: 0,
         });
         #[cfg(feature = "js")]
         crate::backend::js::entities::store::StoreSlot::bind(&mut inner);
@@ -221,9 +217,7 @@ impl Store {
         // Its calls go through the thread's context stack from now on, which
         // follows the coroutines of `call_async` as they suspend and resume.
         #[cfg(feature = "sys")]
-        {
-            self.inner.context_mode |= context_mode::ASYNC;
-        }
+        self.inner.store.set_context_mode(context_mode::ASYNC, true);
         StoreAsync {
             id: self.id(),
             inner: LocalRwLock::new(self.inner),

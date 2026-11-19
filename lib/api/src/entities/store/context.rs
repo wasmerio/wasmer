@@ -181,8 +181,10 @@ fn inside_plain_call() -> bool {
     }
 }
 
-/// The bits of `StoreInner::context_mode`. A store with none of them set is
-/// a plain store, whose calls go through its slot (see [`SlotRef`]).
+/// The bits of the context mode of a `sys` store (see
+/// [`BackendStore::context_mode`](crate::BackendStore::context_mode)). A store
+/// with none of them set is a plain store, whose calls go through its slot
+/// (see [`SlotRef`]).
 #[cfg(feature = "sys")]
 pub(crate) mod context_mode {
     /// The store lives in a `StoreAsync`, where `call_async` coroutines that
@@ -479,7 +481,7 @@ impl StoreContext {
     pub(crate) unsafe fn enter(store_ptr: *mut StoreInner) -> StoreEntryGuard {
         // Read through the pointer without making a mutable reference of it:
         // the host functions' borrows are derived from this very pointer.
-        if unsafe { (*store_ptr).context_mode } != 0 {
+        if unsafe { (*store_ptr).store.context_mode() } != 0 {
             return StoreEntryGuard::Stack(unsafe { Self::install(store_ptr) });
         }
         unsafe { Self::enter_slot(wasmer_vm::CurrentThread::get(), store_ptr) }
@@ -496,7 +498,7 @@ impl StoreContext {
         thread: wasmer_vm::CurrentThread,
         store_ptr: *mut StoreInner,
     ) -> StoreEntryGuard {
-        if unsafe { (*store_ptr).context_mode } != 0 {
+        if unsafe { (*store_ptr).store.context_mode() } != 0 {
             return StoreEntryGuard::Stack(unsafe { Self::install(store_ptr) });
         }
         unsafe { Self::enter_slot(thread, store_ptr) }
@@ -839,7 +841,7 @@ impl<'a> CoroutineStoreGuard<'a> {
         // which these guards follow by moving the entries of their calls off
         // the thread and back, while calls through the slot would put back
         // each other's values.
-        store.context_mode |= context_mode::COTHREAD;
+        store.store.set_context_mode(context_mode::COTHREAD, true);
         let SuspendedCothread {
             entries,
             mut activation,

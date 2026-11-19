@@ -12,6 +12,9 @@ pub use obj::*;
 pub struct Store {
     pub(crate) engine: Engine,
     pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
+    /// How a call into the store hands it to its host functions: see
+    /// [`BackendStore::context_mode`].
+    pub(crate) context_mode: u8,
 }
 
 impl std::fmt::Debug for Store {
@@ -29,6 +32,7 @@ impl Store {
         Self {
             engine,
             trap_handler: None,
+            context_mode: 0,
         }
     }
 

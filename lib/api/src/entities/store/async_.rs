@@ -42,9 +42,9 @@ impl StoreAsync {
         match self.inner.consume() {
             Ok(mut unwrapped) => {
                 #[cfg(feature = "sys")]
-                {
-                    unwrapped.context_mode &= !crate::context_mode::ASYNC;
-                }
+                unwrapped
+                    .store
+                    .set_context_mode(crate::context_mode::ASYNC, false);
                 Ok(Store { inner: unwrapped })
             }
             Err(lock) => Err(Self {

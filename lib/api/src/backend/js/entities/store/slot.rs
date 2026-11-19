@@ -78,32 +78,6 @@ impl StoreSlot {
     }
 }
 
-/// Empties the slot of a store when the store is dropped, before anything else
-/// in it: the first field of `StoreInner`. The store's objects, dropped after
-/// it, include its function environments, whose values' `Drop` can call into
-/// a guest, which can call a host function of the store. That host function
-/// must find the slot empty, rather than a store that is half dropped.
-pub(crate) struct ClearSlotOnDrop(Option<StoreSlot>);
-
-impl ClearSlotOnDrop {
-    /// Empties the slot of `store`, if it has one, when dropped.
-    pub(crate) fn of(store: &BackendStore) -> Self {
-        #[allow(unreachable_patterns)]
-        match store {
-            BackendStore::Js(store) => Self(Some(store.slot.clone())),
-            _ => Self(None),
-        }
-    }
-}
-
-impl Drop for ClearSlotOnDrop {
-    fn drop(&mut self) {
-        if let Some(slot) = &self.0 {
-            slot.clear();
-        }
-    }
-}
-
 /// Makes `function` keep `owned` alive for as long as it lives, in the
 /// property `Symbol.for(key)`, which cannot be changed or removed.
 pub(crate) fn keep_alive<T: 'static>(key: &str, owned: T, function: &JsFunction) {

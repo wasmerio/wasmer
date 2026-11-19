@@ -14,16 +14,18 @@ use wasmer_vm::TrapHandlerFn;
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
 pub(crate) struct StoreInner {
-    /// Empties the slot of a store when it is dropped, first of all: see
-    /// [`ClearSlotOnDrop`](crate::backend::js::entities::store::ClearSlotOnDrop).
-    #[cfg(feature = "js")]
-    pub(crate) clear_slot: crate::backend::js::entities::store::ClearSlotOnDrop,
     pub(crate) objects: StoreObjects,
     pub(crate) store: BackendStore,
-    /// How a call into this store hands the store to its host functions:
-    /// see [`SlotRef`](super::SlotRef).
-    #[cfg(feature = "sys")]
-    pub(crate) context_mode: u8,
+}
+
+impl Drop for StoreInner {
+    fn drop(&mut self) {
+        // Before the objects are dropped, which include the function
+        // environments: the `Drop` of their values can call into a guest,
+        // which can call a host function of the store. That host function
+        // must not find a store that is half dropped.
+        self.store.detach_host_functions();
+    }
 }
 
 impl std::fmt::Debug for StoreInner {
@@ -56,6 +58,42 @@ gen_rt_ty! {
 }
 
 impl BackendStore {
+    /// Detaches the store from its host functions, as it is dropped: a host
+    /// function called from then on fails the call instead of reaching the
+    /// store. Only the `js` backend's host functions can outlive their store.
+    pub(crate) fn detach_host_functions(&self) {
+        match self {
+            #[cfg(feature = "js")]
+            Self::Js(store) => store.slot.clear(),
+            #[allow(unreachable_patterns)]
+            _ => {}
+        }
+    }
+
+    /// How a call into a `sys` store hands the store to its host functions:
+    /// the bits of [`context_mode`](crate::context_mode), none for a plain
+    /// store, whose calls go through its slot (see [`SlotRef`](super::SlotRef)).
+    #[cfg(feature = "sys")]
+    #[inline]
+    pub(crate) fn context_mode(&self) -> u8 {
+        match self {
+            Self::Sys(store) => store.context_mode,
+            #[allow(unreachable_patterns)]
+            _ => 0,
+        }
+    }
+
+    /// Sets the bits `mode` of [`Self::context_mode`], or clears them.
+    #[cfg(feature = "sys")]
+    pub(crate) fn set_context_mode(&mut self, mode: u8, set: bool) {
+        match self {
+            Self::Sys(store) if set => store.context_mode |= mode,
+            Self::Sys(store) => store.context_mode &= !mode,
+            #[allow(unreachable_patterns)]
+            _ => {}
+        }
+    }
+
     #[inline]
     pub(crate) fn engine(&self) -> &Engine {
         match_rt!(on self => s {
