@@ -65,46 +65,6 @@ pub(crate) fn mark_entered(synchronously: bool) -> bool {
     ENTERED_SYNCHRONOUSLY.replace(synchronously)
 }
 
-/// `function`, a host function made for the store `id`, recorded as that
-/// store's (see `Function::is_from_store`).
-fn owned(function: JsFunction, id: wasmer_types::StoreId) -> JsFunction {
-    #[cfg(feature = "experimental-async")]
-    jspi::own(&function, id);
-    #[cfg(not(feature = "experimental-async"))]
-    owner::own(&function, id);
-    function
-}
-
-/// The record of [`owned`] without `experimental-async`, whose `jspi` keeps
-/// it otherwise.
-#[cfg(not(feature = "experimental-async"))]
-mod owner {
-    use wasm_bindgen::prelude::*;
-    use wasmer_types::StoreId;
-
-    #[wasm_bindgen(inline_js = r#"
-    const storeOf = new WeakMap();
-    export function own(value, store) { storeOf.set(value, store); }
-    export function owner(value) { return storeOf.get(value); }
-    "#)]
-    extern "C" {
-        #[wasm_bindgen(js_name = own)]
-        fn shim_own(value: &JsValue, store: f64);
-        #[wasm_bindgen(js_name = owner)]
-        fn shim_owner(value: &JsValue) -> Option<f64>;
-    }
-
-    pub(super) fn own(function: &JsValue, id: StoreId) {
-        shim_own(function, id.as_raw().get() as f64);
-    }
-
-    /// Whether `function` can be used with the store `id`: see
-    /// `jspi::belongs_to`.
-    pub(super) fn belongs_to(function: &JsValue, id: StoreId) -> bool {
-        shim_owner(function).is_none_or(|store| store == id.as_raw().get() as f64)
-    }
-}
-
 /// Restores how the guest before was entered when dropped.
 pub(crate) struct EnteredGuest {
     #[cfg(feature = "experimental-async")]
@@ -279,6 +239,7 @@ impl Function {
         });
         let store_id = host.store_id;
         let (start, takes_array) = host.start();
+        // Recorded as the store's by `jspi` itself.
         let function = jspi::host_function(&func_ty, store_id, &start, takes_array);
         let vm_function = VMFunction::new(function, func_ty).without_receiver();
         Self::from_vm_extern(
@@ -431,8 +392,8 @@ impl Function {
                     _ => numeric::result(&results)?,
                 })
             });
-            let function = owned(function, store.as_store_ref().objects().id());
-            let vm_function = VMFunction::new(function, func_ty).without_receiver();
+            let id = store.as_store_ref().objects().id();
+            let vm_function = VMFunction::new(function, func_ty).of_store(id);
             return Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function));
         }
         let wrapped_func: JsValue = match function_type.results().len() {
@@ -492,8 +453,8 @@ impl Function {
             .into_js_value(),
         };
 
-        let function = owned(variadic(&wrapped_func), store.as_store_ref().objects().id());
-        let vm_function = VMFunction::new(function, func_ty).without_receiver();
+        let id = store.as_store_ref().objects().id();
+        let vm_function = VMFunction::new(variadic(&wrapped_func), func_ty).of_store(id);
         Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function))
     }
 
@@ -523,7 +484,7 @@ impl Function {
         let leading = [JsValue::from_f64(slot.address())];
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
         slot.keep_alive_by(&binded_func);
-        let vm_function = VMFunction::new(owned(binded_func, id), ty).without_receiver();
+        let vm_function = VMFunction::new(binded_func, ty).of_store(id);
         Self {
             handle: vm_function,
         }
@@ -559,7 +520,7 @@ impl Function {
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
         slot.keep_alive_by(&binded_func);
         let id = store.as_store_ref().objects().id();
-        let vm_function = VMFunction::new(owned(binded_func, id), ty).without_receiver();
+        let vm_function = VMFunction::new(binded_func, ty).of_store(id);
         Self {
             handle: vm_function,
         }
@@ -801,7 +762,7 @@ impl Function {
         #[cfg(feature = "experimental-async")]
         return jspi::belongs_to(&self.handle.function, id);
         #[cfg(not(feature = "experimental-async"))]
-        owner::belongs_to(&self.handle.function, id)
+        self.handle.store.is_none_or(|store| store == id)
     }
 }
 

@@ -70,6 +70,13 @@ pub struct VMFunction {
     /// these none, which the guards of the numeric lane then call directly,
     /// faster than through `Reflect.apply` (see `numeric`).
     pub(crate) sees_receiver: bool,
+    /// The store of a host function of this crate, for
+    /// `Function::is_from_store` without `experimental-async`. With it,
+    /// `jspi` keeps the store on the JavaScript function, where a function
+    /// taken back from JavaScript finds it too; that costs a `WeakMap` entry
+    /// per function, about a fifth of making one.
+    #[cfg(not(feature = "experimental-async"))]
+    pub(crate) store: Option<wasmer_types::StoreId>,
 }
 
 impl Eq for VMFunction {}
@@ -85,6 +92,21 @@ impl VMFunction {
             numeric: crate::js::function::numeric::is_numeric(&ty),
             ty,
             sees_receiver: true,
+            #[cfg(not(feature = "experimental-async"))]
+            store: None,
+        }
+    }
+
+    /// The function as a host function of this crate made for the store
+    /// `id`, which belongs to that store (see `Function::is_from_store`)
+    /// and does not look at its receiver.
+    pub(crate) fn of_store(self, id: wasmer_types::StoreId) -> Self {
+        #[cfg(feature = "experimental-async")]
+        crate::js::jspi::own(&self.function, id);
+        Self {
+            #[cfg(not(feature = "experimental-async"))]
+            store: Some(id),
+            ..self.without_receiver()
         }
     }
 
