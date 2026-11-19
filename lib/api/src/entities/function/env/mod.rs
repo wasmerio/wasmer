@@ -163,7 +163,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
 }
 
 #[cfg(feature = "experimental-async")]
-impl<T: 'static> AsyncFunctionEnvHandle<T> {
+impl<T: Send + 'static> AsyncFunctionEnvHandle<T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         self.0.data()
@@ -183,7 +183,7 @@ impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<T> {
 }
 
 #[cfg(feature = "experimental-async")]
-impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
+impl<T: Send + 'static> AsyncFunctionEnvHandleMut<T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         self.0.data_mut()
@@ -193,7 +193,10 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
         self.0.data_and_store_mut()
     }
+}
 
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     /// Borrows a new [`FunctionEnvMut`] from this
     /// [`AsyncFunctionEnvHandleMut`].
     pub fn as_function_env_mut(&mut self) -> FunctionEnvMut<'_, T> {

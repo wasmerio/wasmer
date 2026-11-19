@@ -228,6 +228,8 @@ impl Engine {
         match self.be {
             #[cfg(feature = "sys")]
             BackendEngine::Sys(_) => true,
+            #[cfg(feature = "v8")]
+            BackendEngine::V8(_) => true,
             #[cfg(feature = "js")]
             BackendEngine::Js(_) => crate::backend::js::jspi::is_supported(),
             _ => false,

@@ -21,6 +21,7 @@ use super::check_isolate;
 /// A WebAssembly `global` in the `v8` runtime.
 pub struct Global {
     pub(crate) handle: VMGlobal,
+    store_id: wasmer_types::StoreId,
 }
 
 unsafe impl Send for Global {}
@@ -37,7 +38,7 @@ impl Global {
             !extern_.is_null(),
             "Returned null Global extern from wasm-c-api"
         );
-        VMExtern::V8(extern_)
+        VMExtern::V8(crate::v8::vm::VMExtern::Raw(extern_))
     }
 
     /// Create a `Global` with the initial value [`Value`] and the provided [`Mutability`].
@@ -47,10 +48,13 @@ impl Global {
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
         check_isolate(store);
+        if !val.is_from_store(store) {
+            return Err(RuntimeError::new("value belongs to another store"));
+        }
         let store = store.as_store_mut();
         let v8_store = store.inner.store.as_v8();
         let v8_type = val.ty().into_ct();
-        let v8_value = val.into_cv();
+        let mut v8_value = val.into_cv();
         let v8_mutability = if mutability.is_mutable() {
             bindings::wasm_mutability_enum_WASM_VAR
         } else {
@@ -60,8 +64,11 @@ impl Global {
         let v8_global_type =
             unsafe { wasm_globaltype_new(wasm_valtype_new(v8_type), v8_mutability) };
 
+        let handle = unsafe { wasm_global_new(v8_store.inner, v8_global_type, &v8_value) };
+        unsafe { bindings::wasm_val_delete(&mut v8_value) };
         Ok(Self {
-            handle: unsafe { wasm_global_new(v8_store.inner, v8_global_type, &v8_value) },
+            store_id: store.as_store_ref().objects().id(),
+            handle,
         })
     }
 
@@ -88,11 +95,17 @@ impl Global {
         let store = store.as_store_ref();
         let mut out = unsafe { std::mem::zeroed() };
         unsafe { wasm_global_get(self.handle, &mut out) };
-        out.into_wv()
+        if out.kind == bindings::wasm_valkind_enum_WASM_EXTERNREF as bindings::wasm_valkind_t {
+            out.kind = self.ty(&store).ty.into_ct();
+        }
+        out.into_wv(self.store_id)
     }
 
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
         check_isolate(store);
+        if !val.is_from_store(store) {
+            return Err(RuntimeError::new("value belongs to another store"));
+        }
 
         if val.ty() != self.ty(store).ty {
             return Err(RuntimeError::new(format!(
@@ -106,9 +119,11 @@ impl Global {
             return Err(RuntimeError::new("The global is immutable".to_owned()));
         }
 
-        let value = val.into_cv();
-
-        unsafe { wasm_global_set(self.handle, &value) };
+        let mut value = val.into_cv();
+        unsafe {
+            wasm_global_set(self.handle, &value);
+            bindings::wasm_val_delete(&mut value);
+        }
 
         Ok(())
     }
@@ -116,12 +131,12 @@ impl Global {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
         check_isolate(store);
         Self {
+            store_id: store.as_store_ref().objects().id(),
             handle: vm_global.unwrap_v_8(),
         }
     }
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        check_isolate(store);
-        true
+        self.store_id == store.as_store_ref().objects().id()
     }
 }

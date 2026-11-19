@@ -26,6 +26,35 @@ macro_rules! impl_native_traits {
              $( $x: FromToNativeWasmType, )*
              Rets: WasmTypeList,
          {
+            #[cfg(feature = "experimental-async")]
+            #[allow(clippy::too_many_arguments, unused_mut)]
+            pub(crate) fn call_async_v8(
+                func: crate::Function,
+                store: StoreAsync,
+                $( $x: $x, )*
+            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'static
+            where
+                $( $x: FromToNativeWasmType + 'static, )*
+            {
+                async move {
+                    let mut write = store.write_lock().await;
+                    if !func.is_from_store(&write) { return Err(RuntimeError::new("function belongs to another store")); }
+                    let func_ty = func.ty(&write);
+                    let params_raw = [ $( $x.to_native().into_raw(&mut write) ),* ];
+                    let mut params_values = Vec::with_capacity(params_raw.len());
+                    for (raw, ty) in params_raw.iter().zip(func_ty.params()) {
+                        unsafe {
+                            params_values.push(Value::from_raw(&mut write, *ty, *raw));
+                        }
+                    }
+                    drop(write);
+
+                    let results = func.call_async(&store, params_values).await?;
+                    let mut write = store.write_lock().await;
+                    convert_results::<Rets>(&mut write, func_ty, &results)
+                }
+            }
+
              /// Call the typed func and return results.
             #[allow(clippy::too_many_arguments)]
             pub fn call_v8(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
@@ -40,13 +69,18 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType, )*
             {
 
+                 let func = self.func.as_v8();
+                 if !func.is_from_store(store) {
+                     return Err(RuntimeError::new("function belongs to another store"));
+                 }
+                 let func = func.handle;
+
                  // // let store_ptr = Value::I64(store.as_store_mut().as_raw() as _).as_jsvalue(store);
                  #[allow(unused_unsafe)]
-                 let params_list: Vec<_> = unsafe {
+                 let params_list: Vec<Value> = unsafe {
                      vec![ $( {
                          let raw = $x.to_native().into_raw(store);
-                         let value = Value::from_raw(&mut *store, <$x::Native as NativeWasmType>::WASM_TYPE, raw);
-                         value.into_cv()
+                         Value::from_raw(&mut *store, <$x::Native as NativeWasmType>::WASM_TYPE, raw)
                      } ),* ]
                  };
 
@@ -59,14 +93,13 @@ macro_rules! impl_native_traits {
                 };
 
 
-                 let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern().unwrap_v_8()) };
-
-                 call_wrapped(store, wrapper, |_| {
+                 call_wrapped(store, wrapper, |store| {
                     // `wasm_func_call` takes the arguments, so every entry gets its own.
+                    let args: Vec<_> = params_list.iter().cloned().map(IntoCApiValue::into_cv).collect();
                     let mut params = unsafe { std::mem::zeroed() };
                     let trap = unsafe {
-                        wasm_val_vec_new(&mut params, params_list.len(), params_list.as_ptr());
-                        wasm_func_call(func, &params, &mut results)
+                        wasm_val_vec_new(&mut params, args.len(), args.as_ptr());
+                        crate::v8::enter_sync(&mut store.as_store_mut(), || wasm_func_call(func, &params, &mut results))
                     };
                     if trap.is_null() {
                         Ok(())
@@ -79,21 +112,10 @@ macro_rules! impl_native_traits {
                     let mut rets_list_array = Rets::empty_array();
                     let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
 
-                    match Rets::size() {
-                        0 => {},
-                        1 => {
-                            let val = (*results.data.wrapping_add(0)).clone();
-                            let val = val.into_wv();
-                            *mut_rets = val.as_raw(store);
-                        }
-                        _n => {
-                            for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
-                                    let val = (*results.data.wrapping_add(i)).clone();
-                                    let val = val.into_wv();
-                                    let slot = mut_rets.add(i);
-                                    *slot = val.as_raw(store);
-                            }
-                        }
+                    for (i, ty) in Rets::wasm_types().iter().enumerate() {
+                        let mut value = *results.data.add(i);
+                        value.kind = ty.into_ct();
+                        *mut_rets.add(i) = value.into_wv(self.func.as_v8().store_id).as_raw(store);
                     }
 
                     Ok(unsafe { Rets::from_array(store, rets_list_array) })
@@ -145,3 +167,29 @@ impl_native_traits!(
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
 );
+
+#[cfg(feature = "experimental-async")]
+use crate::{AsStoreAsync, StoreAsync};
+#[cfg(feature = "experimental-async")]
+fn convert_results<Rets: WasmTypeList>(
+    store: &mut impl AsStoreMut,
+    func_ty: wasmer_types::FunctionType,
+    results: &[Value],
+) -> Result<Rets, RuntimeError> {
+    if results.len() != func_ty.results().len() {
+        return Err(RuntimeError::new("result arity mismatch"));
+    }
+
+    let mut rets_list_array = Rets::empty_array();
+    for ((slot, ty), value) in rets_list_array
+        .as_mut()
+        .iter_mut()
+        .zip(func_ty.results())
+        .zip(results)
+    {
+        debug_assert_eq!(value.ty(), *ty);
+        *slot = value.as_raw(store);
+    }
+
+    Ok(unsafe { Rets::from_array(store, rets_list_array) })
+}

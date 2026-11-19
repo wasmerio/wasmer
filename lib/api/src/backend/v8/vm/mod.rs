@@ -15,7 +15,19 @@ use wasmer_types::{MemoryError, RawValue};
 
 pub use super::error::Trap;
 
-pub(crate) type VMExtern = *mut wasm_extern_t;
+pub enum VMExtern {
+    Raw(*mut wasm_extern_t),
+    Function(Function),
+}
+
+impl VMExtern {
+    pub(crate) fn as_raw(&self) -> *mut wasm_extern_t {
+        match self {
+            Self::Raw(raw) => *raw,
+            Self::Function(func) => unsafe { wasm_func_as_extern(func.handle) },
+        }
+    }
+}
 
 // No EH for now.
 pub(crate) type VMException = ();
@@ -43,11 +55,21 @@ pub(crate) type VMConfig = ();
 #[allow(nonstandard_style)]
 impl crate::VMExternToExtern for VMExtern {
     fn to_extern(self, store: &mut impl AsStoreMut) -> Extern {
-        let kind = unsafe { wasm_extern_kind(&mut *self) };
+        let raw = match self {
+            Self::Raw(raw) => raw,
+            Self::Function(func) => {
+                assert!(
+                    func.is_from_store(store),
+                    "function belongs to another store"
+                );
+                return Extern::Function(crate::Function(BackendFunction::V8(func)));
+            }
+        };
+        let kind = unsafe { wasm_extern_kind(raw) };
 
         match kind as wasm_valkind_enum {
             wasm_externkind_enum_WASM_EXTERN_FUNC => {
-                let func = unsafe { wasm_extern_as_func(&mut *self) };
+                let func = unsafe { wasm_extern_as_func(raw) };
                 if func.is_null() {
                     panic!("V8 reported extern as function, but is not");
                 }
@@ -57,7 +79,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             wasm_externkind_enum_WASM_EXTERN_GLOBAL => {
-                let global = unsafe { wasm_extern_as_global(&mut *self) };
+                let global = unsafe { wasm_extern_as_global(raw) };
                 if global.is_null() {
                     panic!("V8 reported extern as a global, but is not");
                 }
@@ -67,7 +89,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             wasm_externkind_enum_WASM_EXTERN_TABLE => {
-                let table = unsafe { wasm_extern_as_table(&mut *self) };
+                let table = unsafe { wasm_extern_as_table(raw) };
                 if table.is_null() {
                     panic!("V8 reported extern as a table, but is not");
                 }
@@ -77,7 +99,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             wasm_externkind_enum_WASM_EXTERN_MEMORY => {
-                let memory = unsafe { wasm_extern_as_memory(&mut *self) };
+                let memory = unsafe { wasm_extern_as_memory(raw) };
                 if memory.is_null() {
                     panic!("V8 reported extern as a memory, but is not");
                 }
@@ -87,7 +109,7 @@ impl crate::VMExternToExtern for VMExtern {
                 ))
             }
             wasm_externkind_enum_WASM_EXTERN_TAG => {
-                let tag = unsafe { wasm_extern_as_tag(&mut *self) };
+                let tag = unsafe { wasm_extern_as_tag(raw) };
                 if tag.is_null() {
                     panic!("V8 reported extern as a tag, but is not");
                 }

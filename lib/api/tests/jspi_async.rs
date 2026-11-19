@@ -1,5 +1,11 @@
 #![cfg(all(feature = "experimental-async", not(target_arch = "wasm32")))]
 
+use tokio::test as async_test;
+
+mod common;
+#[path = "jspi_async/shared.rs"]
+mod shared;
+
 use std::{cell::RefCell, sync::OnceLock};
 
 use anyhow::Result;
@@ -8,7 +14,7 @@ use wasmer::{
     AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module,
     Store, StoreAsync, Type, TypedFunction, Value, imports,
 };
-use wasmer_vm::TrapCode;
+use wasmer_types::TrapCode;
 
 #[derive(Default)]
 struct DeltaState {
@@ -33,7 +39,7 @@ fn jspi_module() -> &'static [u8] {
 #[test]
 #[cfg_attr(
     feature = "v8-default",
-    ignore = "async functions are not supported by the default v8 backend"
+    ignore = "V8 starts modules synchronously and traps on entry to a suspending import"
 )]
 fn async_state_updates_follow_jspi_example() -> Result<()> {
     let wasm = jspi_module();
@@ -120,10 +126,6 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(
-    feature = "v8-default",
-    ignore = "async functions are not supported by the default v8 backend"
-)]
 fn typed_async_host_and_calls_work() -> Result<()> {
     let wasm = wat::parse_str(
         r#"
@@ -188,10 +190,6 @@ fn typed_async_host_and_calls_work() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(
-    feature = "v8-default",
-    ignore = "async functions are not supported by the default v8 backend"
-)]
 fn cannot_yield_when_not_in_async_context() -> Result<()> {
     const WAT: &str = r#"
     (module
@@ -243,7 +241,7 @@ fn cannot_yield_when_not_in_async_context() -> Result<()> {
 #[test]
 #[cfg_attr(
     feature = "v8-default",
-    ignore = "async functions are not supported by the default v8 backend"
+    ignore = "V8 cannot suspend across a synchronous host frame"
 )]
 fn nested_async_in_sync() -> Result<()> {
     const WAT: &str = r#"

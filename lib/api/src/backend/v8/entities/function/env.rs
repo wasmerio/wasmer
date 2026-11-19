@@ -205,3 +205,144 @@ impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
         Self(crate::BackendFunctionEnv::V8(value))
     }
 }
+
+#[cfg(feature = "experimental-async")]
+use crate::{AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock};
+#[cfg(feature = "experimental-async")]
+pub struct AsyncFunctionEnvMut<T> {
+    pub(crate) store: Option<StoreAsync>,
+    pub(crate) func_env: FunctionEnv<T>,
+}
+
+#[cfg(feature = "experimental-async")]
+pub struct AsyncFunctionEnvHandle<T> {
+    read_lock: StoreAsyncReadLock,
+    pub(crate) func_env: FunctionEnv<T>,
+}
+
+#[cfg(feature = "experimental-async")]
+pub struct AsyncFunctionEnvHandleMut<T> {
+    write_lock: StoreAsyncWriteLock,
+    pub(crate) func_env: FunctionEnv<T>,
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T> Clone for AsyncFunctionEnvMut<T> {
+    fn clone(&self) -> Self {
+        Self {
+            store: self.store.as_ref().map(AsStoreAsync::store),
+            func_env: self.func_env.clone(),
+        }
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T> Debug for AsyncFunctionEnvMut<T>
+where
+    T: Send + Debug + 'static,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.store.as_ref().and_then(|s| s.inner.try_read()) {
+            Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
+            None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
+        }
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> AsyncFunctionEnvMut<T> {
+    pub async fn read(&self) -> AsyncFunctionEnvHandle<T> {
+        AsyncFunctionEnvHandle {
+            read_lock: match &self.store {
+                Some(store) => store.read_lock().await,
+                None => std::future::pending().await,
+            },
+            func_env: self.func_env.clone(),
+        }
+    }
+
+    pub async fn write(&self) -> AsyncFunctionEnvHandleMut<T> {
+        AsyncFunctionEnvHandleMut {
+            write_lock: match &self.store {
+                Some(store) => store.write_lock().await,
+                None => std::future::pending().await,
+            },
+            func_env: self.func_env.clone(),
+        }
+    }
+
+    pub fn as_ref(&self) -> FunctionEnv<T> {
+        self.func_env.clone()
+    }
+
+    pub fn as_mut(&mut self) -> Self {
+        self.clone()
+    }
+
+    pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
+        self.store.as_ref().expect("synchronous store").store()
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: Send + 'static> AsyncFunctionEnvHandle<T> {
+    pub fn data(&self) -> &T {
+        self.func_env.as_ref(&self.read_lock)
+    }
+
+    pub fn data_and_store(&self) -> (&T, &impl AsStoreRef) {
+        (self.data(), &self.read_lock)
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<T> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        self.read_lock.as_store_ref()
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: Send + 'static> AsyncFunctionEnvHandleMut<T> {
+    pub fn data_mut(&mut self) -> &mut T {
+        self.func_env.as_mut(&mut self.write_lock)
+    }
+
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
+        self.data_and_write_lock()
+    }
+
+    pub(crate) fn data_and_write_lock(&mut self) -> (&mut T, &mut StoreAsyncWriteLock) {
+        let data = self.data_mut() as *mut T;
+        let data = unsafe { &mut *data };
+        (data, &mut self.write_lock)
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
+    pub fn as_function_env_mut(&mut self) -> FunctionEnvMut<'_, T> {
+        FunctionEnvMut {
+            store_mut: self.write_lock.as_store_mut(),
+            func_env: self.func_env.clone(),
+        }
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<T> {
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        self.write_lock.as_store_ref()
+    }
+}
+
+#[cfg(feature = "experimental-async")]
+impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<T> {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        self.write_lock.as_store_mut()
+    }
+
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+        self.write_lock.objects_mut()
+    }
+}

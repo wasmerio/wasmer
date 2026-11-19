@@ -91,6 +91,6 @@ impl Tag {
             "Returned null Tag extern from wasm-c-api"
         );
 
-        VMExtern::V8(extern_)
+        VMExtern::V8(crate::v8::vm::VMExtern::Raw(extern_))
     }
 }

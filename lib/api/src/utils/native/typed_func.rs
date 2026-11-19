@@ -119,7 +119,10 @@ macro_rules! impl_native_traits {
                             Self::call_async_sys(func, store, $([<p_ $x>]),*).await
                         }
                         #[cfg(feature = "v8")]
-                        BackendStore::V8(_) => async_backend_error(),
+                        BackendStore::V8(_) => {
+                            drop(read_lock);
+                            Self::call_async_v8(func, store, $([<p_ $x>]),*).await
+                        }
                         #[cfg(feature = "js")]
                         BackendStore::Js(_) => {
                             drop(read_lock);
@@ -181,9 +184,3 @@ impl_native_traits!(
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
 );
-
-fn async_backend_error<Rets>() -> Result<Rets, RuntimeError> {
-    Err(RuntimeError::new(
-        "async calls are not supported with the `v8` backend",
-    ))
-}

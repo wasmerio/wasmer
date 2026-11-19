@@ -74,7 +74,9 @@ impl Memory {
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::V8(unsafe { wasm_memory_as_extern(self.handle.0) })
+        VMExtern::V8(crate::v8::vm::VMExtern::Raw(unsafe {
+            wasm_memory_as_extern(self.handle.0)
+        }))
     }
 
     pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {

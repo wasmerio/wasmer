@@ -10,7 +10,7 @@ pub(crate) mod store;
 pub(crate) mod table;
 pub(crate) mod tag;
 
-fn check_isolate(store: &impl crate::AsStoreRef) {
+pub(crate) fn check_isolate(store: &impl crate::AsStoreRef) {
     let store = store.as_store_ref();
     let v8_store = store.inner.store.as_v8();
 

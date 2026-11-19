@@ -33,14 +33,28 @@ fn build_v8() {
         .join(WEE8_RELEASE_VERSION)
         .join(platform_name);
     let archive_path = cache_dir.join(asset_name);
-    let v8_lib_dir = cache_dir.join("lib");
+    println!("cargo:rerun-if-env-changed=WASMER_WEE8_DIR");
+    let distribution = env::var_os("WASMER_WEE8_DIR").map(PathBuf::from);
+    if cfg!(feature = "experimental-async") && distribution.is_none() {
+        panic!(
+            "V8 experimental-async requires a JSPI-enabled wee8 distribution. Set WASMER_WEE8_DIR to its unpacked directory (containing include/ and lib/)."
+        );
+    }
+    let v8_lib_dir = distribution.as_ref().unwrap_or(&cache_dir).join("lib");
     let v8_lib_path = v8_lib_dir.join(if cfg!(target_os = "windows") {
         "v8.lib"
     } else {
         "libv8.a"
     });
 
-    if !v8_lib_path.exists() {
+    if distribution.is_some() {
+        assert!(
+            v8_lib_path.is_file(),
+            "missing V8 library {}",
+            v8_lib_path.display()
+        );
+        println!("cargo:rerun-if-changed={}", v8_lib_path.display());
+    } else if !v8_lib_path.exists() {
         fs::create_dir_all(&cache_dir).unwrap_or_else(|err| {
             panic!(
                 "failed to create v8 cache dir {}: {err}",
@@ -87,7 +101,7 @@ fn build_v8() {
         });
     }
 
-    println!("cargo:rustc-link-search=native={}", v8_lib_dir.display());
+    println!("cargo:rustc-link-search=native={}", out_path.display());
 
     // Rename the wasm-c-api symbols from V8 so they do not collide with
     // Wasmer's own wasm-c-api exports when this crate is linked into tests.
@@ -116,7 +130,11 @@ fn build_v8() {
         }
     }
 
-    let header_path = v8_header_path.join("wasm.h");
+    let header_path = match &distribution {
+        Some(dir) => dir.join("include/wasm-c-api/wasm.h"),
+        None => v8_header_path.join("wasm.h"),
+    };
+    println!("cargo:rerun-if-changed={}", header_path.display());
     let mut args = vec![];
     if cfg!(target_os = "macos") {
         args.push("-I/usr/local/include");
@@ -171,7 +189,7 @@ fn build_v8() {
             }
         })
         .collect();
-    let prefixed_v8_lib_path = v8_lib_dir.join("libv8prefixed.a");
+    let prefixed_v8_lib_path = out_path.join("libv8prefixed.a");
     let output = std::process::Command::new(objcopy)
         .args(syms)
         .arg(v8_lib_path.display().to_string())
@@ -198,6 +216,11 @@ fn build_v8() {
         println!("cargo:rustc-link-lib=shlwapi");
     } else {
         println!("cargo:rustc-link-lib=c++");
+        #[cfg(target_os = "macos")]
+        {
+            println!("cargo:rustc-link-lib=framework=Foundation");
+            println!("cargo:rustc-link-lib=framework=Security");
+        }
     }
 
     fn stable_target_dir(out_path: &Path) -> PathBuf {
