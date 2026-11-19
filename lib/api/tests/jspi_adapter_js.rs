@@ -1353,6 +1353,28 @@ fn an_eager_import_outside_call_async() {
     }
 }
 
+/// A guest entered synchronously with another store than its eager host
+/// function's. That store is not lent to the host function, which does not
+/// run: the import fails, and the call with it.
+#[wasm_bindgen_test]
+fn an_eager_import_of_another_store_fails() {
+    let Guest {
+        store,
+        instance,
+        log,
+        ..
+    } = eager_guest();
+    let _store = store.into_store().unwrap();
+    let mut other = Store::default();
+    let inner = instance.exports.get_function("inner").unwrap();
+    let error = inner.call(&mut other, &[Value::I32(READY)]).unwrap_err();
+    assert!(
+        error.message().contains("not entered with its store"),
+        "{error}"
+    );
+    assert!(log.borrow().is_empty(), "the host function did not run");
+}
+
 /// An eager host function that calls back into its guest while it is polled
 /// inside the import: synchronously, where the guest reaches the same import
 /// again, and with a `call_async` of its own in the same store.
@@ -1898,4 +1920,109 @@ async fn memory_per_cancelled_call_stays_flat() {
         "cancelled calls leave their stacks behind"
     );
     guest.into_store();
+}
+
+/// A waker that polls the call at once, inside `wake`, as an executor may.
+/// The guest's second wait begins in a later slice, where that poll runs
+/// while the guest is still on the stack: the promise the guest waits on is
+/// made before the call is woken, and the host future is polled only once the
+/// engine has suspended the guest. The call finishes.
+#[wasm_bindgen_test]
+async fn a_waker_that_polls_the_call_at_once() {
+    struct PollsAtOnce {
+        call: RefCell<Option<Call>>,
+        result: RefCell<Option<Result<Box<[Value]>, RuntimeError>>>,
+    }
+    // The tests run on one thread; a waker has to be `Send` and `Sync`.
+    unsafe impl Send for PollsAtOnce {}
+    unsafe impl Sync for PollsAtOnce {}
+    impl Wake for PollsAtOnce {
+        fn wake(self: Arc<Self>) {
+            self.wake_by_ref();
+        }
+        fn wake_by_ref(self: &Arc<Self>) {
+            let Ok(mut call) = self.call.try_borrow_mut() else {
+                return;
+            };
+            let Some(future) = call.as_mut() else {
+                return;
+            };
+            let waker = Waker::from(self.clone());
+            if let Poll::Ready(result) = future.as_mut().poll(&mut Context::from_waker(&waker)) {
+                *self.result.borrow_mut() = Some(result);
+                *call = None;
+            }
+        }
+    }
+
+    let guest = guest();
+    let poller = Arc::new(PollsAtOnce {
+        call: RefCell::new(Some(guest.call("twice", &[READY]))),
+        result: RefCell::default(),
+    });
+    poller.wake_by_ref();
+    for _ in 0..20 {
+        if poller.result.borrow().is_some() {
+            break;
+        }
+        macrotask().await;
+    }
+    let result = poller.result.borrow_mut().take();
+    assert_eq!(
+        i32_of(result.expect("the call finished")),
+        READY + READY + 1
+    );
+    guest.into_store();
+}
+
+/// Guests whose result JavaScript could take for a promise.
+mod externref_results {
+    use wasm_bindgen::prelude::wasm_bindgen;
+
+    use super::*;
+
+    #[wasm_bindgen(inline_js = r#"
+    export function thenable(settles) {
+      return { then(resolve) { if (settles) resolve("settled"); } };
+    }
+    export function returning(value) {
+      return () => value;
+    }
+    "#)]
+    extern "C" {
+        fn thenable(settles: bool) -> JsValue;
+        fn returning(value: &JsValue) -> JsValue;
+    }
+
+    /// A guest that returns a thenable, which a promise would wait for and
+    /// take the value of: the call ends when the guest returns, with the
+    /// thenable itself, and the store is free again. The thenable settles,
+    /// or never does.
+    #[wasm_bindgen_test]
+    async fn a_guest_that_returns_a_thenable() {
+        for settles in [false, true] {
+            let mut store = Store::default();
+            let value = thenable(settles);
+            let ty = FunctionType::new([], [Type::ExternRef]);
+            let make = Function::from_jsvalue(&mut store, &ty, &returning(&value)).unwrap();
+            let module = Module::new(
+                &store,
+                r#"(module
+                  (import "h" "make" (func $make (result externref)))
+                  (func (export "run") (result externref) (call $make)))"#,
+            )
+            .unwrap();
+            let imports = imports! { "h" => { "make" => make } };
+            let instance = Instance::new(&mut store, &module, &imports).unwrap();
+            let run = instance.exports.get_function("run").unwrap().clone();
+            let store = store.into_async();
+
+            let results = run.call_async(&store, vec![]).await.unwrap();
+            let lock = store.read_lock().await;
+            let returned = results[0].as_jsvalue(&lock);
+            assert!(js_sys::Object::is(&returned, &value), "settles: {settles}");
+            drop(lock);
+            assert!(store.into_store().is_ok(), "settles: {settles}");
+        }
+    }
 }

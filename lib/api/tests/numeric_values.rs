@@ -494,3 +494,71 @@ mod wrong_results {
         call_returning(&signatures()[1], vec![]);
     }
 }
+
+/// JavaScript functions given to `wasmer` as they are, through `AsJs`, take
+/// the same lane when their signature has only numbers, and are called as the
+/// other lane calls them: without looking anything up on them, with the
+/// receiver of that lane (`null` for `Function::call`, `undefined` for a
+/// typed call), and without looking at what they return when the signature
+/// has no result.
+#[cfg(feature = "js")]
+mod javascript_functions {
+    use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
+    use wasm_bindgen_test::wasm_bindgen_test;
+    use wasmer::{js::AsJs, *};
+
+    #[wasm_bindgen(inline_js = r#"
+    export function receiverOf() {
+      return function () { return this === null ? 1 : this === undefined ? 2 : 3; };
+    }
+    export function returningASymbol() {
+      return function () { return Symbol(); };
+    }
+    export function withItsOwnCall(f) {
+      Object.defineProperty(f, "call", { value() { throw new Error("its own call"); } });
+      return f;
+    }
+    "#)]
+    extern "C" {
+        #[wasm_bindgen(js_name = receiverOf)]
+        fn receiver_of() -> JsValue;
+        #[wasm_bindgen(js_name = returningASymbol)]
+        fn returning_a_symbol() -> JsValue;
+        #[wasm_bindgen(js_name = withItsOwnCall)]
+        fn with_its_own_call(f: JsValue) -> JsValue;
+    }
+
+    fn function(store: &mut Store, ty: FunctionType, value: &JsValue) -> Function {
+        Function::from_jsvalue(store, &ty, value).unwrap()
+    }
+
+    #[wasm_bindgen_test]
+    fn they_get_the_receiver_of_their_lane() {
+        let mut store = Store::default();
+        let ty = FunctionType::new([], [Type::I32]);
+        for value in [receiver_of(), with_its_own_call(receiver_of())] {
+            let f = function(&mut store, ty.clone(), &value);
+            let result = f.call(&mut store, &[]).unwrap();
+            assert_eq!(result[0].unwrap_i32(), 1, "Function::call passes null");
+            let typed: TypedFunction<(), i32> = f.typed(&store).unwrap();
+            assert_eq!(
+                typed.call(&mut store).unwrap(),
+                2,
+                "a typed call passes undefined"
+            );
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn what_they_return_without_a_result_is_ignored() {
+        let mut store = Store::default();
+        let f = function(
+            &mut store,
+            FunctionType::new([Type::I32], []),
+            &returning_a_symbol(),
+        );
+        assert!(f.call(&mut store, &[Value::I32(1)]).unwrap().is_empty());
+        let typed: TypedFunction<i32, ()> = f.typed(&store).unwrap();
+        typed.call(&mut store, 1).unwrap();
+    }
+}

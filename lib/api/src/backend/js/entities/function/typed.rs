@@ -122,10 +122,14 @@ macro_rules! impl_native_traits {
                 if let (Some(numbers), Some(result_ty)) =
                     (raw_numbers(&params_list), numeric_result(Rets::wasm_types()))
                 {
+                    // Called with the receiver of the call below, and its
+                    // result read the same way.
                     let function = &self.func.as_js().handle.function;
                     let mut result = 0.0;
-                    call_wrapped(store, wrapper, |_| {
-                        result = numeric::call(function, &numbers)?;
+                    call_wrapped(store, wrapper, |store| {
+                        let _entered = super::enter_store(store);
+                        let receiver = &JsValue::UNDEFINED;
+                        result = numeric::call(function, receiver, &numbers, result_ty.is_some())?;
                         Ok(())
                     })?;
                     let mut rets_list_array = Rets::empty_array();
@@ -143,6 +147,7 @@ macro_rules! impl_native_traits {
                                 .map(|&(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
                         )
                     };
+                    let _entered = super::enter_store(store);
                     results = self
                         .func
                         .as_js()

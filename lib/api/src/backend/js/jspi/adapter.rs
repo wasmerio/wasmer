@@ -65,6 +65,7 @@ const RESUME: u8 = 2;
 const UNWAIT: u8 = 3;
 
 const I32: u8 = 0x7f;
+const EXTERNREF: u8 = 0x6f;
 const EXNREF: u8 = 0x69;
 
 fn leb(out: &mut Vec<u8>, mut value: u32) {
@@ -197,6 +198,86 @@ fn encode(ty: &FunctionType) -> Result<Vec<u8>, String> {
     Ok(module)
 }
 
+/// Whether `call_async` enters a guest of type `ty` through an [`entry`]: if
+/// its only result is an `externref`, which JavaScript could take for a
+/// promise.
+pub(super) fn enters_through_an_entry(ty: &FunctionType) -> bool {
+    matches!(ty.results(), [Type::ExternRef])
+}
+
+/// The binary of the entry module for `ty`, whose only result is an
+/// `externref`:
+///
+/// ```text
+/// (func (export "f") (param P..) (result externref)
+///   (call $envelope (call $target (local.get P..))))
+/// ```
+///
+/// A promising function settles its promise with what the guest returns, and
+/// if that is a thenable, it waits for the thenable instead: the call would go
+/// on waiting after the guest has returned, with the store held, and end with
+/// whatever the thenable settles with. `envelope` wraps the result in a value
+/// that is not one.
+fn encode_entry(ty: &FunctionType) -> Result<Vec<u8>, String> {
+    let params = ty.params().iter().map(valtype).collect::<Result<Vec<_>, _>>()?;
+    let [result] = ty.results() else {
+        return Err(format!("`{ty}` has no single result to wrap"));
+    };
+    let result = valtype(result)?;
+
+    let mut module = b"\0asm\x01\0\0\0".to_vec();
+    let mut types = vec![3];
+    functype(&mut types, &params, &[result]);
+    functype(&mut types, &[result], &[EXTERNREF]);
+    functype(&mut types, &params, &[EXTERNREF]);
+    section(&mut module, 1, &types);
+
+    let mut imports = vec![2];
+    import(&mut imports, "target", &[0, 0]);
+    import(&mut imports, "envelope", &[0, 1]);
+    section(&mut module, 2, &imports);
+
+    section(&mut module, 3, &[1, 2]);
+    section(&mut module, 7, &[1, 1, b'f', 0, 2]);
+
+    let mut body = vec![0];
+    for index in 0..params.len() as u32 {
+        body.push(0x20);
+        leb(&mut body, index);
+    }
+    body.extend_from_slice(&[0x10, 0, 0x10, 1, 0x0b]); // call $target, call $envelope
+    let mut code = vec![1];
+    leb(&mut code, body.len() as u32);
+    code.extend_from_slice(&body);
+    section(&mut module, 10, &code);
+    Ok(module)
+}
+
+/// The function `call_async` enters `target`, of type `ty`, through; see
+/// [`encode_entry`]. Its module is compiled once per signature and thread.
+pub(super) fn entry(
+    target: &Function,
+    ty: &FunctionType,
+    envelope: &JsValue,
+) -> Result<Function, JsValue> {
+    let module = ENTRIES.with(|entries| -> Result<_, JsValue> {
+        if let Some(module) = entries.borrow().get(ty) {
+            return Ok(module.clone());
+        }
+        let bytes = encode_entry(ty).map_err(|message| JsValue::from_str(&message))?;
+        let module = WebAssembly::Module::new(&Uint8Array::from(&bytes[..]).into())?;
+        entries.borrow_mut().insert(ty.clone(), module.clone());
+        Ok(module)
+    })?;
+    let functions = Object::new();
+    Reflect::set(&functions, &"target".into(), target)?;
+    Reflect::set(&functions, &"envelope".into(), envelope)?;
+    let imports = Object::new();
+    Reflect::set(&imports, &"w".into(), &functions)?;
+    let instance = WebAssembly::Instance::new(&module, &imports)?;
+    Ok(Reflect::get(&instance.exports(), &"f".into())?.unchecked_into())
+}
+
 /// What `start` and `resume` return while the results are not ready, or will
 /// never be: the guest does not see it, but the engine converts it to the
 /// result types before the adapter looks at `$status`, and a value it cannot
@@ -217,6 +298,8 @@ pub(super) fn placeholder(ty: &FunctionType) -> JsValue {
 
 thread_local! {
     static MODULES: RefCell<HashMap<FunctionType, WebAssembly::Module>> =
+        RefCell::new(HashMap::new());
+    static ENTRIES: RefCell<HashMap<FunctionType, WebAssembly::Module>> =
         RefCell::new(HashMap::new());
 }
 
@@ -285,6 +368,19 @@ mod tests {
             if let Err(error) = module(&ty) {
                 panic!("the adapter for {ty} does not compile: {error:?}");
             }
+        }
+    }
+
+    /// The engine accepts the entry of every signature with an `externref`
+    /// as its only result.
+    #[wasm_bindgen_test]
+    fn every_entry_compiles() {
+        let params = [Type::I32, Type::I64, Type::F32, Type::F64, Type::ExternRef];
+        for params in [&[][..], &params[..], &[Type::I64; 200][..]] {
+            let ty = FunctionType::new(params.to_vec(), vec![Type::ExternRef]);
+            let bytes = encode_entry(&ty).unwrap();
+            let compiled = WebAssembly::Module::new(&Uint8Array::from(&bytes[..]).into());
+            assert!(compiled.is_ok(), "the entry for {ty} does not compile");
         }
     }
 

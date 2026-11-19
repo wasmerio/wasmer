@@ -7,6 +7,76 @@ use std::{future::Future, pin::Pin, rc::Rc, sync::Arc, task::Poll};
 
 pub(crate) use typed::*;
 
+#[wasm_bindgen(inline_js = r#"
+export function variadic(f) {
+  return function () {
+    return f(Array.prototype.slice.call(arguments));
+  };
+}
+"#)]
+extern "C" {
+    /// A function that calls `f` with an array of the arguments it is
+    /// called with. Static JavaScript, not made from a string: some hosts
+    /// forbid that.
+    fn variadic(f: &JsValue) -> JsFunction;
+}
+
+#[cfg(feature = "experimental-async")]
+thread_local! {
+    /// The store that the synchronous call that entered the running guest
+    /// lent it, with the pointer the call derived from its borrow: what an
+    /// eager host function polled inside its import call borrows. Saved and
+    /// restored around each synchronous entry, so it is that of the innermost
+    /// one.
+    static LENT_STORE: std::cell::Cell<Option<(wasmer_types::StoreId, *mut StoreInner)>> =
+        const { std::cell::Cell::new(None) };
+}
+
+/// Records `store` as the store lent to a guest entered synchronously, until
+/// the guard is dropped; see [`lent_store`]. Only eager host functions need
+/// it, so without `experimental-async` nothing is kept.
+#[inline]
+pub(crate) fn enter_store(store: &mut impl AsStoreMut) -> EnteredStore {
+    #[cfg(feature = "experimental-async")]
+    {
+        let store = store.as_store_mut();
+        let lent = (store.inner.objects.id(), store.inner as *mut StoreInner);
+        EnteredStore {
+            previous: LENT_STORE.replace(Some(lent)),
+        }
+    }
+    #[cfg(not(feature = "experimental-async"))]
+    {
+        let _ = store;
+        EnteredStore {}
+    }
+}
+
+/// Restores the store lent before [`enter_store`] when dropped.
+pub(crate) struct EnteredStore {
+    #[cfg(feature = "experimental-async")]
+    previous: Option<(wasmer_types::StoreId, *mut StoreInner)>,
+}
+
+#[cfg(feature = "experimental-async")]
+impl Drop for EnteredStore {
+    fn drop(&mut self) {
+        LENT_STORE.set(self.previous);
+    }
+}
+
+/// The store the running guest was lent by the synchronous call that entered
+/// it, if that is the store `id`: the pointer of that call's borrow, which
+/// lives as long as the guest runs. `None` when the guest was entered with
+/// another store, or not synchronously.
+#[cfg(feature = "experimental-async")]
+pub(crate) fn lent_store(id: wasmer_types::StoreId) -> Option<*mut StoreInner> {
+    LENT_STORE
+        .get()
+        .filter(|(lent, _)| *lent == id)
+        .map(|(_, store)| store)
+}
+
 use js_sys::{Array, Function as JsFunction};
 #[cfg(feature = "experimental-async")]
 use js_sys::Reflect;
@@ -131,7 +201,6 @@ impl Function {
             env: env.as_js().clone(),
             ty: func_ty.clone(),
             store_id: store.objects_mut().id(),
-            raw_store: store.as_store_mut().as_raw(),
         });
         let adapter = move |eager: bool| -> JsFunction {
             let start = Rc::clone(&host).start(eager);
@@ -142,8 +211,8 @@ impl Function {
                 Err(error) => wasm_bindgen::throw_val(error),
             }
         };
-        let mut vm_function = VMFunction::new(adapter(false), func_ty);
-        vm_function.eager = Some(Rc::new(move || adapter(true)));
+        let vm_function = VMFunction::new(adapter(false), func_ty);
+        vm_function.set_eager(move || adapter(true));
         Self::from_vm_extern(
             &mut store.as_store_mut(),
             VMExternFunction::Js(vm_function),
@@ -153,9 +222,9 @@ impl Function {
     /// The eager form of an async host function; any other function as it is.
     #[cfg(feature = "experimental-async")]
     pub(crate) fn eager(self) -> Self {
-        match &self.handle.eager {
+        match self.handle.eager() {
             Some(eager) => Self {
-                handle: VMFunction::new(eager(), self.handle.ty.clone()),
+                handle: VMFunction::new(eager, self.handle.ty.clone()),
             },
             None => self,
         }
@@ -357,10 +426,7 @@ impl Function {
             .into_js_value(),
         };
 
-        let dyn_func =
-            JsFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
-        let binded_func = dyn_func.bind1(&JsValue::UNDEFINED, &wrapped_func);
-        let vm_function = VMFunction::new(binded_func.unchecked_into::<JsFunction>(), func_ty);
+        let vm_function = VMFunction::new(variadic(&wrapped_func), func_ty);
         Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function))
     }
 
@@ -457,10 +523,14 @@ impl Function {
         if numeric::is_numeric(ty)
             && let Some(numbers) = numeric::numbers(ty, params)
         {
-            // Nothing but numbers: they are passed as they are.
+            // Nothing but numbers: they are passed as they are. The function
+            // is called as `Reflect::apply` calls it below.
             let mut result = 0.0;
-            call_wrapped(store, wrapper, |_| {
-                result = numeric::call(&self.handle.function, &numbers)?;
+            let returns = !ty.results().is_empty();
+            call_wrapped(store, wrapper, |store| {
+                let _entered = enter_store(store);
+                let function = &self.handle.function;
+                result = numeric::call(function, &JsValue::NULL, &numbers, returns)?;
                 Ok(())
             })?;
             let results = ty.results().iter();
@@ -479,7 +549,8 @@ impl Function {
         }
 
         let mut result = JsValue::UNDEFINED;
-        call_wrapped(store, wrapper, |_| {
+        call_wrapped(store, wrapper, |store| {
+            let _entered = enter_store(store);
             result = js_sys::Reflect::apply(&self.handle.function, &JsValue::NULL, &arr)?;
             Ok(())
         })?;
@@ -521,23 +592,17 @@ impl Function {
                 arguments.set(index as u32, param.as_jsvalue(&write_lock));
             }
 
-            let promising = match function.handle.promising.get() {
-                Some(promising) => promising,
-                None => {
-                    let promising = jspi::promising(&function.handle.function)
-                        .map_err(RuntimeError::from)?;
-                    function.handle.promising.get_or_init(|| promising)
-                }
-            };
+            let promising = function.handle.promising().map_err(RuntimeError::from)?;
             let caller = std::future::poll_fn(|cx| Poll::Ready(cx.waker().clone())).await;
             // The guest runs with the write lock, in this span and in every
             // later one. Dropping this future while it waits cancels the call.
             let result = jspi::Call::enter(&store, write_lock, caller, || {
-                Reflect::apply(promising, &JsValue::NULL, &arguments)
+                Reflect::apply(&promising, &JsValue::NULL, &arguments)
             })
             .await?;
-            let mut write_lock = store.write_lock().await;
             let function_type = &function.handle.ty;
+            let result = jspi::result(function_type, result).map_err(RuntimeError::from)?;
+            let mut write_lock = store.write_lock().await;
             match function_type.results().len() {
                 0 => Ok(Box::<[Value]>::default()),
                 1 => Ok(vec![js_value_to_wasmer(
@@ -667,10 +732,22 @@ mod tests {
     use wasm_bindgen_test::wasm_bindgen_test;
 
     /// The arrow that stands in for a bound function passes the same
-    /// arguments in the same order, whatever their number and kind.
+    /// arguments in the same order, whatever their number and kind. A host
+    /// that does not make functions from text gets the bound function.
     #[wasm_bindgen_test]
     fn an_arrow_with_leading_arguments_calls_as_a_bound_function_does() {
-        let join = JsFunction::new_with_args("...all", "return all.map(String).join(' ');");
+        let to_string: JsFunction = js_sys::Reflect::get(&js_sys::global(), &"String".into())
+            .unwrap()
+            .unchecked_into();
+        let join = Closure::wrap(Box::new(move |all: Array| -> JsValue {
+            let all = all.iter().map(|value| {
+                let value = to_string.call1(&JsValue::UNDEFINED, &value).unwrap();
+                value.as_string().unwrap()
+            });
+            all.collect::<Vec<_>>().join(" ").into()
+        }) as Box<dyn Fn(Array) -> JsValue>)
+        .into_js_value();
+        let join = variadic(&join);
         let leading = [JsValue::from(-1), JsValue::from(2.5)];
         for leading in [&leading[..1], &leading[..]] {
             for arity in [0, 1, 3, 26] {
@@ -686,8 +763,11 @@ mod tests {
                     let joined = function.apply(&JsValue::UNDEFINED, &arguments);
                     joined.unwrap().as_string().unwrap()
                 };
-                let arrow = arrow_with_leading_arguments(&join, leading, arity);
-                let arrow = call(&arrow.expect("this host makes functions from text"));
+                let Some(arrow) = arrow_with_leading_arguments(&join, leading, arity) else {
+                    assert!(js_sys::eval("0").is_err(), "this host makes functions from text");
+                    return;
+                };
+                let arrow = call(&arrow);
                 assert_eq!(arrow, call(&bound_with_leading_arguments(&join, leading)));
                 assert_eq!(arrow.split(' ').count(), leading.len() + arity);
                 assert!(arrow.starts_with("-1"), "{arrow}");
@@ -711,9 +791,6 @@ struct AsyncHost<T, F> {
     env: JsFunctionEnv<T>,
     ty: FunctionType,
     store_id: wasmer_types::StoreId,
-    /// For when the guest was entered by a synchronous call, which lends it
-    /// the store without there being a [`StoreAsync`] to lock.
-    raw_store: *mut StoreInner,
 }
 
 #[cfg(feature = "experimental-async")]
@@ -731,36 +808,40 @@ where
         // Nothing of a host function that is not eager runs in `start`: the
         // future is polled by the call, once the guest is suspended and the
         // store is free.
-        let (id, raw_store) = (self.store_id, self.raw_store);
+        let id = self.store_id;
         if numeric::is_numeric(&self.ty) {
             let has_result = !self.ty.results().is_empty();
             let arity = self.ty.params().len();
             let start = numeric::closure(arity, move |numbers| {
                 let (host, args) = (Rc::clone(&self), Arguments::Numbers(numeric::copy(numbers)));
                 if !eager {
-                    jspi::pend(jspi::start(id, move |store| host.import(args, Some(store)))?);
+                    jspi::start(id, move |store| host.import(args, Some(store)))?;
                     return Ok(0.0);
                 }
-                let ready = jspi::start_eager(id, move |store| host.import(args, store))?;
-                Ok(match ready {
-                    Some(results) if has_result => numeric::result(&results),
-                    _ => 0.0,
-                })
+                let ready = jspi::start_eager(
+                    id,
+                    move |store| host.import(args, store),
+                    |results, _| has_result.then(|| numeric::result(results)),
+                )?;
+                Ok(ready.flatten().unwrap_or(0.0))
             });
             start.into()
         } else if eager {
             Closure::wrap(Box::new(move |args: Array| {
                 let (host, args) = (Rc::clone(&self), Arguments::Array(args));
-                let ready = jspi::start_eager(id, move |store| host.import(args, store))?;
-                // SAFETY: the guest is on the stack, so its store is there.
-                Ok(jspi::eager_results(ready, unsafe { &*raw_store }))
+                let ready = jspi::start_eager(
+                    id,
+                    move |store| host.import(args, store),
+                    |results, store| jspi::eager_results(results, &*store),
+                )?;
+                Ok(ready.unwrap_or(JsValue::UNDEFINED))
             }) as Box<dyn Fn(Array) -> Result<JsValue, JsValue>>)
             .into_js_value()
         } else {
             Closure::wrap(Box::new(move |args: Array| {
                 let (host, args) = (Rc::clone(&self), Arguments::Array(args));
                 jspi::start(id, move |store| host.import(args, Some(store)))
-            }) as Box<dyn Fn(Array) -> Result<i32, JsValue>>)
+            }) as Box<dyn Fn(Array) -> Result<(), JsValue>>)
             .into_js_value()
         }
     }
@@ -780,13 +861,19 @@ where
                     (self.func)(env, &values)
                 }
                 None => {
-                    // SAFETY: the synchronous call beneath lent this store to
-                    // the guest, as it does for a synchronous host function.
-                    let mut store = unsafe { StoreMut::from_raw(self.raw_store) };
-                    let values = self.arguments(&mut store, &args);
-                    let store = AsyncFunctionEnvMutStore::Sync(self.store_id, self.raw_store);
-                    let env = self.env(store);
-                    let _context = unsafe { StoreContext::install(self.raw_store) };
+                    // The store the synchronous call that entered the guest
+                    // lent it, which lives as long as the guest runs, and so
+                    // as long as the future is polled. Without it, the guest
+                    // was entered with another store, which is not this host
+                    // function's.
+                    let Some(store) = lent_store(self.store_id) else {
+                        return Err(jspi::not_entered_with_its_store());
+                    };
+                    // SAFETY: the pointer of the call's borrow, which nothing
+                    // else uses while the guest's host functions run.
+                    let values = self.arguments(&mut unsafe { StoreMut::from_raw(store) }, &args);
+                    let env = self.env(AsyncFunctionEnvMutStore::Sync(self.store_id, store));
+                    let _context = unsafe { StoreContext::install(store) };
                     (self.func)(env, &values)
                 }
             };

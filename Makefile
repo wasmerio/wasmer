@@ -669,6 +669,9 @@ test-js-wasi:
 #
 # Node exits with success when a test waits for something that never happens,
 # so tests/fail_on_hang.cjs is loaded to make that a failure.
+#
+# They run a second time on a host that does not let JavaScript be made from
+# strings, which some forbid: async calls must not need that.
 test-js-jspi:
 	@has_jspi='process.exit(typeof WebAssembly.promising === "function" ? 0 : 1)'; \
 	node_args=--require=./tests/fail_on_hang.cjs; \
@@ -676,7 +679,8 @@ test-js-jspi:
 	elif node --experimental-wasm-jspi -e "$$has_jspi" 2>/dev/null; then node_args=$$node_args,--experimental-wasm-jspi; \
 	else echo "test-js-jspi: Node $$(node --version) has no JSPI; use Node 24 or later" >&2; exit 1; fi; \
 	set -x; \
-	cd lib/api && NODE_ARGS="$$node_args" wasm-pack test --node -- --no-default-features --features js-default,experimental-async,wat
+	cd lib/api && NODE_ARGS="$$node_args" wasm-pack test --node -- --no-default-features --features js-default,experimental-async,wat && \
+	NODE_ARGS="$$node_args,--disallow-code-generation-from-strings" wasm-pack test --node -- --no-default-features --features js-default,experimental-async,wat
 
 #####
 #

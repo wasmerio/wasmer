@@ -9,6 +9,14 @@ fn type_key() -> Symbol {
     Symbol::for_("wasmer.function-type")
 }
 
+#[cfg(feature = "experimental-async")]
+thread_local! {
+    /// Where a function keeps its `WebAssembly.promising` wrapper.
+    static PROMISING_KEY: Symbol = Symbol::for_("wasmer.promising");
+    /// Where an async host function keeps what makes its eager form.
+    static EAGER_KEY: Symbol = Symbol::for_("wasmer.eager");
+}
+
 fn encode_types(types: &[Type]) -> Array {
     Array::from_iter(types.iter().map(|ty| JsValue::from_f64(*ty as u8 as f64)))
 }
@@ -31,17 +39,14 @@ fn decode_types(types: &Array) -> Option<Vec<Type>> {
 }
 
 /// The VM Function type
+///
+/// What a function keeps besides its type, it keeps on its JavaScript
+/// object, which belongs to the worker that made it, rather than in the
+/// handle, which any thread may clone and drop.
 #[derive(Clone)]
 pub struct VMFunction {
     pub(crate) function: JsHandle<JsFunction>,
     pub(crate) ty: FunctionType,
-    /// `WebAssembly.promising(function)`, which makes a new function every
-    /// time it is called: made by the first `call_async` and kept.
-    #[cfg(feature = "experimental-async")]
-    pub(crate) promising: std::rc::Rc<std::cell::OnceCell<JsFunction>>,
-    /// For an async host function: makes the eager form of it.
-    #[cfg(feature = "experimental-async")]
-    pub(crate) eager: Option<std::rc::Rc<dyn Fn() -> JsFunction>>,
 }
 
 impl Eq for VMFunction {}
@@ -55,11 +60,43 @@ impl VMFunction {
         Self {
             function: JsHandle::new(function),
             ty,
-            #[cfg(feature = "experimental-async")]
-            promising: Default::default(),
-            #[cfg(feature = "experimental-async")]
-            eager: None,
         }
+    }
+
+    /// `WebAssembly.promising(function)`, which makes a new function every
+    /// time it is called: made by the first `call_async` and kept on the
+    /// function. A function that cannot keep it, being frozen, makes it again
+    /// for every call.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn promising(&self) -> Result<JsFunction, JsValue> {
+        let function: &JsFunction = &self.function;
+        PROMISING_KEY.with(|key| {
+            if let Ok(promising) = Reflect::get(function, key)?.dyn_into::<JsFunction>() {
+                return Ok(promising);
+            }
+            let promising = crate::js::jspi::promising(function, &self.ty)?;
+            let _ = Reflect::set(function, key, &promising);
+            Ok(promising)
+        })
+    }
+
+    /// Makes this the function of an async host function whose eager form
+    /// `make` makes.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn set_eager(&self, make: impl Fn() -> JsFunction + 'static) {
+        let make = wasm_bindgen::closure::Closure::wrap(Box::new(make) as Box<dyn Fn() -> JsFunction>)
+            .into_js_value();
+        EAGER_KEY.with(|key| {
+            let _ = Reflect::set(&self.function, key, &make);
+        });
+    }
+
+    /// The eager form of an async host function; `None` for any other.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn eager(&self) -> Option<JsFunction> {
+        let make = EAGER_KEY.with(|key| Reflect::get(&self.function, key)).ok()?;
+        let make = make.dyn_into::<JsFunction>().ok()?;
+        make.call0(&JsValue::UNDEFINED).ok()?.dyn_into().ok()
     }
 
     pub(crate) fn annotate_type(function: &JsFunction, ty: &FunctionType) {
