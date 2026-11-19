@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
     pin::Pin,
     sync::Arc,
-    task::{Context, Poll},
+    task::{Context, Poll, Waker},
 };
 
 use futures::future::BoxFuture;
@@ -950,7 +950,17 @@ where
 
                                         if self.append {
                                             // When we append then we leave the cursor at the
-                                            // end of the file
+                                            // end of the file. A resize that was still pending
+                                            // when it returned has to land here, because this
+                                            // path never passes through `SeekingRestore`.
+                                            if let Some(new_size) = self.new_size.take()
+                                                && let Err(err) = dst.set_len(new_size)
+                                            {
+                                                return CowState::Error {
+                                                    err: err.into(),
+                                                    src,
+                                                };
+                                            }
                                             return CowState::Copied(dst);
                                         } else {
                                             // No more data exists to be read so we now move on to
@@ -1066,37 +1076,32 @@ where
         }
 
         fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+            if let CowState::Copied(file) = &mut self.state {
+                self.new_size = None;
+                return file.set_len(new_size);
+            }
+
+            // A resize is a write: copy the upper layer before truncating it,
+            // otherwise a file that only exists in a secondary layer reads back
+            // zero-filled.
             self.new_size = Some(new_size);
             replace_with_or_abort(&mut self.state, |state| match state {
-                CowState::Copied(mut file) => {
-                    file.set_len(new_size).ok();
-                    CowState::Copied(file)
-                }
-                state => {
-                    if self.unlinked {
-                        return match state {
-                            CowState::ReadOnly(inner) => CowState::SeekingGet(inner),
-                            state => state,
-                        };
-                    }
-
-                    // in the scenario where the length is set but the file is not
-                    // polled then we need to make sure we create a file properly
-                    if let Some(parent) = self.path.parent() {
-                        ops::create_dir_all(&self.primary, parent).ok();
-                    }
-                    let dst = self
-                        .primary
-                        .new_open_options()
-                        .create(true)
-                        .write(true)
-                        .open(&self.path);
-                    if let Ok(mut file) = dst {
-                        file.set_len(new_size).ok();
-                    }
-                    state
-                }
+                CowState::ReadOnly(inner) => CowState::SeekingGet(inner),
+                state => state,
             });
+            let mut cx = Context::from_waker(Waker::noop());
+            if let Poll::Ready(Err(err)) = self.poll_copy_progress(&mut cx) {
+                self.new_size = None;
+                return Err(err.into());
+            }
+
+            // The append path reaches `Copied` without passing through
+            // `SeekingRestore`, which is where the pending size is applied.
+            if let CowState::Copied(file) = &mut self.state
+                && let Some(new_size) = self.new_size.take()
+            {
+                file.set_len(new_size)?;
+            }
             Ok(())
         }
 
@@ -2213,4 +2218,54 @@ mod tests {
     //
     //     assert_eq!(original_entries, candidate_entries);
     // }
+
+    #[tokio::test]
+    async fn set_len_of_a_secondary_file_keeps_its_content() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/s").unwrap();
+        ops::write(&secondary, "/s/a.txt", b"hello world")
+            .await
+            .unwrap();
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+        fs.new_open_options()
+            .read(true)
+            .write(true)
+            .open(Path::new("/s/a.txt"))
+            .unwrap()
+            .set_len(5)
+            .unwrap();
+        let mut f = fs
+            .new_open_options()
+            .read(true)
+            .open(Path::new("/s/a.txt"))
+            .unwrap();
+        let mut v = Vec::new();
+        f.read_to_end(&mut v).await.unwrap();
+        assert_eq!(v, b"hello");
+    }
+
+    #[tokio::test]
+    async fn set_len_of_a_secondary_file_grows_from_its_content() {
+        let primary = MemFS::default();
+        let secondary = MemFS::default();
+        ops::create_dir_all(&secondary, "/s").unwrap();
+        ops::write(&secondary, "/s/a.txt", b"hello").await.unwrap();
+        let fs = OverlayFileSystem::new(primary, [secondary]);
+        fs.new_open_options()
+            .read(true)
+            .write(true)
+            .open(Path::new("/s/a.txt"))
+            .unwrap()
+            .set_len(8)
+            .unwrap();
+        let mut f = fs
+            .new_open_options()
+            .read(true)
+            .open(Path::new("/s/a.txt"))
+            .unwrap();
+        let mut v = Vec::new();
+        f.read_to_end(&mut v).await.unwrap();
+        assert_eq!(v, b"hello\0\0\0");
+    }
 }
