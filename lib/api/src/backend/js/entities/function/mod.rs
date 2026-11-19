@@ -21,62 +21,6 @@ extern "C" {
     fn variadic(f: &JsValue) -> JsFunction;
 }
 
-#[cfg(feature = "experimental-async")]
-thread_local! {
-    /// The store that the synchronous call that entered the running guest
-    /// lent it, with the pointer the call derived from its borrow: what an
-    /// eager host function polled inside its import call borrows. Saved and
-    /// restored around each synchronous entry, so it is that of the innermost
-    /// one.
-    static LENT_STORE: std::cell::Cell<Option<(wasmer_types::StoreId, *mut StoreInner)>> =
-        const { std::cell::Cell::new(None) };
-}
-
-/// Records `store` as the store lent to a guest entered synchronously, until
-/// the guard is dropped; see [`lent_store`]. Only eager host functions need
-/// it, so without `experimental-async` nothing is kept.
-#[inline]
-pub(crate) fn enter_store(store: &mut impl AsStoreMut) -> EnteredStore {
-    #[cfg(feature = "experimental-async")]
-    {
-        let store = store.as_store_mut();
-        let lent = (store.inner.objects.id(), store.inner as *mut StoreInner);
-        EnteredStore {
-            previous: LENT_STORE.replace(Some(lent)),
-        }
-    }
-    #[cfg(not(feature = "experimental-async"))]
-    {
-        let _ = store;
-        EnteredStore {}
-    }
-}
-
-/// Restores the store lent before [`enter_store`] when dropped.
-pub(crate) struct EnteredStore {
-    #[cfg(feature = "experimental-async")]
-    previous: Option<(wasmer_types::StoreId, *mut StoreInner)>,
-}
-
-#[cfg(feature = "experimental-async")]
-impl Drop for EnteredStore {
-    fn drop(&mut self) {
-        LENT_STORE.set(self.previous);
-    }
-}
-
-/// The store the running guest was lent by the synchronous call that entered
-/// it, if that is the store `id`: the pointer of that call's borrow, which
-/// lives as long as the guest runs. `None` when the guest was entered with
-/// another store, or not synchronously.
-#[cfg(feature = "experimental-async")]
-pub(crate) fn lent_store(id: wasmer_types::StoreId) -> Option<*mut StoreInner> {
-    LENT_STORE
-        .get()
-        .filter(|(lent, _)| *lent == id)
-        .map(|(_, store)| store)
-}
-
 use js_sys::{Array, Function as JsFunction};
 #[cfg(feature = "experimental-async")]
 use js_sys::Reflect;
@@ -99,13 +43,9 @@ use crate::{
 #[cfg(feature = "experimental-async")]
 use crate::{
     AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync, StoreContext,
-    StoreInner,
     entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
     js::{
-        function::env::{
-            AsyncFunctionEnvMut as JsAsyncFunctionEnvMut, AsyncFunctionEnvMutStore,
-            FunctionEnv as JsFunctionEnv,
-        },
+        function::env::{AsyncFunctionEnvMut as JsAsyncFunctionEnvMut, FunctionEnv as JsFunctionEnv},
         jspi,
     },
 };
@@ -202,32 +142,12 @@ impl Function {
             ty: func_ty.clone(),
             store_id: store.objects_mut().id(),
         });
-        let adapter = move |eager: bool| -> JsFunction {
-            let start = Rc::clone(&host).start(eager);
-            match jspi::adapter(&host.ty, &start, eager, numeric::is_numeric(&host.ty)) {
-                Ok(function) => function,
-                // A signature that cannot be an async host function.
-                Err(error) if error.is_string() => panic!("{}", error.as_string().unwrap()),
-                Err(error) => wasm_bindgen::throw_val(error),
-            }
-        };
-        let vm_function = VMFunction::new(adapter(false), func_ty);
-        vm_function.set_eager(move || adapter(true));
+        let function = jspi::host_function(&func_ty, &host.start());
+        let vm_function = VMFunction::new(function, func_ty);
         Self::from_vm_extern(
             &mut store.as_store_mut(),
             VMExternFunction::Js(vm_function),
         )
-    }
-
-    /// The eager form of an async host function; any other function as it is.
-    #[cfg(feature = "experimental-async")]
-    pub(crate) fn eager(self) -> Self {
-        match self.handle.eager() {
-            Some(eager) => Self {
-                handle: VMFunction::new(eager, self.handle.ty.clone()),
-            },
-            None => self,
-        }
     }
 
     #[cfg(feature = "experimental-async")]
@@ -527,8 +447,7 @@ impl Function {
             // is called as `Reflect::apply` calls it below.
             let mut result = 0.0;
             let returns = !ty.results().is_empty();
-            call_wrapped(store, wrapper, |store| {
-                let _entered = enter_store(store);
+            call_wrapped(store, wrapper, |_| {
                 let function = &self.handle.function;
                 result = numeric::call(function, &JsValue::NULL, &numbers, returns)?;
                 Ok(())
@@ -549,8 +468,7 @@ impl Function {
         }
 
         let mut result = JsValue::UNDEFINED;
-        call_wrapped(store, wrapper, |store| {
-            let _entered = enter_store(store);
+        call_wrapped(store, wrapper, |_| {
             result = js_sys::Reflect::apply(&self.handle.function, &JsValue::NULL, &arr)?;
             Ok(())
         })?;
@@ -593,16 +511,16 @@ impl Function {
             }
 
             let promising = function.handle.promising().map_err(RuntimeError::from)?;
-            let caller = std::future::poll_fn(|cx| Poll::Ready(cx.waker().clone())).await;
+            let direct = AsRef::<JsValue>::as_ref(&promising)
+                == AsRef::<JsValue>::as_ref(&*function.handle.function);
             // The guest runs with the write lock, in this span and in every
             // later one. Dropping this future while it waits cancels the call.
-            let result = jspi::Call::enter(&store, write_lock, caller, || {
+            let result = jspi::Call::enter(&store, write_lock, direct, || {
                 Reflect::apply(&promising, &JsValue::NULL, &arguments)
             })
             .await?;
-            let function_type = &function.handle.ty;
-            let result = jspi::result(function_type, result).map_err(RuntimeError::from)?;
             let mut write_lock = store.write_lock().await;
+            let function_type = &function.handle.ty;
             match function_type.results().len() {
                 0 => Ok(Box::<[Value]>::default()),
                 1 => Ok(vec![js_value_to_wasmer(
@@ -776,15 +694,7 @@ mod tests {
     }
 }
 
-/// The arguments of a call of an async host function, as they arrived.
-#[cfg(feature = "experimental-async")]
-enum Arguments {
-    Array(Array),
-    /// On the numeric lane.
-    Numbers(numeric::Numbers),
-}
-
-/// An async host function, as the hooks of its adapter need it.
+/// An async host function, as the body of its import needs it.
 #[cfg(feature = "experimental-async")]
 struct AsyncHost<T, F> {
     func: F,
@@ -800,82 +710,29 @@ where
     F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
     Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
 {
-    /// What the adapter's `start` import calls, by way of `jspi`: with the
-    /// arguments in an array, or, for a function of nothing but numbers, the
-    /// import itself, which is called with the numbers and sets the adapter's
-    /// status too.
-    fn start(self: Rc<Self>, eager: bool) -> JsValue {
-        // Nothing of a host function that is not eager runs in `start`: the
-        // future is polled by the call, once the guest is suspended and the
-        // store is free.
+    /// The body of the `WebAssembly.Suspending` import a guest calls, given
+    /// the arguments in an array: it returns the promise the guest waits on.
+    /// Nothing of the host function runs here: the future is polled by the
+    /// call, once the guest waits and the store is free.
+    fn start(self: Rc<Self>) -> JsValue {
         let id = self.store_id;
-        if numeric::is_numeric(&self.ty) {
-            let has_result = !self.ty.results().is_empty();
-            let arity = self.ty.params().len();
-            let start = numeric::closure(arity, move |numbers| {
-                let (host, args) = (Rc::clone(&self), Arguments::Numbers(numeric::copy(numbers)));
-                if !eager {
-                    jspi::start(id, move |store| host.import(args, Some(store)))?;
-                    return Ok(0.0);
-                }
-                let ready = jspi::start_eager(
-                    id,
-                    move |store| host.import(args, store),
-                    |results, _| has_result.then(|| numeric::result(results)),
-                )?;
-                Ok(ready.flatten().unwrap_or(0.0))
-            });
-            start.into()
-        } else if eager {
-            Closure::wrap(Box::new(move |args: Array| {
-                let (host, args) = (Rc::clone(&self), Arguments::Array(args));
-                let ready = jspi::start_eager(
-                    id,
-                    move |store| host.import(args, store),
-                    |results, store| jspi::eager_results(results, &*store),
-                )?;
-                Ok(ready.unwrap_or(JsValue::UNDEFINED))
-            }) as Box<dyn Fn(Array) -> Result<JsValue, JsValue>>)
-            .into_js_value()
-        } else {
-            Closure::wrap(Box::new(move |args: Array| {
-                let (host, args) = (Rc::clone(&self), Arguments::Array(args));
-                jspi::start(id, move |store| host.import(args, Some(store)))
-            }) as Box<dyn Fn(Array) -> Result<(), JsValue>>)
-            .into_js_value()
-        }
+        Closure::wrap(Box::new(move |args: Array| {
+            let host = Rc::clone(&self);
+            jspi::start(id, move |store| host.import(args, store))
+        }) as Box<dyn Fn(Array) -> Result<JsValue, JsValue>>)
+        .into_js_value()
     }
 
     /// The host's half of one call of the import: the host function, and
-    /// what it awaits. `store` is the store of the call the guest belongs
-    /// to; without one the guest was entered synchronously, and the future
-    /// is only polled inside the import call.
-    fn import(self: Rc<Self>, args: Arguments, store: Option<StoreAsync>) -> jspi::ImportFuture {
+    /// what it awaits. `store` is the store of the call the guest belongs to.
+    fn import(self: Rc<Self>, args: Array, store: StoreAsync) -> jspi::ImportFuture {
         Box::pin(async move {
-            let future = match store {
-                Some(store) => {
-                    let mut write_lock = store.write_lock().await;
-                    let values = self.arguments(&mut write_lock, &args);
-                    let env = self.env(AsyncFunctionEnvMutStore::Async(store));
-                    let _context = StoreContext::install_async(write_lock.inner);
-                    (self.func)(env, &values)
-                }
-                None => {
-                    // The store the synchronous call that entered the guest
-                    // lent it, which lives as long as the guest runs, and so
-                    // as long as the future is polled. Without it, the guest
-                    // was entered with another store, which is not this host
-                    // function's.
-                    let Some(store) = lent_store(self.store_id) else {
-                        return Err(jspi::not_entered_with_its_store());
-                    };
-                    // SAFETY: the pointer of the call's borrow, which nothing
-                    // else uses while the guest's host functions run.
-                    let values = self.arguments(&mut unsafe { StoreMut::from_raw(store) }, &args);
-                    let env = self.env(AsyncFunctionEnvMutStore::Sync(self.store_id, store));
-                    let _context = unsafe { StoreContext::install(store) };
-                    (self.func)(env, &values)
-                }
+            let future = {
+                let mut write_lock = store.write_lock().await;
+                let values = self.arguments(&mut write_lock, &args);
+                let env = self.env(store);
+                let _context = StoreContext::install_async(write_lock.inner);
+                (self.func)(env, &values)
             };
             let results = future.await?;
             // Checked here: values of other types would reach the guest as
@@ -892,22 +749,14 @@ where
         })
     }
 
-    fn arguments(&self, store: &mut impl AsStoreMut, args: &Arguments) -> Vec<Value> {
-        let types = self.ty.params();
-        match args {
-            Arguments::Array(args) => {
-                let types = types.iter().enumerate();
-                types
-                    .map(|(index, ty)| js_value_to_wasmer(store, ty, &args.get(index as u32)))
-                    .collect()
-            }
-            Arguments::Numbers((numbers, arity)) => {
-                numeric::values(types, &numbers[..*arity])[..*arity].to_vec()
-            }
-        }
+    fn arguments(&self, store: &mut impl AsStoreMut, args: &Array) -> Vec<Value> {
+        let types = self.ty.params().iter().enumerate();
+        types
+            .map(|(index, ty)| js_value_to_wasmer(store, ty, &args.get(index as u32)))
+            .collect()
     }
 
-    fn env(&self, store: AsyncFunctionEnvMutStore) -> AsyncFunctionEnvMut<T> {
+    fn env(&self, store: StoreAsync) -> AsyncFunctionEnvMut<T> {
         AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(JsAsyncFunctionEnvMut {
             store,
             func_env: self.env.clone(),

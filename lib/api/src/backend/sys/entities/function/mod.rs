@@ -41,19 +41,11 @@ use wasmer_vm::{
 /// A WebAssembly `function` instance, in the `sys` runtime.
 pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
-    /// For an async host function: the same function, eager. See
-    /// [`crate::Function::eager`].
-    #[cfg(feature = "experimental-async")]
-    pub(crate) eager: Option<StoreHandle<VMFunction>>,
 }
 
 impl From<StoreHandle<VMFunction>> for Function {
     fn from(handle: StoreHandle<VMFunction>) -> Self {
-        Self {
-            handle,
-            #[cfg(feature = "experimental-async")]
-            eager: None,
-        }
+        Self { handle }
     }
 }
 
@@ -102,8 +94,6 @@ impl Function {
                 func: wrapper,
                 store_id,
                 func_ty: function_type.clone(),
-                #[cfg(feature = "experimental-async")]
-                eager: false,
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -135,10 +125,9 @@ impl Function {
             signature: function_type,
             host_data,
         };
-        Self::from(StoreHandle::new(
-            store.objects_mut().as_sys_mut(),
-            vm_function,
-        ))
+        Self {
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+        }
     }
 
     #[cfg(feature = "experimental-async")]
@@ -187,8 +176,6 @@ impl Function {
         let func_ty = function_type.clone();
         let func_env = env.clone().into_sys();
         let store_id = store.objects_mut().id();
-        // Shared by the function and its eager form.
-        let func = std::rc::Rc::new(func);
         let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
             unsafe {
                 let mut context = StoreContext::try_get_current_async(store_id);
@@ -231,38 +218,15 @@ impl Function {
                         func_env: func_env.clone(),
                     },
                 ));
-                HostCallOutcome::Future((*func)(env, &args))
+                HostCallOutcome::Future(func(env, &args))
             }
         };
-        let handle = Self::new_async_handle(store, &function_type, wrapper.clone(), false);
-        let eager = Self::new_async_handle(store, &function_type, wrapper, true);
-        Self {
-            handle,
-            eager: Some(eager),
-        }
-    }
-
-    /// The store object of an async host function, eager or not, around
-    /// `wrapper`, which makes its future.
-    #[cfg(feature = "experimental-async")]
-    fn new_async_handle<W>(
-        store: &mut impl AsStoreMut,
-        function_type: &FunctionType,
-        wrapper: W,
-        eager: bool,
-    ) -> StoreHandle<VMFunction>
-    where
-        W: Fn(*mut RawValue) -> HostCallOutcome + 'static,
-    {
-        let function_type = function_type.clone();
-        let store_id = store.objects_mut().id();
         let mut host_data = Box::new(VMDynamicFunctionContext {
             address: std::ptr::null(),
             ctx: DynamicFunction {
                 func: wrapper,
                 store_id,
                 func_ty: function_type.clone(),
-                eager,
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -291,7 +255,9 @@ impl Function {
             signature: function_type,
             host_data,
         };
-        StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function)
+        Self {
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+        }
     }
 
     /// Creates a new host `Function` from a native function.
@@ -334,10 +300,9 @@ impl Function {
             signature: function_type,
             host_data,
         };
-        Self::from(StoreHandle::new(
-            store.objects_mut().as_sys_mut(),
-            vm_function,
-        ))
+        Self {
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+        }
     }
 
     #[cfg(feature = "experimental-async")]
@@ -489,10 +454,9 @@ impl Function {
             signature: function_type,
             host_data,
         };
-        Self::from(StoreHandle::new(
-            store.objects_mut().as_sys_mut(),
-            vm_function,
-        ))
+        Self {
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+        }
     }
 
     pub(crate) fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
@@ -718,29 +682,17 @@ impl Function {
             kind: wasmer_vm::VMFunctionKind::Static,
             host_data: Box::new(()),
         };
-        Self::from(StoreHandle::new(
-            store.objects_mut().as_sys_mut(),
-            vm_function,
-        ))
-    }
-
-    /// The eager form of an async host function; see
-    /// [`crate::Function::eager`]. Any other function is returned as it is.
-    #[cfg(feature = "experimental-async")]
-    pub(crate) fn eager(self) -> Self {
-        match self.eager {
-            Some(eager) => Self {
-                handle: eager.clone(),
-                eager: Some(eager),
-            },
-            None => self,
+        Self {
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
         }
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
-        Self::from(unsafe {
-            StoreHandle::from_internal(store.objects_mut().id(), vm_extern.unwrap_sys())
-        })
+        Self {
+            handle: unsafe {
+                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.unwrap_sys())
+            },
+        }
     }
 
     /// Checks whether this `Function` can be used with the given store.
@@ -879,10 +831,6 @@ pub(crate) struct DynamicFunction<F> {
     store_id: StoreId,
     /// The function's type, which its results are checked against.
     func_ty: FunctionType,
-    /// For an async host function: whether its future is polled inside the
-    /// import call. See [`crate::Function::eager`].
-    #[cfg(feature = "experimental-async")]
-    eager: bool,
 }
 
 impl<F> DynamicFunction<F>
@@ -905,7 +853,7 @@ where
                 )),
                 #[cfg(feature = "experimental-async")]
                 HostCallOutcome::Future(future) => {
-                    let awaited = block_on_host_future(future, this.ctx.eager);
+                    let awaited = block_on_host_future(future);
                     let result = match awaited {
                         Ok(value) => Ok(value),
                         Err(AsyncRuntimeError::RuntimeError(e)) => Err(e),

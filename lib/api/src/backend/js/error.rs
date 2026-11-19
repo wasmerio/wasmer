@@ -99,6 +99,10 @@ impl From<JsValue> for RuntimeError {
         {
             return trap.into();
         }
+        #[cfg(feature = "experimental-async")]
+        if let Some(refusal) = crate::js::jspi::refusal(&value) {
+            return refusal;
+        }
 
         Self::from(Trap {
             inner: InnerTrap::Js(value.into()),

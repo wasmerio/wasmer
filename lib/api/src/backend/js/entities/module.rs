@@ -282,13 +282,20 @@ impl Module {
             #[allow(unused_unsafe)]
             unsafe {
                 if let Some(import) = resolved_import {
+                    let value = import.as_jsvalue(&store.as_store_ref());
+                    // An async host function is imported in its suspending form.
+                    #[cfg(feature = "experimental-async")]
+                    let value = match import {
+                        Extern::Function(_) => crate::js::jspi::import(&value),
+                        _ => value,
+                    };
                     let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
                     if !val.is_undefined() {
                         // If the namespace is already set
                         js_sys::Reflect::set(
                             &val,
                             &import_type.name().into(),
-                            &import.as_jsvalue(&store.as_store_ref()),
+                            &value,
                         )?;
                     } else {
                         // If the namespace doesn't exist
@@ -296,7 +303,7 @@ impl Module {
                         js_sys::Reflect::set(
                             &import_namespace,
                             &import_type.name().into(),
-                            &import.as_jsvalue(&store.as_store_ref()),
+                            &value,
                         )?;
                         js_sys::Reflect::set(
                             &imports_object,
@@ -316,12 +323,8 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        // The start function runs here: it is a guest entered synchronously.
-        let instance = {
-            let _entered = crate::js::function::enter_store(store);
-            WebAssembly::Instance::new(&self.local_module(), &imports_object)
-        }
-        .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
+        let instance = WebAssembly::Instance::new(&self.local_module(), &imports_object)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
         #[cfg(feature = "wasm-types-polyfill")]
         self.annotate_table_functions(store, imports, &instance);
         Ok(instance)

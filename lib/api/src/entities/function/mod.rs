@@ -231,58 +231,6 @@ impl Function {
         Self(BackendFunction::new_typed_with_env_async(store, env, func))
     }
 
-    /// Makes an async host function *eager*: its future is polled once inside
-    /// the import call itself, on the guest's stack.
-    ///
-    /// A guest that calls an async host function is normally suspended while
-    /// the future of [`Function::call_async`] polls the host future. That
-    /// costs a switch of stacks, and on the `js` backend a trip through the
-    /// event loop, even when the host function has nothing to wait for. An
-    /// eager host function is polled once before the guest is suspended:
-    ///
-    /// * If the future is ready, the guest goes on with its results at once,
-    ///   and is never suspended. That also works where a guest cannot be
-    ///   suspended at all: in a function entered with [`Function::call`], or
-    ///   in a start function.
-    /// * If it is not, the guest is suspended and the call polls the future
-    ///   from then on, as for any async host function. Where the guest cannot
-    ///   be suspended, the future is dropped instead and the import fails
-    ///   with [`TrapCode::YieldOutsideAsyncContext`](wasmer_types::TrapCode).
-    ///
-    /// So everything an eager host function does up to its first pending
-    /// `await` runs inside the import call, and it may be dropped right
-    /// there: that part has to be safe to cancel. During that poll the store
-    /// is lent to the host function: [`AsyncFunctionEnvMut::read`] and
-    /// [`AsyncFunctionEnvMut::write`] return at once, as does a lock taken
-    /// through [`AsyncFunctionEnvMut::as_store_async`], unless another guard
-    /// of that store is alive. A guard the future still holds when it has to
-    /// wait stays with it. Beneath a synchronous call there is no async store
-    /// to lock, and those three never finish, as on every backend.
-    ///
-    /// A guest that only ever calls eager host functions that are ready
-    /// never gives the event loop a turn: nothing forces it to.
-    ///
-    /// On the `sys` backend the poll inside the import call runs on the
-    /// stack of the call's coroutine, a fixed 1 MiB (see
-    /// [`Function::call_async`]), where the future of a host function that
-    /// is not eager is polled by the future of the call, on the executor's
-    /// stack. A future that needs more stack than is left there runs into
-    /// the stack's guard page, and the process is killed. Where the guest
-    /// cannot be suspended, `sys` polls the future of every async host
-    /// function once inside the import call, eager or not.
-    ///
-    /// This returns the eager function and leaves existing clones of the
-    /// original as they are. It has no effect on a function that is not an
-    /// async host function, and none on backends other than `sys` and `js`.
-    ///
-    /// ```ignore
-    /// let now = Function::new_typed_async(&mut store, async || clock.now()).eager();
-    /// ```
-    #[cfg(feature = "experimental-async")]
-    pub fn eager(self) -> Self {
-        Self(self.0.eager())
-    }
-
     /// Returns the [`FunctionType`] of the `Function`.
     ///
     /// # Example
@@ -423,11 +371,11 @@ impl Function {
     /// the Wasm instance according to the JSPI proposal.
     ///
     /// On the `sys` backend that coroutine has a fixed stack of 1 MiB. The
-    /// host functions the guest calls run on it, and so does the poll of an
-    /// eager host function's future inside the import call (see
-    /// [`Function::eager`]); one that needs more stack runs into the stack's
-    /// guard page, and the process is killed. The guest's own frames are on a
-    /// stack of their own, whose size `wasmer_vm::set_stack_size` sets.
+    /// host functions the guest calls run on it; one that needs more stack
+    /// runs into the stack's guard page, and the process is killed. The
+    /// guest's own frames are on a stack of their own, whose size
+    /// `wasmer_vm::set_stack_size` sets. The future of an async host function
+    /// is polled by the future of the call, on the executor's stack.
     #[must_use = "This function spawns a future that must be awaited to produce results"]
     #[cfg(feature = "experimental-async")]
     pub fn call_async(

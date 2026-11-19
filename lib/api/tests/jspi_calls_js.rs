@@ -1,7 +1,7 @@
 //! Async calls on the JavaScript backend: who holds the store while a guest
 //! runs, is suspended and resumes; what dropping a call does to its guest;
-//! what a guest sees when it cannot be suspended; and what changes for a host
-//! function that is eager.
+//! what a guest sees when it cannot be suspended; and what goes through an
+//! async import.
 #![cfg(all(feature = "experimental-async", feature = "js", target_arch = "wasm32"))]
 
 use std::{
@@ -19,7 +19,7 @@ use std::{
 
 use futures::{FutureExt, channel::oneshot};
 use js_sys::Promise;
-use wasm_bindgen::{JsCast, JsValue, closure::Closure};
+use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;
 use wasmer::{
@@ -53,6 +53,20 @@ async fn settle() {
 /// the test polls again.
 fn poll_once<F: Future + Unpin>(future: &mut F) -> Poll<F::Output> {
     future.poll_unpin(&mut Context::from_waker(futures::task::noop_waker_ref()))
+}
+
+/// Polls `call` until `ready` holds, letting the event loop run in between.
+/// The host function of an async import runs once the engine has suspended
+/// the guest, which is known a few microtasks after the guest called it.
+async fn poll_until(call: &mut Call, ready: impl Fn() -> bool) {
+    for _ in 0..20 {
+        assert!(poll_once(call).is_pending(), "the call finished");
+        if ready() {
+            return;
+        }
+        macrotask().await;
+    }
+    panic!("the call never got there");
 }
 
 /// Whether somebody holds the write lock of `store`.
@@ -139,14 +153,10 @@ impl Gate {
     }
 
     fn import(&self, store: &mut Store) -> Function {
-        self.function(store, false)
-    }
-
-    fn function(&self, store: &mut Store, eager: bool) -> Function {
         let state = self.0.clone();
-        let function = Function::new_typed_async(store, move |id: i32| {
+        Function::new_typed_async(store, move |id: i32| {
             // This is the host function itself. It runs when its future is
-            // first polled: by the call, or inside the import if it is eager.
+            // first polled, by the call.
             state.log.borrow_mut().push(format!("wait{id}"));
             let (open, opened) = oneshot::channel();
             if id < AUTO {
@@ -170,8 +180,7 @@ impl Gate {
                 std::mem::forget(unfinished);
                 outcome.map(|()| id)
             }
-        });
-        if eager { function.eager() } else { function }
+        })
     }
 
     fn waiting(&self, id: i32) -> bool {
@@ -303,16 +312,11 @@ fn call_inner_raw(mut env: FunctionEnvMut<'_, Host>, id: i32) -> i32 {
 }
 
 fn guest() -> Guest {
-    guest_of(GUEST, false)
-}
-
-/// The same guest, whose `wait` is an eager host function.
-fn eager_guest() -> Guest {
-    guest_of(GUEST, true)
+    guest_of(GUEST)
 }
 
 /// Instantiates `wat`, which imports what it needs of the host functions above.
-fn guest_of(wat: &str, eager: bool) -> Guest {
+fn guest_of(wat: &str) -> Guest {
     let mut store = Store::default();
     let module = Module::new(&store, wat).unwrap();
     let log: Log = Rc::default();
@@ -327,7 +331,7 @@ fn guest_of(wat: &str, eager: bool) -> Guest {
     );
     let host = imports! {
         "host" => {
-            "wait" => gate.function(&mut store, eager),
+            "wait" => gate.import(&mut store),
             "observe" => Function::new_typed_with_env(&mut store, &env, observe),
             "call_inner" => Function::new_typed_with_env(&mut store, &env, call_inner),
             "call_inner_raw" => Function::new_typed_with_env(&mut store, &env, call_inner_raw),
@@ -354,14 +358,7 @@ impl Guest {
 
     /// Runs `call` until its guest waits in the host function for `id`.
     async fn until_waiting(&self, call: &mut Call, id: i32) {
-        for _ in 0..20 {
-            assert!(poll_once(call).is_pending(), "the guest finished");
-            if self.gate.waiting(id) {
-                return;
-            }
-            macrotask().await;
-        }
-        panic!("the guest never waited for {id}: {:?}", self.log.borrow());
+        poll_until(call, || self.gate.waiting(id)).await;
     }
 
     fn log(&self) -> Vec<String> {
@@ -410,22 +407,19 @@ async fn a_resumed_guest_runs_with_its_store() {
     guest.into_store();
 }
 
-/// Between the moment a host function finishes and the moment the engine
-/// resumes its guest, the store is free for other host code. If that code
-/// keeps the store, the guest waits for it instead of running without it.
+/// A guest is woken with its store. If other host code holds the store when
+/// the host function finishes, the guest is woken once it has it back, and
+/// does not run without it; code that asks for the store after the wake waits
+/// for the guest.
 #[wasm_bindgen_test]
-async fn a_host_job_between_the_wake_and_the_resumption_finds_the_store_free() {
+async fn a_guest_is_woken_only_with_its_store() {
     let guest = guest();
     let mut call = guest.call("once", &[7]);
     guest.until_waiting(&mut call, 7).await;
 
+    let job = guest.store.write_lock().await;
     guest.gate.release(7);
     assert!(poll_once(&mut call).is_pending());
-    // The host function has finished and its guest is woken, not yet resumed.
-    let job = poll_once(&mut Box::pin(guest.store.write_lock()));
-    let Poll::Ready(job) = job else {
-        panic!("the store must be free between the wake and the resumption");
-    };
     settle().await;
     assert!(poll_once(&mut call).is_pending());
     settle().await;
@@ -434,10 +428,19 @@ async fn a_host_job_between_the_wake_and_the_resumption_finds_the_store_free() {
         ["1: async, locked", "wait7"],
         "the guest ran while other host code held its store"
     );
-
     drop(job);
     assert_eq!(i32_of(call.await), 7);
     assert_eq!(guest.log().last().unwrap(), "2: async, locked");
+
+    let mut call = guest.call("once", &[8]);
+    guest.until_waiting(&mut call, 8).await;
+    guest.gate.release(8);
+    assert!(poll_once(&mut call).is_pending());
+    assert!(
+        locked(&guest.store),
+        "the woken guest does not have its store"
+    );
+    assert_eq!(i32_of(call.await), 8);
     guest.into_store();
 }
 
@@ -595,20 +598,21 @@ async fn two_stores_overlap_on_one_thread() {
     let store = store.into_async();
 
     let mut call: Call = Box::pin(run.call_async(&store, vec![Value::I32(7)]));
-    assert!(poll_once(&mut call).is_pending());
-    assert!(gate.waiting(7), "{:?}", log.borrow());
-    // Both guests are suspended, each in its own store.
-    assert!(!locked(&store));
-    let (other_log, other_gate, other_call) = {
+    poll_until(&mut call, || gate.waiting(7)).await;
+    let (other_log, other_gate, other_store, mut other_call) = {
         let mut lock = store.write_lock().await;
         let other = env.as_mut(&mut lock);
-        assert!(!locked(&other.guest.store));
         (
             other.guest.log.clone(),
             other.guest.gate.clone(),
+            other.guest.store.store(),
             other.call.take().unwrap(),
         )
     };
+    poll_until(&mut other_call, || other_gate.waiting(8)).await;
+    // Both guests are suspended, each in its own store.
+    assert!(!locked(&store));
+    assert!(!locked(&other_store));
     assert_eq!(*other_log.borrow(), ["1: async, locked", "wait8"]);
 
     // Resumed in the order they were not entered in.
@@ -617,43 +621,42 @@ async fn two_stores_overlap_on_one_thread() {
     other_gate.release(8);
     assert_eq!(i32_of(other_call.await), 8);
     assert_eq!(other_log.borrow().last().unwrap(), "2: async, locked");
+    drop(other_store);
     assert!(store.into_store().is_ok());
 }
 
 /// The host future of an async import is polled by the future of the call:
 /// nothing else drives it, and it is woken through the caller's own waker.
+/// The caller is woken to run the host function once the guest is known to
+/// wait in it, and again when the guest has finished.
 #[wasm_bindgen_test]
 async fn the_caller_drives_the_host_function() {
     let wakes = Arc::new(Wakes(AtomicUsize::new(0)));
     let waker = Waker::from(wakes.clone());
     let mut cx = Context::from_waker(&waker);
+    let wakes = || wakes.0.load(Ordering::Relaxed);
 
     let guest = guest();
     let mut call = guest.call("once", &[7]);
     assert!(call.poll_unpin(&mut cx).is_pending());
+    settle().await;
+    assert_eq!(wakes(), 1, "the waiting guest woke its caller");
     assert!(
-        guest.gate.waiting(7),
-        "the first poll runs the host function"
+        !guest.gate.waiting(7),
+        "the host function ran without its caller"
     );
-    assert_eq!(wakes.0.load(Ordering::Relaxed), 0);
+    assert!(call.poll_unpin(&mut cx).is_pending());
+    assert!(guest.gate.waiting(7), "the caller ran the host function");
 
     guest.gate.release(7);
-    assert_eq!(
-        wakes.0.load(Ordering::Relaxed),
-        1,
-        "the host future woke its caller"
-    );
+    assert_eq!(wakes(), 2, "the host future woke its caller");
     settle().await;
     assert_eq!(guest.log().len(), 2, "the guest went on without its caller");
 
     assert!(call.poll_unpin(&mut cx).is_pending());
     settle().await;
     assert_eq!(guest.log().last().unwrap(), "2: async, locked");
-    assert_eq!(
-        wakes.0.load(Ordering::Relaxed),
-        2,
-        "the finished guest woke its caller"
-    );
+    assert_eq!(wakes(), 3, "the finished guest woke its caller");
     assert!(call.poll_unpin(&mut cx).is_ready());
     guest.into_store();
 }
@@ -705,14 +708,14 @@ const CATCH_ALL_TRY_TABLE: &str = r#"(module
 
 /// The guests of the tests below: without a handler, and with each kind of
 /// handler the engine compiles.
-fn guests_with_handlers(eager: bool) -> Vec<(&'static str, Guest)> {
-    let mut guests = vec![("no handler", guest_of(GUEST, eager))];
+fn guests_with_handlers() -> Vec<(&'static str, Guest)> {
+    let mut guests = vec![("no handler", guest_of(GUEST))];
     for (name, wat) in [
         ("legacy catch_all", CATCH_ALL_LEGACY),
         ("try_table catch_all", CATCH_ALL_TRY_TABLE),
     ] {
         if Module::new(&Store::default(), wat).is_ok() {
-            guests.push((name, guest_of(wat, eager)));
+            guests.push((name, guest_of(wat)));
         }
     }
     assert!(
@@ -722,22 +725,12 @@ fn guests_with_handlers(eager: bool) -> Vec<(&'static str, Guest)> {
     guests
 }
 
-/// Those guests twice: with a `wait` that is not eager, and with one that is.
-fn both_kinds_with_handlers() -> Vec<(String, Guest)> {
-    let kinds = [(false, ""), (true, "eager, ")];
-    let guests = kinds.into_iter().flat_map(|(eager, kind)| {
-        let guests = guests_with_handlers(eager).into_iter();
-        guests.map(move |(name, guest)| (format!("{kind}{name}"), guest))
-    });
-    guests.collect()
-}
-
 /// Dropping a call while its guest is suspended drops the host future at
 /// once, gives the store back at once, and unwinds the guest without running
 /// any of it: not the code after the import, and not its handlers.
 #[wasm_bindgen_test]
 async fn a_cancelled_guest_runs_no_more_code() {
-    for (name, guest) in both_kinds_with_handlers() {
+    for (name, guest) in guests_with_handlers() {
         let mut call = guest.call("once", &[7]);
         guest.until_waiting(&mut call, 7).await;
         drop(call);
@@ -760,7 +753,7 @@ async fn a_cancelled_guest_runs_no_more_code() {
 /// runs nothing.
 #[wasm_bindgen_test]
 async fn a_guest_cancelled_after_its_wake_runs_no_more_code() {
-    for (name, guest) in both_kinds_with_handlers() {
+    for (name, guest) in guests_with_handlers() {
         let mut call = guest.call("once", &[7]);
         guest.until_waiting(&mut call, 7).await;
         guest.gate.release(7);
@@ -778,7 +771,7 @@ async fn a_guest_cancelled_after_its_wake_runs_no_more_code() {
 /// goes on, and they catch what a synchronous host function throws.
 #[wasm_bindgen_test]
 async fn the_handlers_catch_what_can_be_caught() {
-    for (name, guest) in guests_with_handlers(false).into_iter().skip(1) {
+    for (name, guest) in guests_with_handlers().into_iter().skip(1) {
         let mut call = guest.call("once", &[7]);
         guest.until_waiting(&mut call, 7).await;
         guest.gate.release(7);
@@ -799,71 +792,59 @@ async fn the_handlers_catch_what_can_be_caught() {
 
 /// A call dropped while its guest is on the stack cannot unwind it there. The
 /// guest keeps its store until it returns, or until its next async import,
-/// which traps. An eager host function that drops the call it is polled in
-/// is that import itself.
+/// which traps.
 #[wasm_bindgen_test]
 async fn a_call_dropped_while_its_guest_runs_stops_it_at_the_next_import() {
     /// The call to drop, and whether the guest ran past its last import.
-    struct Dropper(Option<Call>, bool);
+    struct Dropper(Rc<RefCell<Option<Call>>>, bool);
     unsafe impl Send for Dropper {}
-    for eager in [0, 1] {
-        let mut store = Store::default();
-        let module = Module::new(
-            &store,
-            r#"(module
-              (import "host" "wait" (func $wait (param i32) (result i32)))
-              (import "host" "drop_call" (func $drop_call))
-              (import "host" "drop_call_eager" (func $drop_call_eager))
-              (import "host" "after" (func $after))
-              (func (export "run") (param $eager i32) (result i32)
-                (drop (call $wait (i32.const 7)))
-                (if (local.get $eager)
-                  (then (call $drop_call_eager))
-                  (else (call $drop_call) (drop (call $wait (i32.const 8)))))
-                (call $after)
-                (i32.const 1)))"#,
-        )
-        .unwrap();
-        let log: Log = Rc::default();
-        let gate = Gate::new(&log);
-        let env = FunctionEnv::new(&mut store, Dropper(None, false));
-        let drop_call = |mut env: FunctionEnvMut<'_, Dropper>| drop(env.data_mut().0.take());
-        let drop_call_eager = |env: AsyncFunctionEnvMut<Dropper>, _: &[Value]| async move {
-            drop(env.write().await.data_mut().0.take());
-            Ok(vec![])
-        };
-        let after = |mut env: FunctionEnvMut<'_, Dropper>| env.data_mut().1 = true;
-        let nullary = FunctionType::new([], []);
-        let imports = imports! {
-            "host" => {
-                "wait" => gate.import(&mut store),
-                "drop_call" => Function::new_typed_with_env(&mut store, &env, drop_call),
-                "drop_call_eager" => Function::new_with_env_async(&mut store, &env, nullary, drop_call_eager).eager(),
-                "after" => Function::new_typed_with_env(&mut store, &env, after),
-            }
-        };
-        let instance = Instance::new(&mut store, &module, &imports).unwrap();
-        let run = instance.exports.get_function("run").unwrap().clone();
-        let store = store.into_async();
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (import "host" "wait" (func $wait (param i32) (result i32)))
+          (import "host" "drop_call" (func $drop_call))
+          (import "host" "after" (func $after))
+          (func (export "run") (result i32)
+            (drop (call $wait (i32.const 7)))
+            (call $drop_call)
+            (drop (call $wait (i32.const 8)))
+            (call $after)
+            (i32.const 1)))"#,
+    )
+    .unwrap();
+    let log: Log = Rc::default();
+    let gate = Gate::new(&log);
+    let slot: Rc<RefCell<Option<Call>>> = Rc::default();
+    let env = FunctionEnv::new(&mut store, Dropper(slot.clone(), false));
+    let drop_call = |env: FunctionEnvMut<'_, Dropper>| drop(env.data().0.borrow_mut().take());
+    let after = |mut env: FunctionEnvMut<'_, Dropper>| env.data_mut().1 = true;
+    let imports = imports! {
+        "host" => {
+            "wait" => gate.import(&mut store),
+            "drop_call" => Function::new_typed_with_env(&mut store, &env, drop_call),
+            "after" => Function::new_typed_with_env(&mut store, &env, after),
+        }
+    };
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
+    let run = instance.exports.get_function("run").unwrap().clone();
+    let store = store.into_async();
 
-        let mut call: Call = Box::pin(run.call_async(&store, vec![Value::I32(eager)]));
-        assert!(poll_once(&mut call).is_pending());
-        gate.release(7);
-        assert!(poll_once(&mut call).is_pending());
-        // The guest resumes from the event loop and drops its own call.
-        env.as_mut(&mut store.write_lock().await).0 = Some(call);
-        settle().await;
-        assert_eq!(*log.borrow(), ["wait7"], "the second host function ran");
-        let mut store = store.into_store().expect("something still holds the store");
-        assert!(
-            env.as_mut(&mut store).0.is_none(),
-            "the guest did not resume"
-        );
-        assert!(
-            !env.as_mut(&mut store).1,
-            "eager: {eager}: the guest ran past its cancellation"
-        );
-    }
+    let mut call: Call = Box::pin(run.call_async(&store, vec![]));
+    poll_until(&mut call, || gate.waiting(7)).await;
+    *slot.borrow_mut() = Some(call);
+    gate.release(7);
+    let woken = poll_once(slot.borrow_mut().as_mut().unwrap());
+    assert!(woken.is_pending());
+    // The guest resumes from the event loop and drops its own call.
+    settle().await;
+    assert_eq!(*log.borrow(), ["wait7"], "the second host function ran");
+    assert!(slot.borrow().is_none(), "the guest did not resume");
+    let mut store = store.into_store().expect("something still holds the store");
+    assert!(
+        !env.as_mut(&mut store).1,
+        "the guest ran past its cancellation"
+    );
 }
 
 /// Whoever awaits a call is not kept by it once the call is dropped.
@@ -897,7 +878,7 @@ async fn a_dropped_call_retains_no_waker() {
 /// sees it, and the caller gets the error itself back.
 #[wasm_bindgen_test]
 async fn a_host_error_is_a_trap_and_keeps_its_type() {
-    for (name, guest) in both_kinds_with_handlers() {
+    for (name, guest) in guests_with_handlers() {
         let mut call = guest.call("once", &[7]);
         guest.until_waiting(&mut call, 7).await;
         guest.gate.finish(7, Err(HostExit(42)));
@@ -1047,173 +1028,7 @@ async fn an_async_host_function_can_be_called_directly() {
     assert!(store.into_store().is_ok());
 }
 
-// --- eager host functions ----------------------------------------------------
-
-/// An eager host function that has nothing to wait for does not suspend its
-/// guest: the guest gets its results inside the import call, and runs on
-/// before anything that was queued earlier gets a turn.
-#[wasm_bindgen_test]
-async fn a_ready_eager_import_does_not_suspend_its_guest() {
-    let guest = eager_guest();
-    let log = guest.log.clone();
-    let turn = Closure::once(move |_: JsValue| log.borrow_mut().push("turn".into()));
-    let _ = Promise::resolve(&JsValue::UNDEFINED).then(&turn);
-
-    let mut call = guest.call("pair", &[READY, READY + 1]);
-    assert!(poll_once(&mut call).is_pending());
-    // The whole guest ran in that one poll, with its store all along.
-    let ran = [
-        "wait2000",
-        "1: async, locked",
-        "wait2001",
-        "2: async, locked",
-    ];
-    assert_eq!(guest.log(), ran);
-    assert_eq!(i32_of(call.await), 2 * READY + 1);
-    assert_eq!(guest.log().last().unwrap(), "turn");
-
-    // The same in a span that was resumed.
-    assert_eq!(
-        i32_of(guest.call("pair", &[AUTO, READY]).await),
-        AUTO + READY
-    );
-    assert_eq!(
-        guest.log()[5..],
-        [
-            "wait1000",
-            "1: async, locked",
-            "wait2000",
-            "2: async, locked"
-        ]
-    );
-    guest.into_store();
-}
-
-/// An eager host function that has to wait suspends its guest like any other:
-/// the store is free meanwhile, and the call polls the future from then on.
-/// A future that wakes its caller during that first poll is polled again.
-#[wasm_bindgen_test]
-async fn an_eager_import_that_waits_suspends_its_guest() {
-    let guest = eager_guest();
-    let mut call = guest.call("once", &[7]);
-    assert!(poll_once(&mut call).is_pending());
-    assert!(
-        guest.gate.waiting(7),
-        "the host function runs in the import"
-    );
-    assert_eq!(guest.log(), ["1: async, locked", "wait7"]);
-    assert!(!locked(&guest.store), "free while the guest is suspended");
-    guest.gate.release(7);
-    assert_eq!(i32_of(call.await), 7);
-    assert_eq!(guest.log().last().unwrap(), "2: async, locked");
-
-    // In the first span of a call, and in a resumed one, where nothing but
-    // the wake makes the call poll again.
-    assert_eq!(i32_of(guest.call("once", &[YIELD]).await), YIELD);
-    assert_eq!(
-        i32_of(guest.call("pair", &[AUTO, YIELD]).await),
-        AUTO + YIELD
-    );
-    guest.into_store();
-}
-
-/// What an eager host function finds when it is polled inside the import.
-#[derive(Default)]
-struct Lent {
-    /// The store's write lock could be taken at once.
-    write_lock: bool,
-    /// So could the environment, and with it the store could be lent on.
-    parked: bool,
-    /// A second lock, while the first was held, could not.
-    exclusive: bool,
-    /// How many of three callbacks that each want the store got it.
-    drained: u32,
-}
-
-unsafe impl Send for Lent {}
-
-/// During the poll inside the import call the store is lent to the host
-/// function: it takes the locks it needs without waiting, one after another,
-/// as host code that drains a queue of callbacks does. That holds wherever
-/// the guest belongs to an async call, also beneath a synchronous call made
-/// from one.
-#[wasm_bindgen_test]
-async fn the_store_is_lent_to_an_eager_host_function() {
-    let mut store = Store::default();
-    let module = Module::new(
-        &store,
-        r#"(module
-          (import "host" "probe" (func $probe))
-          (import "host" "wait" (func $wait (param i32) (result i32)))
-          (import "host" "call_inner" (func $call_inner))
-          (func (export "inner") (call $probe))
-          (func (export "run") (param $resumed i32) (param $nested i32)
-            (if (local.get $resumed) (then (drop (call $wait (i32.const 1000)))))
-            (if (local.get $nested) (then (call $call_inner)) (else (call $probe)))))"#,
-    )
-    .unwrap();
-    struct Env(Lent, Option<Function>);
-    unsafe impl Send for Env {}
-    let env = FunctionEnv::new(&mut store, Env(Lent::default(), None));
-    let probe = |env: AsyncFunctionEnvMut<Env>, _: &[Value]| async move {
-        let store = env.as_store_async();
-        let mut found = Lent {
-            write_lock: store.write_lock().now_or_never().is_some(),
-            ..Lent::default()
-        };
-        if let Some(mut guard) = env.write().now_or_never() {
-            found.exclusive = store.write_lock().now_or_never().is_none();
-            let (_, lent) = guard.data_and_store_mut();
-            let mut lent = lent.as_store_mut();
-            found.parked = lent.parked(|| Store::with_current(|_| ()).is_some());
-        }
-        for _ in 0..3 {
-            found.drained += store.write_lock().now_or_never().is_some() as u32;
-        }
-        env.write().await.data_mut().0 = found;
-        Ok(vec![])
-    };
-    let call_inner = |mut env: FunctionEnvMut<'_, Env>| {
-        let inner = env.data().1.clone().unwrap();
-        inner.call(&mut env.as_store_mut(), &[]).unwrap();
-    };
-    let log: Log = Rc::default();
-    let imports = imports! {
-        "host" => {
-            "probe" => Function::new_with_env_async(&mut store, &env, FunctionType::new([], []), probe).eager(),
-            "wait" => Gate::new(&log).import(&mut store),
-            "call_inner" => Function::new_typed_with_env(&mut store, &env, call_inner),
-        }
-    };
-    let instance = Instance::new(&mut store, &module, &imports).unwrap();
-    env.as_mut(&mut store).1 = instance.exports.get_function("inner").ok().cloned();
-    let run = instance.exports.get_function("run").unwrap().clone();
-    let store = store.into_async();
-    for (resumed, nested) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-        let case = format!("resumed: {resumed}, nested: {nested}");
-        let arguments = vec![Value::I32(resumed), Value::I32(nested)];
-        let mut call: Call = Box::pin(run.call_async(&store, arguments));
-        if resumed == 0 {
-            // The guest ran, probe and all, without being suspended.
-            assert!(poll_once(&mut call).is_pending());
-        }
-        let found = std::mem::take(&mut env.as_mut(&mut store.write_lock().await).0);
-        if resumed == 0 {
-            assert!(found.write_lock, "{case}: the probe did not run yet");
-        }
-        call.await.unwrap();
-        let found = match resumed {
-            0 => found,
-            _ => std::mem::take(&mut env.as_mut(&mut store.write_lock().await).0),
-        };
-        assert!(found.write_lock, "{case}: the store was not lent");
-        assert!(found.parked, "{case}: the lent store could not be lent on");
-        assert!(found.exclusive, "{case}: two write locks at once");
-        assert_eq!(found.drained, 3, "{case}: callbacks were starved");
-    }
-    env.as_mut(&mut store.write_lock().await).1 = None;
-    assert!(store.into_store().is_ok());
-}
+// --- host futures ------------------------------------------------------------
 
 /// A lock the host function still holds when it has to wait stays with its
 /// future: the store is not free while the guest is suspended, and the guest
@@ -1233,19 +1048,25 @@ async fn a_guard_held_while_waiting_stays_with_the_future() {
     );
     let (release, released) = oneshot::channel::<()>();
     let released = Rc::new(RefCell::new(Some(released)));
-    let hold = move |env: AsyncFunctionEnvMut<Host>, arguments: &[Value]| {
-        let (released, id) = (released.borrow_mut().take(), arguments[0].clone());
-        async move {
-            let guard = env.write().await;
-            released.unwrap().await.unwrap();
-            drop(guard);
-            Ok(vec![id])
+    let held = Rc::new(Cell::new(false));
+    let hold = {
+        let held = held.clone();
+        move |env: AsyncFunctionEnvMut<Host>, arguments: &[Value]| {
+            let (released, id) = (released.borrow_mut().take(), arguments[0].clone());
+            let held = held.clone();
+            async move {
+                let guard = env.write().await;
+                held.set(true);
+                released.unwrap().await.unwrap();
+                drop(guard);
+                Ok(vec![id])
+            }
         }
     };
     let unary = FunctionType::new([Type::I32], [Type::I32]);
     let imports = imports! {
         "host" => {
-            "wait" => Function::new_with_env_async(&mut store, &env, unary, hold).eager(),
+            "wait" => Function::new_with_env_async(&mut store, &env, unary, hold),
             "observe" => Function::new_typed_with_env(&mut store, &env, observe),
             "call_inner" => Function::new_typed_with_env(&mut store, &env, call_inner),
             "call_inner_raw" => Function::new_typed_with_env(&mut store, &env, call_inner_raw),
@@ -1256,232 +1077,13 @@ async fn a_guard_held_while_waiting_stays_with_the_future() {
     let store = store.into_async();
 
     let mut call: Call = Box::pin(once.call_async(&store, vec![Value::I32(7)]));
-    assert!(poll_once(&mut call).is_pending());
+    poll_until(&mut call, || held.get()).await;
     assert_eq!(*log.borrow(), ["1: async, locked"]);
     assert!(locked(&store), "the suspended host function lost its guard");
     release.send(()).unwrap();
     assert_eq!(i32_of(call.await), 7);
     assert_eq!(log.borrow().last().unwrap(), "2: async, locked");
     assert!(!locked(&store));
-    assert!(store.into_store().is_ok());
-}
-
-/// Where a guest cannot be suspended, beneath a synchronous call made from an
-/// async one, an eager host function that is ready works, and one that fails
-/// at once fails the synchronous call with its own error. One that has to
-/// wait is dropped at its first `Pending` and fails as any async import does
-/// there. Either way the call beneath is left as it was.
-#[wasm_bindgen_test]
-async fn an_eager_import_beneath_a_synchronous_call() {
-    for (raw, resumed) in [(0, 0), (0, 1), (1, 0), (1, 1)] {
-        for within in [READY, 99, YIELD, FAIL] {
-            let case = format!("raw: {raw}, resumed: {resumed}, within: {within}");
-            let guest = eager_guest();
-            let mut call = guest.call("reenter", &[AUTO, raw, resumed, within]);
-            let inner = i32_of((&mut call).await);
-            assert_eq!(inner, if within == READY { READY } else { -1 }, "{case}");
-
-            // The host function ran inside the import, as far as it got.
-            let (waits, within_log) = (format!("wait{AUTO}"), format!("wait{within}"));
-            let mut expected = vec![&within_log, "1: async, locked", &waits, "2: async, locked"];
-            if resumed == 1 {
-                expected.insert(0, &waits);
-            }
-            assert_eq!(guest.log(), expected, "{case}");
-            let waited = [99, YIELD].contains(&within);
-            assert_eq!(guest.gate.dropped(), waited as u32, "{case}");
-
-            let errors = guest.errors().await;
-            assert_eq!(errors.len(), (within != READY) as usize, "{case}");
-            if within == FAIL {
-                assert_eq!(errors[0].downcast_ref(), Some(&HostExit(FAIL)), "{case}");
-            } else if waited {
-                assert_eq!(
-                    errors[0].clone().to_trap(),
-                    Some(TrapCode::YieldOutsideAsyncContext),
-                    "{case}: {}",
-                    errors[0]
-                );
-            }
-            drop(call);
-            guest.into_store();
-        }
-    }
-}
-
-/// The same with no async call at all: `Function::call`, and a start
-/// function, in a store that was never made async.
-#[wasm_bindgen_test]
-fn an_eager_import_outside_call_async() {
-    let Guest {
-        store,
-        instance,
-        gate,
-        log,
-        ..
-    } = eager_guest();
-    let mut store = store.into_store().unwrap();
-    let inner = instance.exports.get_function("inner").unwrap();
-    let ready = inner.call(&mut store, &[Value::I32(READY)]).unwrap();
-    assert_eq!(ready[0].unwrap_i32(), READY);
-
-    let error = inner.call(&mut store, &[Value::I32(FAIL)]).unwrap_err();
-    assert_eq!(error.downcast_ref(), Some(&HostExit(FAIL)), "{error}");
-
-    let error = inner.call(&mut store, &[Value::I32(7)]).unwrap_err();
-    assert_eq!(
-        error.clone().to_trap(),
-        Some(TrapCode::YieldOutsideAsyncContext),
-        "{error}"
-    );
-    assert_eq!(gate.dropped(), 1, "the host future was kept");
-    assert_eq!(*log.borrow(), ["wait2000", "wait4000", "wait7"]);
-
-    let start = |id: i32| {
-        format!(
-            r#"(module
-              (import "host" "wait" (func $wait (param i32) (result i32)))
-              (func $start (drop (call $wait (i32.const {id}))))
-              (start $start))"#
-        )
-    };
-    for (id, works) in [(READY, true), (7, false)] {
-        let module = Module::new(&store, start(id)).unwrap();
-        let imports = imports! { "host" => { "wait" => gate.function(&mut store, true) } };
-        let instance = Instance::new(&mut store, &module, &imports);
-        assert_eq!(instance.is_ok(), works, "a start function waiting in {id}");
-    }
-}
-
-/// A guest entered synchronously with another store than its eager host
-/// function's. That store is not lent to the host function, which does not
-/// run: the import fails, and the call with it.
-#[wasm_bindgen_test]
-fn an_eager_import_of_another_store_fails() {
-    let Guest {
-        store,
-        instance,
-        log,
-        ..
-    } = eager_guest();
-    let _store = store.into_store().unwrap();
-    let mut other = Store::default();
-    let inner = instance.exports.get_function("inner").unwrap();
-    let error = inner.call(&mut other, &[Value::I32(READY)]).unwrap_err();
-    assert!(
-        error.message().contains("not entered with its store"),
-        "{error}"
-    );
-    assert!(log.borrow().is_empty(), "the host function did not run");
-}
-
-/// An eager host function that calls back into its guest while it is polled
-/// inside the import: synchronously, where the guest reaches the same import
-/// again, and with a `call_async` of its own in the same store.
-#[wasm_bindgen_test]
-async fn an_eager_host_function_can_reenter_its_guest() {
-    const READY_NOW: i32 = 0;
-    const REENTER: i32 = 1;
-    const NESTED_CALL: i32 = 2;
-    const REENTER_AND_WAIT: i32 = 3;
-    const WAIT_FOREVER: i32 = 4;
-
-    let mut store = Store::default();
-    let module = Module::new(
-        &store,
-        r#"(module
-          (import "host" "nest" (func $nest (param i32) (result i32)))
-          (func (export "run") (param i32) (result i32) (call $nest (local.get 0))))"#,
-    )
-    .unwrap();
-    struct Env(Option<Function>);
-    unsafe impl Send for Env {}
-    let env = FunctionEnv::new(&mut store, Env(None));
-    let nest = |env: AsyncFunctionEnvMut<Env>, arguments: &[Value]| {
-        let mode = arguments[0].unwrap_i32();
-        async move {
-            let result = match mode {
-                READY_NOW => 1,
-                REENTER | REENTER_AND_WAIT => {
-                    let mut guard = env.write().await;
-                    let run = guard.data_mut().0.clone().unwrap();
-                    let within = [READY_NOW, WAIT_FOREVER][(mode == REENTER_AND_WAIT) as usize];
-                    match run.call(&mut guard, &[Value::I32(within)]) {
-                        Ok(results) => 10 + results[0].unwrap_i32(),
-                        Err(error) => match error.to_trap() {
-                            Some(TrapCode::YieldOutsideAsyncContext) => 30,
-                            _ => -1,
-                        },
-                    }
-                }
-                NESTED_CALL => {
-                    let run = env.read().await.data().0.clone().unwrap();
-                    let store = env.as_store_async();
-                    let nested = run.call_async(&store, vec![Value::I32(READY_NOW)]);
-                    20 + nested.await?[0].unwrap_i32()
-                }
-                _ => std::future::pending().await,
-            };
-            Ok(vec![Value::I32(result)])
-        }
-    };
-    let unary = FunctionType::new([Type::I32], [Type::I32]);
-    let nest = Function::new_with_env_async(&mut store, &env, unary, nest).eager();
-    let instance = Instance::new(
-        &mut store,
-        &module,
-        &imports! { "host" => { "nest" => nest } },
-    );
-    let run = instance
-        .unwrap()
-        .exports
-        .get_function("run")
-        .unwrap()
-        .clone();
-    env.as_mut(&mut store).0 = Some(run.clone());
-    let store = store.into_async();
-    for (mode, expected) in [(REENTER, 11), (NESTED_CALL, 21), (REENTER_AND_WAIT, 30)] {
-        let result = run.call_async(&store, vec![Value::I32(mode)]).await;
-        assert_eq!(i32_of(result), expected, "mode {mode}");
-        assert!(!locked(&store), "mode {mode}");
-    }
-    env.as_mut(&mut store.write_lock().await).0 = None;
-    drop(run);
-    assert!(store.into_store().is_ok());
-}
-
-/// An error an eager host function returns at its first poll is a trap like
-/// one it returns later.
-#[wasm_bindgen_test]
-async fn an_eager_host_error_at_once_is_a_trap() {
-    for (name, guest) in guests_with_handlers(true) {
-        let error = guest.call("once", &[FAIL]).await.unwrap_err();
-        assert_eq!(
-            error.downcast_ref(),
-            Some(&HostExit(FAIL)),
-            "{name}: {error}"
-        );
-        assert_eq!(guest.log(), ["1: async, locked", "wait4000"], "{name}");
-        guest.into_store();
-    }
-}
-
-/// An eager host function called with `call_async` itself.
-#[wasm_bindgen_test]
-async fn an_eager_host_function_can_be_called_directly() {
-    let mut store = Store::default();
-    let log: Log = Rc::default();
-    let gate = Gate::new(&log);
-    let wait = gate.function(&mut store, true);
-    let store = store.into_async();
-    let call = |id: i32| -> Call { Box::pin(wait.call_async(&store, vec![Value::I32(id)])) };
-    for id in [READY, AUTO, YIELD] {
-        assert_eq!(i32_of(call(id).await), id);
-    }
-    let error = call(FAIL).await.unwrap_err();
-    assert_eq!(error.downcast_ref(), Some(&HostExit(FAIL)));
-    assert!(call(8).now_or_never().is_none());
-    assert_eq!(gate.dropped(), 1);
     assert!(store.into_store().is_ok());
 }
 
@@ -1555,12 +1157,9 @@ async fn every_signature_goes_through_and_unwinds() {
         (&[I64, ExternRef, I32], &[ExternRef, I64, F32]),
         (&[I64; 40], &[I64; 20]),
     ];
-    let kinds = signatures
-        .iter()
-        .flat_map(|signature| [(false, signature), (true, signature)]);
-    for (eager, (params, results)) in kinds {
+    for (params, results) in signatures {
         let ty = FunctionType::new(params.to_vec(), results.to_vec());
-        let case = format!("{ty}, eager: {eager}");
+        let case = format!("{ty}");
         let mut store = Store::default();
         let module = Module::new(&store, signature_guest(params, results)).unwrap();
         let caught = Rc::new(Cell::new(0));
@@ -1581,7 +1180,6 @@ async fn every_signature_goes_through_and_unwinds() {
                 }
             }
         });
-        let f = if eager { f.eager() } else { f };
         let imports = imports! { "host" => { "f" => f, "caught" => counter(&mut store, &caught) } };
         let instance = Instance::new(&mut store, &module, &imports).unwrap();
         let run = instance.exports.get_function("run").unwrap().clone();
@@ -1597,7 +1195,7 @@ async fn every_signature_goes_through_and_unwinds() {
         let values: Vec<Value> = results.iter().map(&mut sample).collect();
         let store = store.into_async();
         // `at_once`: the outcome is there when the host future is first
-        // polled, which for an eager host function is inside the import.
+        // polled.
         let call = |outcome: Option<Outcome>, at_once: bool| {
             let (send, receive) = oneshot::channel();
             *outcomes.borrow_mut() = Some(receive);
@@ -1648,7 +1246,7 @@ async fn every_signature_goes_through_and_unwinds() {
 
 /// Numbers through async host functions arrive as they were sent, in both
 /// directions: every kind, from no parameter to more than are passed as plain
-/// numbers, with a result and without, eager or not, at once or after a wait.
+/// numbers, with a result and without, at once or after a wait.
 #[wasm_bindgen_test]
 async fn numbers_go_through_async_host_functions_as_they_are() {
     use Type::*;
@@ -1666,15 +1264,12 @@ async fn numbers_go_through_async_host_functions_as_they_are() {
         _ => Value::F64([5e-324, -0.0, 9_007_199_254_740_993.0][index % 3]),
     };
     let kinds = [I32, F32, F64];
-    for (eager, arity) in [false, true]
-        .into_iter()
-        .flat_map(|eager| [0, 1, 3, 8, 9].map(|arity| (eager, arity)))
-    {
+    for arity in [0, 1, 3, 8, 9] {
         for result in [None, Some(I32), Some(F32), Some(F64)] {
             let params: Vec<Type> = kinds.iter().copied().cycle().take(arity).collect();
             let results: Vec<Type> = result.into_iter().collect();
             let ty = FunctionType::new(params.clone(), results.clone());
-            let case = format!("{ty}, eager: {eager}");
+            let case = format!("{ty}");
             let mut store = Store::default();
             let module = Module::new(&store, signature_guest(&params, &results)).unwrap();
             let caught = Rc::new(Cell::new(0));
@@ -1697,7 +1292,6 @@ async fn numbers_go_through_async_host_functions_as_they_are() {
                     }
                 }
             });
-            let f = if eager { f.eager() } else { f };
             let imports =
                 imports! { "host" => { "f" => f, "caught" => counter(&mut store, &caught) } };
             let instance = Instance::new(&mut store, &module, &imports).unwrap();
@@ -1809,8 +1403,7 @@ async fn a_funcref_result_reaches_the_guest() {
                 })
             }
         });
-        // One of each kind of host function.
-        if two { get.eager() } else { get }
+        get
     };
     let imports = imports! {
         "host" => {
@@ -1994,10 +1587,11 @@ mod externref_results {
         fn returning(value: &JsValue) -> JsValue;
     }
 
-    /// A guest that returns a thenable, which a promise would wait for and
-    /// take the value of: the call ends when the guest returns, with the
-    /// thenable itself, and the store is free again. The thenable settles,
-    /// or never does.
+    /// A guest that returns a thenable, which a promise may take for one. V8
+    /// gives the thenable back as it is; JavaScriptCore, as the JSPI
+    /// specification says, waits for it, and the call ends with what it
+    /// settles with, if it ever does. Either way the store is free once the
+    /// guest has returned.
     #[wasm_bindgen_test]
     async fn a_guest_that_returns_a_thenable() {
         for settles in [false, true] {
@@ -2017,11 +1611,22 @@ mod externref_results {
             let run = instance.exports.get_function("run").unwrap().clone();
             let store = store.into_async();
 
-            let results = run.call_async(&store, vec![]).await.unwrap();
-            let lock = store.read_lock().await;
-            let returned = results[0].as_jsvalue(&lock);
-            assert!(js_sys::Object::is(&returned, &value), "settles: {settles}");
-            drop(lock);
+            let mut call: Call = Box::pin(run.call_async(&store, vec![]));
+            let _ = poll_once(&mut call);
+            settle().await;
+            assert!(!locked(&store), "settles: {settles}: the store is held");
+            match poll_once(&mut call) {
+                Poll::Ready(results) => {
+                    let results = results.unwrap();
+                    let lock = store.read_lock().await;
+                    let returned = results[0].as_jsvalue(&lock);
+                    let itself = js_sys::Object::is(&returned, &value);
+                    let settled = settles && returned == JsValue::from_str("settled");
+                    assert!(itself || settled, "settles: {settles}: {returned:?}");
+                }
+                Poll::Pending => assert!(!settles, "the thenable settled"),
+            }
+            drop(call);
             assert!(store.into_store().is_ok(), "settles: {settles}");
         }
     }
