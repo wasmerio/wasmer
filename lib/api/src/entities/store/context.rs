@@ -59,15 +59,31 @@ enum StoreContextEntry {
     Sync(*mut StoreInner),
 
     #[cfg(feature = "experimental-async")]
-    Async(LocalRwLockWriteGuard<Box<StoreInner>>),
+    Async {
+        guard: LocalRwLockWriteGuard<Box<StoreInner>>,
+        /// The store, taken from `guard` once, when the entry is made. Every
+        /// borrow the entry hands out comes from this pointer, rather than
+        /// from a shared reference it would then write through.
+        ptr: *mut StoreInner,
+    },
 }
 
 impl StoreContextEntry {
+    #[cfg(feature = "experimental-async")]
+    fn new_async(mut guard: LocalRwLockWriteGuard<Box<StoreInner>>) -> Self {
+        // A raw pointer to the box's contents, not a reference to them: it
+        // stays valid when something else borrows the store through the lock,
+        // as a future does while the store is lent out, so a borrow paused
+        // across that can be picked up again.
+        let ptr: *mut StoreInner = &raw mut **guard;
+        Self::Async { guard, ptr }
+    }
+
     fn as_ptr(&self) -> *mut StoreInner {
         match self {
             Self::Sync(ptr) => *ptr,
             #[cfg(feature = "experimental-async")]
-            Self::Async(guard) => &***guard as *const _ as *mut _,
+            Self::Async { ptr, .. } => *ptr,
         }
     }
 }
@@ -95,6 +111,9 @@ pub(crate) struct StorePtrWrapper {
 #[cfg(feature = "experimental-async")]
 pub(crate) struct StoreAsyncGuardWrapper {
     pub(crate) guard: *mut LocalRwLockWriteGuard<Box<StoreInner>>,
+    /// The entry's pointer to the store, to borrow it through rather than
+    /// through `guard`.
+    pub(crate) store_ptr: *mut StoreInner,
 }
 
 pub(crate) struct StorePtrPauseGuard {
@@ -196,7 +215,7 @@ impl StoreContext {
         guard: LocalRwLockWriteGuard<Box<StoreInner>>,
     ) -> ForcedStoreInstallGuard {
         let store_id = guard.objects.id();
-        Self::push(store_id, StoreContextEntry::Async(guard));
+        Self::push(store_id, StoreContextEntry::new_async(guard));
         ForcedStoreInstallGuard { store_id }
     }
 
@@ -210,7 +229,7 @@ impl StoreContext {
             cell.borrow().last().is_some_and(|top| {
                 matches!(
                     unsafe { top.entry.get().as_ref().unwrap() },
-                    StoreContextEntry::Async(_)
+                    StoreContextEntry::Async { .. }
                 )
             })
         })
@@ -228,7 +247,7 @@ impl StoreContext {
             let top = stack.last()?;
             let is_async = matches!(
                 unsafe { top.entry.get().as_ref().unwrap() },
-                StoreContextEntry::Async(_)
+                StoreContextEntry::Async { .. }
             );
             if top.id != id || top.borrow_count != 0 || !is_async {
                 return None;
@@ -238,7 +257,9 @@ impl StoreContext {
         // The guard is dropped, and with it the lock released, outside the
         // borrow of the stack: releasing wakes whoever waits for the store.
         match top.entry.into_inner() {
-            StoreContextEntry::Async(guard) => Some(LocalRwLockWriteGuard::lock_handle(&guard)),
+            StoreContextEntry::Async { guard, .. } => {
+                Some(LocalRwLockWriteGuard::lock_handle(&guard))
+            }
             StoreContextEntry::Sync(_) => unreachable!(),
         }
     }
@@ -250,7 +271,7 @@ impl StoreContext {
         let Some(guard) = lock.try_write() else {
             return false;
         };
-        Self::push(guard.objects.id(), StoreContextEntry::Async(guard));
+        Self::push(guard.objects.id(), StoreContextEntry::new_async(guard));
         true
     }
 
@@ -267,7 +288,7 @@ impl StoreContext {
             match unsafe { top.entry.get().as_ref().unwrap() } {
                 StoreContextEntry::Sync(_) => false,
                 #[cfg(feature = "experimental-async")]
-                StoreContextEntry::Async(_) => true,
+                StoreContextEntry::Async { .. } => true,
             }
         })
     }
@@ -449,9 +470,10 @@ impl StoreContext {
             }
             top.borrow_count += 1;
             match unsafe { top.entry.get().as_mut().unwrap() } {
-                StoreContextEntry::Async(guard) => {
+                StoreContextEntry::Async { guard, ptr } => {
                     GetStoreAsyncGuardResult::Ok(StoreAsyncGuardWrapper {
                         guard: guard as *mut _,
+                        store_ptr: *ptr,
                     })
                 }
                 StoreContextEntry::Sync(ptr) => {
@@ -584,7 +606,7 @@ impl Drop for StoreAsyncGuardWrapper {
             // is still the active one. Only the address of the guard is
             // compared; the entry it points to may be gone.
             with_active_while_unwinding(|top| {
-                if let StoreContextEntry::Async(guard) = unsafe { &*top.entry.get() }
+                if let StoreContextEntry::Async { guard, .. } = unsafe { &*top.entry.get() }
                     && std::ptr::eq(guard, self.guard)
                 {
                     top.borrow_count = top.borrow_count.saturating_sub(1);
@@ -592,7 +614,7 @@ impl Drop for StoreAsyncGuardWrapper {
             });
             return;
         }
-        let id = unsafe { self.guard.as_ref().unwrap().objects.id() };
+        let id = unsafe { self.store_ptr.as_ref().unwrap().objects.id() };
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack

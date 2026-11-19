@@ -181,7 +181,7 @@ impl Function {
                 let mut context = StoreContext::try_get_current_async(store_id);
                 let mut store_mut = match &mut context {
                     crate::GetStoreAsyncGuardResult::Ok(wrapper) => StoreMut {
-                        inner: wrapper.guard.as_mut().unwrap(),
+                        inner: wrapper.store_ptr.as_mut().unwrap(),
                     },
                     crate::GetStoreAsyncGuardResult::NotAsync(ptr) => ptr.as_mut(),
                     crate::GetStoreAsyncGuardResult::NotInstalled => {
