@@ -52,7 +52,6 @@ impl<T: Any + 'static + Sized> FunctionEnv<T> {
     pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T {
         self.handle
             .get(store.as_store_ref().objects().as_sys())
-            .as_ref()
             .downcast_ref::<T>()
             .unwrap()
     }
@@ -61,7 +60,6 @@ impl<T: Any + 'static + Sized> FunctionEnv<T> {
     pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T {
         self.handle
             .get_mut(store.objects_mut().as_sys_mut())
-            .as_mut()
             .downcast_mut::<T>()
             .unwrap()
     }
