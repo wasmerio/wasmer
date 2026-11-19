@@ -466,7 +466,13 @@ impl Wast {
                 .instances
                 .get(module_name)
                 .ok_or_else(|| anyhow!("constant expression required"))?;
-            imports.register_namespace(module_name, instance.exports.clone());
+            imports.register_namespace(
+                module_name,
+                instance
+                    .exports
+                    .iter()
+                    .map(|(name, export)| (name.clone(), export.clone())),
+            );
         }
 
         let instance = Instance::new(&mut self.store, &module, &imports)?;

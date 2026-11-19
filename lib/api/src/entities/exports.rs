@@ -3,6 +3,8 @@ use crate::{Extern, Function, Global, Memory, Table, TypedFunction, WasmTypeList
 use indexmap::IndexMap;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
+use std::ops::Deref;
+use std::sync::Arc;
 use thiserror::Error;
 
 /// The `ExportError` can happen when trying to get a specific
@@ -61,6 +63,24 @@ pub enum ExportError {
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Exports {
     map: IndexMap<String, Extern>,
+}
+
+/// Shared, read-only exports.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct FrozenExports(Arc<Exports>);
+
+impl From<Exports> for FrozenExports {
+    fn from(exports: Exports) -> Self {
+        Self(Arc::new(exports))
+    }
+}
+
+impl Deref for FrozenExports {
+    type Target = Exports;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl Exports {
