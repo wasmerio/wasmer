@@ -212,7 +212,7 @@ unsafe impl ValueType for StackSnapshot {
 #[derive(Clone, Copy)]
 pub union JoinStatusUnion {
     pub nothing: u8,
-    pub exit_normal: Errno,
+    pub exit_normal: ExitCode,
     pub exit_signal: ErrnoSignal,
     pub stopped: Signal,
 }
@@ -273,6 +273,7 @@ unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
+#[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ExitCode(u16);
@@ -340,6 +341,25 @@ impl From<ExitCode> for Errno {
 impl From<ExitCode> for i32 {
     fn from(val: ExitCode) -> Self {
         val.0 as i32
+    }
+}
+
+#[test]
+fn join_status_preserves_exit_codes_above_the_errno_range() {
+    // Errno::Unknown is 79, so 80..=255 used to be written out as 79.
+    for code in [0u16, 1, 78, 79, 80, 128, 255] {
+        let status = JoinStatus {
+            tag: JoinStatusType::ExitNormal,
+            u: JoinStatusUnion {
+                exit_normal: ExitCode::from(code),
+            },
+        };
+        let offset = std::mem::offset_of!(JoinStatus, u);
+        let bytes = unsafe {
+            std::slice::from_raw_parts(&status as *const JoinStatus as *const u8, offset + 2)
+        };
+        let stored = u16::from_ne_bytes([bytes[offset], bytes[offset + 1]]);
+        assert_eq!(stored, code, "exit code {code} changed in the ABI layout");
     }
 }
 
