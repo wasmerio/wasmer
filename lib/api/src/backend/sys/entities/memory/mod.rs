@@ -283,7 +283,8 @@ impl MemoryBuffer<'_> {
 //
 // The implementation of these functions can optimize very well when inlined
 // with a fixed length: they should compile down to a single load/store
-// instruction for small (8/16/32/64-bit) copies.
+// instruction for small (8/16/32/64-bit) copies. Larger copies move 16 bytes
+// per access, which is close to memcpy's throughput.
 #[inline]
 unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
     #[inline]
@@ -302,7 +303,10 @@ unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: us
     }
 
     unsafe {
-        while len >= 8 {
+        while len >= 16 {
+            copy_one::<u128>(&mut src, &mut dst, &mut len);
+        }
+        if len >= 8 {
             copy_one::<u64>(&mut src, &mut dst, &mut len);
         }
         if len >= 4 {
@@ -316,34 +320,49 @@ unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: us
         }
     }
 }
-#[inline]
-unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
-    #[inline]
-    unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
-        #[repr(C, packed)]
-        struct Unaligned<T>(T);
 
+// Writes into the memory go through relaxed atomic stores, aligned to the
+// memory's side: a store that races with another thread's access is defined
+// for atomics, and an aligned word store is a plain store instruction. An
+// unaligned volatile store is not (LLVM may split it into byte stores), which
+// made large writes several times slower than memcpy.
+#[inline]
+unsafe fn volatile_memcpy_write(src: *const u8, dst: *mut u8, len: usize) {
+    use std::sync::atomic::{AtomicU8, AtomicU16, AtomicU32, AtomicUsize, Ordering::Relaxed};
+
+    const WORD: usize = mem::size_of::<usize>();
+
+    // Stores one value of the largest size that is aligned at `dst` and
+    // fits in `len`; returns its size.
+    #[inline(always)]
+    unsafe fn store_edge(src: *const u8, dst: *mut u8, len: usize) -> usize {
+        let addr = dst as usize;
         unsafe {
-            let val = (*src as *const Unaligned<T>).read();
-            (*dst as *mut Unaligned<T>).write_volatile(val);
-            *src = src.add(mem::size_of::<T>());
-            *dst = dst.add(mem::size_of::<T>());
-            *len -= mem::size_of::<T>();
+            if addr.is_multiple_of(4) && len >= 4 {
+                (*(dst as *const AtomicU32)).store((src as *const u32).read_unaligned(), Relaxed);
+                4
+            } else if addr.is_multiple_of(2) && len >= 2 {
+                (*(dst as *const AtomicU16)).store((src as *const u16).read_unaligned(), Relaxed);
+                2
+            } else {
+                (*(dst as *const AtomicU8)).store(src.read(), Relaxed);
+                1
+            }
         }
     }
 
+    let mut done = 0;
     unsafe {
-        while len >= 8 {
-            copy_one::<u64>(&mut src, &mut dst, &mut len);
+        while done < len && !(dst as usize + done).is_multiple_of(WORD) {
+            done += store_edge(src.add(done), dst.add(done), len - done);
         }
-        if len >= 4 {
-            copy_one::<u32>(&mut src, &mut dst, &mut len);
+        while len - done >= WORD {
+            let value = (src.add(done) as *const usize).read_unaligned();
+            (*(dst.add(done) as *const AtomicUsize)).store(value, Relaxed);
+            done += WORD;
         }
-        if len >= 2 {
-            copy_one::<u16>(&mut src, &mut dst, &mut len);
-        }
-        if len >= 1 {
-            copy_one::<u8>(&mut src, &mut dst, &mut len);
+        while done < len {
+            done += store_edge(src.add(done), dst.add(done), len - done);
         }
     }
 }
@@ -370,6 +389,34 @@ impl crate::Memory {
         match self.0 {
             BackendMemory::Sys(ref mut s) => s,
             _ => panic!("Not a `sys` memory!"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod copy_tests {
+    use super::{volatile_memcpy_read, volatile_memcpy_write};
+
+    /// Every length up to 80 bytes, from and to every alignment within 16.
+    #[test]
+    fn copies_are_exact_at_every_alignment_and_length() {
+        let source: Vec<u8> = (0..128u32).map(|i| (i * 37 + 11) as u8).collect();
+        for len in 0..80 {
+            for from in 0..16 {
+                for to in 0..16 {
+                    let mut read = vec![0xAAu8; 128];
+                    let mut written = vec![0xAAu8; 128];
+                    unsafe {
+                        volatile_memcpy_read(source.as_ptr().add(from), read.as_mut_ptr().add(to), len);
+                        volatile_memcpy_write(source.as_ptr().add(from), written.as_mut_ptr().add(to), len);
+                    }
+                    for buffer in [&read, &written] {
+                        assert_eq!(&buffer[to..to + len], &source[from..from + len], "len {len} from {from} to {to}");
+                        assert!(buffer[..to].iter().all(|&b| b == 0xAA), "before: len {len} to {to}");
+                        assert!(buffer[to + len..].iter().all(|&b| b == 0xAA), "after: len {len} to {to}");
+                    }
+                }
+            }
         }
     }
 }
