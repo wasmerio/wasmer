@@ -1,5 +1,5 @@
 //! Thread-local storage for storing the current store context,
-//! i.e. the currently active [`Store`](crate::Store)(s). When
+//! i.e. the currently active [`Store`]s. When
 //! a function is called, a pointer to the [`StoreInner`] in placed
 //! inside the store context so it can be retrieved when needed.
 //! This lets code that needs access to the store get it with
@@ -12,8 +12,8 @@
 //! to the `StoreInner`, which is owned by the embedder's stack.
 //!
 //! For async contexts, we store a write guard taken from the
-//! [`StoreAsync`](crate::StoreAsync); This achieves two goals:
-//!   * Makes the [`StoreAsync`](crate::StoreAsync) available
+//! `StoreAsync`; This achieves two goals:
+//!   * Makes the `StoreAsync` available
 //!     to whoever needs it, including when code needs to spawn
 //!     new coroutines
 //!   * Makes sure a write lock is held on the store as long as
@@ -229,7 +229,7 @@ impl StoreContext {
     }
 
     /// Whether the active entry is `id`'s, held by an async context that the
-    /// running coroutine can lend: not one beneath a [`Cothread`] that was
+    /// running coroutine can lend: not one beneath a `Cothread` that was
     /// resumed since, whose frames would otherwise borrow the store through
     /// an entry the coroutine does not take with it when it suspends.
     fn active_is_async(id: StoreId) -> bool {
@@ -274,7 +274,7 @@ impl StoreContext {
     /// re-acquisition re-derives from that guard rather than from a caller's
     /// borrow (see `AsyncCallStoreMut`), so there is no borrow to nest under.
     /// Shadowing it would also hide the guard from async host functions, which
-    /// reach it by inspecting the active entry. One beneath a [`Cothread`]
+    /// reach it by inspecting the active entry. One beneath a `Cothread`
     /// that was resumed since is shadowed all the same: the coroutine's calls
     /// need an entry of their own, which it takes with it when it suspends,
     /// and the call that holds the guard cannot be suspended from the

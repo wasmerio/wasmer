@@ -171,6 +171,12 @@ fn result_to_js(value: &Value, ty: Option<&Type>) -> JsValue {
     }
 }
 
+/// Whether `values` are of the types `types`, as many as there are.
+#[cfg(feature = "experimental-async")]
+fn values_match(values: &[Value], types: &[Type]) -> bool {
+    values.len() == types.len() && values.iter().zip(types).all(|(value, ty)| value.ty() == *ty)
+}
+
 /// [`result_to_js`] for each of several results of the types `types`.
 fn results_to_js_array(values: &[Value], types: &[Type]) -> Array {
     let values = values.iter().enumerate();
@@ -657,8 +663,23 @@ impl Function {
             .await?;
             let result = match returned {
                 // What an async host function called directly returned, as
-                // it returned it, which its signature was checked against.
-                jspi::Returned::Host(values) => return Ok(values.into_boxed_slice()),
+                // it returned it. That was checked against the signature the
+                // host function was made with; this handle may give it another
+                // (`Function::from_jsvalue`), by which its caller reads them.
+                jspi::Returned::Host(values) => {
+                    let expected = function.handle.ty.results();
+                    if !values_match(&values, expected) {
+                        let types: Vec<String> =
+                            values.iter().map(|value| value.ty().to_string()).collect();
+                        return Err(RuntimeError::new(format!(
+                            "an async host function returned values of type [{}], which \
+                             do not match the signature it is called with, {}",
+                            types.join(", "),
+                            function.handle.ty,
+                        )));
+                    }
+                    return Ok(values.into_boxed_slice());
+                }
                 jspi::Returned::Guest(result) => result,
             };
             let mut write_lock = store.write_lock().await;
@@ -973,10 +994,7 @@ where
             let results = future.await?;
             // Checked here: values of other types would reach the guest as
             // an exception it can catch.
-            let expected = self.ty.results();
-            if results.len() != expected.len()
-                || results.iter().zip(expected).any(|(value, ty)| value.ty() != *ty)
-            {
+            if !values_match(&results, self.ty.results()) {
                 return Err(RuntimeError::new(
                     "an async host function returned values that do not match its signature",
                 ));

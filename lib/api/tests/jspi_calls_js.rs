@@ -1824,6 +1824,43 @@ async fn an_async_host_function_called_directly_returns_its_results_as_they_are(
     assert!(store.into_store().is_ok());
 }
 
+/// An async host function taken back with another signature than its own
+/// (`Function::from_jsvalue`) is called with that one, and the caller reads
+/// its results by it: a direct call whose results do not match it fails,
+/// typed or not, rather than giving them as values of other types.
+#[wasm_bindgen_test]
+async fn a_direct_call_checks_its_results_against_the_signature_it_is_called_with() {
+    let mut store = Store::default();
+    let seven = Function::new_typed_async(&mut store, async || 7);
+    let form = seven.as_jsvalue(&store);
+    let mut taken = |results: &[Type]| {
+        let ty = FunctionType::new([], results.to_vec());
+        Function::from_jsvalue(&mut store, &ty, &form).unwrap()
+    };
+    let (same, wide, pair) = (
+        taken(&[Type::I32]),
+        taken(&[Type::I64]),
+        taken(&[Type::I32, Type::I32]),
+    );
+    let typed_wide = wide.typed::<(), i64>(&store).unwrap();
+    let store = store.into_async();
+
+    assert_eq!(i32_of(same.call_async(&store, vec![]).await), 7);
+    for (name, function) in [("wide", &wide), ("pair", &pair)] {
+        let error = function.call_async(&store, vec![]).await.unwrap_err();
+        assert!(
+            error.message().contains("do not match the signature"),
+            "{name}: {error}"
+        );
+    }
+    let error = typed_wide.call_async(&store).await.unwrap_err();
+    assert!(
+        error.message().contains("do not match the signature"),
+        "{error}"
+    );
+    assert!(store.into_store().is_ok());
+}
+
 /// A host function this crate makes reaches the store it was made for
 /// through a pointer, and an async one looks for the guest that calls it
 /// there: synchronous or async, typed or dynamic, it belongs to that store.
