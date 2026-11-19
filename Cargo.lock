@@ -21,7 +21,7 @@ dependencies = [
  "fallible-iterator",
  "gimli 0.34.0",
  "memmap2 0.9.12",
- "object",
+ "object 0.40.0",
  "rustc-demangle",
  "smallvec",
  "typed-arena",
@@ -386,7 +386,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "miniz_oxide",
- "object",
+ "object 0.40.0",
  "rustc-demangle",
  "windows-link",
 ]
@@ -571,7 +571,7 @@ checksum = "4b7118d0221d84fada881b657c2ddb7cd55108db79c8764c9ee212c0c259b783"
 dependencies = [
  "crossbeam-channel",
  "num_cpus",
- "parking_lot_core",
+ "parking_lot_core 0.9.12",
 ]
 
 [[package]]
@@ -1503,7 +1503,7 @@ dependencies = [
  "bitflags 2.13.2",
  "crossterm_winapi",
  "document-features",
- "parking_lot",
+ "parking_lot 0.12.5",
  "rustix",
  "winapi",
 ]
@@ -1696,9 +1696,9 @@ dependencies = [
  "cfg-if",
  "crossbeam-utils",
  "hashbrown 0.14.5",
- "lock_api",
+ "lock_api 0.4.14",
  "once_cell",
- "parking_lot_core",
+ "parking_lot_core 0.9.12",
 ]
 
 [[package]]
@@ -3414,7 +3414,7 @@ dependencies = [
  "memchr",
  "memmap2 0.9.12",
  "nix 0.31.3",
- "object",
+ "object 0.40.0",
  "perf-event",
  "perfetto-recorder",
  "rayon",
@@ -3489,7 +3489,7 @@ checksum = "3ad02a04a6e183cd7087b82c4755556d9ff842a9fa448ec6be26e2d46b8c6972"
 dependencies = [
  "anyhow",
  "leb128",
- "object",
+ "object 0.40.0",
  "paste",
 ]
 
@@ -3530,6 +3530,15 @@ name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
+dependencies = [
+ "scopeguard",
+]
+
+[[package]]
+name = "lock_api"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65d91b22da179613dcf4d6ec8349563f52a363f6849e03b00dd0a185ec4a59af"
 dependencies = [
  "scopeguard",
 ]
@@ -4014,6 +4023,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.41.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11dbdb66876026054e4ffc8d757d862bdf5df5aebd5c0b95a41f17832a94f7d2"
+dependencies = [
+ "crc32fast",
+ "flate2",
+ "hashbrown 0.17.1",
+ "indexmap",
+ "memchr",
+ "ruzstd",
+]
+
+[[package]]
 name = "offset-allocator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4043,12 +4066,12 @@ checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
 name = "opener"
-version = "0.8.5"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2b03ff07a220d0d0ec9a1f0f238951b7967a5a2e96aefcd21a117b1083415e9"
+checksum = "c826edd923022c3907477383fc77708fa68807170754fe7be1fd3496c57a1f1c"
 dependencies = [
- "bstr 1.13.1",
  "normpath",
+ "url",
  "windows-sys 0.61.2",
 ]
 
@@ -4147,8 +4170,18 @@ version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93857453250e3077bd71ff98b6a65ea6621a19bb0f559a85248955ac12c45a1a"
 dependencies = [
- "lock_api",
- "parking_lot_core",
+ "lock_api 0.4.14",
+ "parking_lot_core 0.9.12",
+]
+
+[[package]]
+name = "parking_lot"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9cf937ca4e1d0b7578784559063422fc39ae7c5a00f02471f2614d5486fd226"
+dependencies = [
+ "lock_api 0.5.0",
+ "parking_lot_core 0.10.0",
 ]
 
 [[package]]
@@ -4159,7 +4192,19 @@ checksum = "2621685985a2ebf1c516881c026032ac7deafcda1a2c9b7850dc81e3dfcb64c1"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall",
+ "redox_syscall 0.5.18",
+ "smallvec",
+ "windows-link",
+]
+
+[[package]]
+name = "parking_lot_core"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cfff060068cc18aa7815010fcaf80c68c7fb9e85fc7f5c0f9bf142c21d19826"
+dependencies = [
+ "libc",
+ "redox_syscall 0.9.5",
  "smallvec",
  "windows-link",
 ]
@@ -4848,6 +4893,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "redox_syscall"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "580c875845b41ecb1564ad1ae4703044cef774145e3d7a94dc2b3fa7c97868fd"
+dependencies = [
+ "bitflags 2.13.2",
+]
+
+[[package]]
 name = "redox_users"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5506,7 +5560,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6df5ed973ad8d834e09f824f9e9f449af6b9a3745f78dec7cc752770bd3bf11"
 dependencies = [
  "once_cell",
- "parking_lot",
+ "parking_lot 0.12.5",
  "serial_test_derive",
 ]
 
@@ -6126,7 +6180,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
- "parking_lot",
+ "parking_lot 0.12.5",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
@@ -6864,9 +6918,9 @@ dependencies = [
 
 [[package]]
 name = "ureq"
-version = "3.5.0"
+version = "3.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cde93ff05758a36a851a398a772b0b79a82fbe3c186a46f2696baaeaf84c966b"
+checksum = "3ac5cecf619ca81f66a96482db09687c9f7465af65f4300a8c30cca05bd5a59d"
 dependencies = [
  "base64 0.23.1",
  "flate2",
@@ -6881,9 +6935,9 @@ dependencies = [
 
 [[package]]
 name = "ureq-proto"
-version = "0.6.5"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "841583fc36089d7d59419568ae157f43a5a03a2e5a81ba87c77d1596ef46e922"
+checksum = "622dce33c252115466d83f63e9744a18f12b4406aae51a01c15ad8fcf1185eb3"
 dependencies = [
  "base64 0.23.1",
  "http",
@@ -7405,7 +7459,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
- "ureq 3.5.0",
+ "ureq 3.5.2",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -7599,7 +7653,7 @@ dependencies = [
  "mio",
  "once_cell",
  "opener",
- "parking_lot",
+ "parking_lot 0.13.0",
  "path-clean",
  "predicates 3.1.4",
  "pretty_assertions",
@@ -7670,7 +7724,7 @@ dependencies = [
  "macho-unwind-info",
  "memmap2 0.9.12",
  "more-asserts",
- "object",
+ "object 0.41.0",
  "phf",
  "rangemap",
  "rayon",
@@ -7704,7 +7758,7 @@ dependencies = [
  "itertools 0.15.0",
  "leb128",
  "more-asserts",
- "object",
+ "object 0.41.0",
  "rayon",
  "regalloc2",
  "serde",
@@ -7727,7 +7781,7 @@ dependencies = [
  "inkwell",
  "itertools 0.15.0",
  "libc",
- "object",
+ "object 0.41.0",
  "phf",
  "rayon",
  "smallvec",
@@ -7751,7 +7805,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "itertools 0.15.0",
  "more-asserts",
- "object",
+ "object 0.41.0",
  "rayon",
  "serde",
  "serde_derive",
@@ -7911,7 +7965,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "toml 1.1.8+spec-1.1.0",
- "ureq 3.5.0",
+ "ureq 3.5.2",
  "url",
  "wasmer-config",
  "wasmer-types",
@@ -8004,7 +8058,7 @@ dependencies = [
  "loupe",
  "mach2 0.7.0",
  "more-asserts",
- "parking_lot",
+ "parking_lot 0.13.0",
  "region",
  "scopeguard",
  "serde",
@@ -8171,7 +8225,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "ureq 3.5.0",
+ "ureq 3.5.2",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",
@@ -8258,7 +8312,7 @@ dependencies = [
  "log",
  "mach2 0.6.0",
  "memfd",
- "object",
+ "object 0.40.0",
  "once_cell",
  "postcard",
  "pulley-interpreter 50.0.1",
@@ -8294,7 +8348,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "indexmap",
  "log",
- "object",
+ "object 0.40.0",
  "postcard",
  "rustc-demangle",
  "semver 1.0.28",
@@ -8350,7 +8404,7 @@ dependencies = [
  "gimli 0.33.0",
  "itertools 0.14.0",
  "log",
- "object",
+ "object 0.40.0",
  "pulley-interpreter 50.0.1",
  "smallvec",
  "target-lexicon 0.13.5",
@@ -8405,7 +8459,7 @@ checksum = "bbf9357720c1477c43f88dace11923737e8aa87abe5f46f90e23c93a2a0fb3fe"
 dependencies = [
  "cranelift-codegen 0.137.1",
  "log",
- "object",
+ "object 0.40.0",
  "wasmtime-environ",
 ]
 
