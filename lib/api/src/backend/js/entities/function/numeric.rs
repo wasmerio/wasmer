@@ -336,7 +336,7 @@ pub(crate) fn host(
         let body: Rc<Box<Body>> = Rc::new(Box::new(body));
         let address = Rc::as_ptr(&body) as usize as f64;
         let function = hosts.makers[arity].make(&JsValue::UNDEFINED, &trampoline, address);
-        keep_alive("wasmer.host", body, &function);
+        keep_alive(body, &function);
         function
     })
 }
