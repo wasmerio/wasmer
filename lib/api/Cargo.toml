@@ -138,7 +138,8 @@ headless = []
 # Experimental concurrent execution support
 experimental-async = ["dep:futures", "dep:corosensei"]
 
-# Enables Store::coroutine_store_guard for manual cothread store context management.
+# Enables `Cothread`, for coroutines that an embedder switches itself and that
+# suspend while they run Wasm.
 unsafe-cothread = ["sys"]
 
 # Experimental host-triggered interruption support

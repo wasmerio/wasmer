@@ -454,116 +454,170 @@ impl StoreContext {
     }
 }
 
-/// The thread state of a coroutine run under [`CoroutineStoreGuard`]s, kept
-/// off the thread while the coroutine is suspended.
+/// A coroutine that an embedder switches itself and that can suspend while
+/// it runs Wasm, kept with the thread state of the calls it is suspended in.
+///
+/// A call into Wasm keeps state on its thread while it runs: the entry its
+/// host functions find the store through, and the trap handler the signal
+/// handler consults (with `experimental-host-interrupt`, also the stores the
+/// interrupt registry sees running). A coroutine suspended inside a call,
+/// from a host function, has to take that state with it, or a call resumed in
+/// another order than the calls entered Wasm finds another call's: its traps
+/// are handled on the wrong stack. `Cothread` takes the coroutine's state
+/// off the thread whenever control comes back from it, keeps it, and puts it
+/// back for the next resume, as `Function::call_async` does for its own
+/// coroutines.
+///
+/// The state belongs to the coroutine and to nothing else, so it cannot be
+/// installed for another coroutine. Dropping a `Cothread` drops the
+/// coroutine, which unwinds it if it is suspended, with its state installed;
+/// forgetting one forgets the state with the coroutine.
+///
+/// Every coroutine that can suspend while a call into Wasm is on its stack
+/// must be a `Cothread`, and be resumed only through [`Cothread::resume`].
+/// A `Cothread` stays on the thread that made it.
+///
+/// ```ignore
+/// let mut cothread = Cothread::new(Coroutine::new(move |yielder, ()| {
+///     // A host function of `run` suspends the coroutine with `yielder`.
+///     run.call(&mut store, 0)
+/// }));
+/// unsafe { cothread.resume(|coroutine| coroutine.resume(())) };
+/// ```
+#[cfg(feature = "unsafe-cothread")]
+pub struct Cothread<C> {
+    coroutine: std::mem::ManuallyDrop<C>,
+    state: CothreadState,
+}
+
+/// The thread state of a [`Cothread`]'s coroutine, while it is off the
+/// thread.
 #[cfg(feature = "unsafe-cothread")]
 #[derive(Default)]
-struct SuspendedCothread {
-    /// The entries the coroutine pushed onto the store context stack that
-    /// were still there when it suspended, bottom first: those of the calls
-    /// it is suspended in.
+struct CothreadState {
+    /// The entries the coroutine left on the store context stack when it
+    /// last suspended, bottom first: those of the calls it is suspended in.
+    /// The vector keeps its capacity while the entries are on the thread.
     entries: Vec<StoreContext>,
     /// The trap handler and active stores of those calls.
     activation: wasmer_vm::ActivationState,
 }
 
 #[cfg(feature = "unsafe-cothread")]
-thread_local! {
-    /// The state of each suspended coroutine of this thread that was run
-    /// under [`CoroutineStoreGuard`]s, by the store the guards were made for.
-    static SUSPENDED_COTHREADS: RefCell<std::collections::HashMap<StoreId, SuspendedCothread>> =
-        RefCell::new(std::collections::HashMap::new());
-}
+impl CothreadState {
+    fn is_empty(&self) -> bool {
+        self.entries.is_empty() && self.activation.is_empty()
+    }
 
-#[cfg(feature = "unsafe-cothread")]
-/// Puts the thread state of a coroutine that runs Wasm on a store onto the
-/// thread for one resume of the coroutine, and takes it off again when
-/// dropped. See [`crate::Store::coroutine_store_guard`].
-pub struct CoroutineStoreGuard<'a> {
-    store_id: StoreId,
-    /// Where the coroutine's entries start on the store context stack.
-    base: usize,
-    /// The thread's own activation state while the coroutine's is installed.
-    activation: wasmer_vm::ActivationState,
-    _store: std::marker::PhantomData<&'a mut StoreInner>,
-}
-
-#[cfg(feature = "unsafe-cothread")]
-impl<'a> CoroutineStoreGuard<'a> {
+    /// Puts the state on the thread until the returned guard is dropped.
+    ///
     /// # Panics
-    /// Panics if the store is anywhere on the current thread's context stack
-    /// (active or suspended).
+    /// Panics if a store whose call the coroutine is suspended in is on the
+    /// thread's context stack: something on the thread is using it.
     ///
     /// # Safety
-    /// See [`crate::Store::coroutine_store_guard`].
-    pub(crate) unsafe fn new(store: &'a mut StoreInner) -> Self {
-        let store_id = store.objects.id();
-        assert!(
-            !StoreContext::is_active(store_id) && !StoreContext::is_suspended(store_id),
-            "store is already on the current thread's context stack (active or suspended)"
-        );
-        let SuspendedCothread {
-            entries,
-            mut activation,
-        } = SUSPENDED_COTHREADS
-            .with(|cell| cell.borrow_mut().remove(&store_id))
-            .unwrap_or_default();
+    /// Until the guard is dropped, the thread runs nothing but the
+    /// coroutine the state belongs to: the state holds pointers into its
+    /// stack, and borrows of the stores its frames hold.
+    unsafe fn install(&mut self) -> InstalledCothreadState<'_> {
         let base = STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
+            for entry in &self.entries {
+                assert!(
+                    !stack.iter().any(|ctx| ctx.id == entry.id),
+                    "a store the coroutine is suspended in is already on the current \
+                     thread's context stack"
+                );
+            }
             let base = stack.len();
-            stack.extend(entries);
+            stack.extend(self.entries.drain(..));
             base
         });
-        // Safety: the embedder is about to resume the coroutine that owns
-        // the state, on this thread; `Drop` swaps again as soon as the
-        // resume ends, however it ends.
-        unsafe { activation.swap() };
-        Self {
-            store_id,
-            base,
-            activation,
-            _store: std::marker::PhantomData,
+        // Safety: the first of a pair; the guard swaps again as soon as
+        // control is back from the coroutine, however it comes back.
+        unsafe { self.activation.swap() };
+        InstalledCothreadState { state: self, base }
+    }
+}
+
+/// Takes a [`CothreadState`] off the thread again when dropped.
+#[cfg(feature = "unsafe-cothread")]
+struct InstalledCothreadState<'a> {
+    /// Holds the thread's own activation state while the coroutine's is
+    /// installed.
+    state: &'a mut CothreadState,
+    /// Where the coroutine's entries start on the store context stack.
+    base: usize,
+}
+
+#[cfg(feature = "unsafe-cothread")]
+impl Drop for InstalledCothreadState<'_> {
+    fn drop(&mut self) {
+        // Safety: the second of the pair `install` started.
+        unsafe { self.state.activation.swap() };
+        // Whatever is left above `base` belongs to the calls the coroutine
+        // is suspended in. A coroutine that returned or unwound left nothing
+        // behind: each of its calls took its entry and its trap handler off
+        // on the way out.
+        let (base, entries) = (self.base, &mut self.state.entries);
+        let taken = STORE_CONTEXT_STACK.try_with(|cell| {
+            let mut stack = cell.try_borrow_mut().ok()?;
+            (base <= stack.len()).then(|| entries.extend(stack.drain(base..)))
+        });
+        match taken {
+            Ok(Some(())) => {}
+            _ if std::thread::panicking() => {}
+            _ => panic!(
+                "Cothread: the store context stack is shorter than when the coroutine \
+                 was resumed; the store context stack is corrupted"
+            ),
         }
     }
 }
 
 #[cfg(feature = "unsafe-cothread")]
-impl Drop for CoroutineStoreGuard<'_> {
-    fn drop(&mut self) {
-        // Safety: the second of the pair `new` started; control is back
-        // from the coroutine.
-        unsafe { self.activation.swap() };
-        let activation = std::mem::take(&mut self.activation);
-        // Whatever is left above `base` belongs to the calls the coroutine
-        // is suspended in. A coroutine that returned or unwound left nothing
-        // behind: each of its calls took its entry and trap handler off on
-        // the way out.
-        let entries = STORE_CONTEXT_STACK.try_with(|cell| {
-            let mut stack = cell.try_borrow_mut().ok()?;
-            (self.base <= stack.len()).then(|| stack.split_off(self.base))
-        });
-        let entries = match entries {
-            Ok(Some(entries)) => entries,
-            _ if std::thread::panicking() => return,
-            _ => panic!(
-                "CoroutineStoreGuard::drop: the store context stack is shorter than \
-                 when the coroutine was resumed; the store context stack is corrupted"
-            ),
-        };
-        if entries.is_empty() && activation.is_empty() {
-            return;
+impl<C> Cothread<C> {
+    /// Wraps a coroutine that has not run yet.
+    pub fn new(coroutine: C) -> Self {
+        Self {
+            coroutine: std::mem::ManuallyDrop::new(coroutine),
+            state: CothreadState::default(),
         }
-        let _ = SUSPENDED_COTHREADS.try_with(|cell| {
-            if let Ok(mut suspended) = cell.try_borrow_mut() {
-                suspended.insert(
-                    self.store_id,
-                    SuspendedCothread {
-                        entries,
-                        activation,
-                    },
-                );
-            }
-        });
+    }
+
+    /// The coroutine, to look at; it is resumed only by [`Self::resume`].
+    pub fn get(&self) -> &C {
+        &self.coroutine
+    }
+
+    /// Puts the coroutine's thread state on the thread, calls `resume`, and
+    /// takes the state off again once `resume` returns or unwinds.
+    ///
+    /// # Panics
+    /// Panics if a store whose call the coroutine is suspended in is on the
+    /// current thread's context stack, as it is while another call on that
+    /// store runs on the thread.
+    ///
+    /// # Safety
+    /// `resume` must resume the coroutine, on the thread that made the
+    /// `Cothread`, and do nothing else with the stores of the calls the
+    /// coroutine is suspended in: their entries are installed for the
+    /// coroutine, whose frames hold borrows of them.
+    pub unsafe fn resume<R>(&mut self, resume: impl FnOnce(&mut C) -> R) -> R {
+        let _installed = unsafe { self.state.install() };
+        resume(&mut self.coroutine)
+    }
+}
+
+#[cfg(feature = "unsafe-cothread")]
+impl<C> Drop for Cothread<C> {
+    fn drop(&mut self) {
+        // A coroutine suspended inside a call is unwound by dropping it,
+        // which runs the frames of the call: they need their own state.
+        // Safety: dropping the coroutine is what runs while the state is
+        // installed, and the coroutine is not used again.
+        let _installed = (!self.state.is_empty()).then(|| unsafe { self.state.install() });
+        unsafe { std::mem::ManuallyDrop::drop(&mut self.coroutine) };
     }
 }
 
@@ -1061,5 +1115,128 @@ mod unwinding {
         drop(wrapper);
         drop(install);
         assert!(store.into_store().is_ok());
+    }
+}
+
+/// What [`Cothread`] does with the store context entries of a coroutine,
+/// replayed without Wasm, so that Miri checks it: a "suspended call" is an
+/// install guard kept across the end of a resume, as the frames of a call
+/// are kept on the stack of a suspended coroutine.
+#[cfg(all(test, feature = "unsafe-cothread"))]
+mod cothread {
+    use std::{cell::RefCell, rc::Rc};
+
+    use super::*;
+    use crate::{AsStoreMut, Store};
+
+    type Call = Rc<RefCell<Option<(StoreInstallGuard, Option<StorePtrWrapper>)>>>;
+
+    /// The one pointer to the store that every borrow below derives from, as
+    /// the frames of a call derive theirs from the borrow the call was given.
+    /// The store must stay where it is while the pointer is used.
+    fn pointer(store: &mut Store) -> (StoreId, *mut StoreInner) {
+        (store.id(), store.as_store_mut().inner)
+    }
+
+    /// The coroutine enters the store, and its host function, holding a
+    /// borrow of the store, suspends it.
+    fn enter_and_suspend(ptr: *mut StoreInner, call: &Call) {
+        let id = unsafe { (*ptr).objects.id() };
+        let install = unsafe { StoreContext::install(ptr) };
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let _ = wrapper.as_mut().objects_mut().id();
+        *RefCell::borrow_mut(call) = Some((install, Some(wrapper)));
+    }
+
+    /// The host function is resumed, uses its borrow, and the call returns.
+    fn resume_and_return(id: StoreId, call: &Call) {
+        assert!(StoreContext::is_active(id), "the call finds its entry");
+        let (install, wrapper) = RefCell::borrow_mut(call).take().unwrap();
+        let mut wrapper = wrapper.unwrap();
+        let _ = wrapper.as_mut().objects_mut().id();
+        drop(wrapper);
+        drop(install);
+    }
+
+    #[test]
+    fn a_suspended_call_takes_its_entry_with_it() {
+        let mut store = Store::default();
+        let (id, ptr) = pointer(&mut store);
+        let call = Call::default();
+        let mut cothread = Cothread::new(());
+
+        unsafe { cothread.resume(|_| enter_and_suspend(ptr, &call)) };
+        assert!(StoreContext::is_empty(), "the entry is off the thread");
+        assert!(!cothread.state.is_empty());
+
+        unsafe { cothread.resume(|_| resume_and_return(id, &call)) };
+        assert!(StoreContext::is_empty());
+        assert!(
+            cothread.state.is_empty(),
+            "nothing is kept once the call returned"
+        );
+    }
+
+    #[test]
+    fn a_cothread_is_resumed_above_the_calls_of_the_thread() {
+        let (mut a, mut b) = (Store::default(), Store::default());
+        let ((a_id, a_ptr), (b_id, b_ptr)) = (pointer(&mut a), pointer(&mut b));
+        let call = Call::default();
+        let mut cothread = Cothread::new(());
+        unsafe { cothread.resume(|_| enter_and_suspend(a_ptr, &call)) };
+
+        // Resumed from a host function of a call on another store.
+        let outer = unsafe { StoreContext::install(b_ptr) };
+        unsafe { cothread.resume(|_| resume_and_return(a_id, &call)) };
+        assert!(
+            StoreContext::is_active(b_id),
+            "the outer call's entry is untouched"
+        );
+        drop(outer);
+        assert!(StoreContext::is_empty());
+    }
+
+    /// Unwinds the call when dropped, as dropping a suspended coroutine
+    /// unwinds the frames on its stack.
+    struct Unwinds(StoreId, Call);
+    impl Drop for Unwinds {
+        fn drop(&mut self) {
+            resume_and_return(self.0, &self.1);
+        }
+    }
+
+    #[test]
+    fn dropping_a_cothread_unwinds_it_with_its_entries() {
+        let mut store = Store::default();
+        let (id, ptr) = pointer(&mut store);
+        let call = Call::default();
+        let mut cothread = Cothread::new(Unwinds(id, call.clone()));
+        unsafe { cothread.resume(|_| enter_and_suspend(ptr, &call)) };
+        assert!(StoreContext::is_empty());
+        drop(cothread);
+        assert!(call.borrow().is_none(), "the call was unwound");
+        assert!(StoreContext::is_empty());
+    }
+
+    #[test]
+    fn a_cothread_is_not_resumed_while_its_store_is_used_on_the_thread() {
+        let mut store = Store::default();
+        let (id, ptr) = pointer(&mut store);
+        let call = Call::default();
+        let mut cothread = Cothread::new(());
+        unsafe { cothread.resume(|_| enter_and_suspend(ptr, &call)) };
+
+        // Another call on the store, made on the thread meanwhile.
+        let other_call = unsafe { StoreContext::install(ptr) };
+        let refused = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+            cothread.resume(|_| ());
+        }));
+        assert!(refused.is_err(), "the store is already on the thread");
+        drop(other_call);
+        assert!(StoreContext::is_empty());
+
+        // The suspended call is untouched, and can be resumed now.
+        unsafe { cothread.resume(|_| resume_and_return(id, &call)) };
+        assert!(cothread.state.is_empty());
     }
 }

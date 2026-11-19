@@ -6,8 +6,8 @@
     not(target_arch = "wasm32")
 ))]
 //! Coroutines that an embedder switches itself (`unsafe-cothread`), each
-//! running a call on a store of its own, suspended inside a host function and
-//! resumed under the store's `CoroutineStoreGuard`, in any order.
+//! running a call that suspends inside a host function, resumed through
+//! `Cothread` in any order, dropped or forgotten while suspended.
 //!
 //! What the runtime keeps per thread for a running call (the store context
 //! entries and the trap handler the signal handler consults) has to follow
@@ -16,6 +16,7 @@
 //! binary, re-executed) and are reported as failed tests.
 
 use std::{
+    cell::RefCell,
     io::Read,
     process::{Command, Stdio},
     ptr,
@@ -24,8 +25,8 @@ use std::{
 
 use corosensei::{Coroutine, CoroutineResult, Yielder};
 use wasmer::{
-    Function, FunctionEnv, FunctionEnvMut, Instance, Module, RuntimeError, Store, TypedFunction,
-    imports,
+    Cothread, Function, FunctionEnv, FunctionEnvMut, Instance, Module, RuntimeError, Store,
+    TypedFunction, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -61,67 +62,80 @@ const ENDINGS: [(&str, i32, Option<TrapCode>); 5] = [
 ];
 
 type Suspend = Yielder<(), ()>;
+type Call = Coroutine<(), (), Result<i32, RuntimeError>>;
 
 /// The yielder of the coroutine the store's call runs on.
 struct Suspender(*const Suspend);
 // Safety: only used on the thread that runs the coroutine.
 unsafe impl Send for Suspender {}
 
-/// A call to `run` on a store of its own, on a coroutine the test switches.
-struct Cothread {
-    // Dropped after the coroutine, whose frames point into it.
-    coroutine: Option<Coroutine<(), (), Result<i32, RuntimeError>>>,
+thread_local! {
+    /// What the next `suspend` import runs before it suspends its coroutine.
+    static BEFORE_SUSPEND: RefCell<Option<Box<dyn FnOnce()>>> = RefCell::new(None);
+}
+
+/// A store with the guest instantiated, and a call to `run` on it, on a
+/// coroutine the test switches.
+struct Guest {
+    // Dropped before the store, which the coroutine's frames point into.
+    cothread: Option<Cothread<Call>>,
+    run: TypedFunction<i32, i32>,
+    env: FunctionEnv<Suspender>,
     store: Box<Store>,
 }
 
-impl Cothread {
+impl Guest {
     fn new(how: i32) -> Self {
         let mut store = Box::new(Store::default());
         let module = Module::new(&*store, WAT).unwrap();
         let env = FunctionEnv::new(&mut *store, Suspender(ptr::null()));
         let suspend =
             Function::new_typed_with_env(&mut *store, &env, |env: FunctionEnvMut<Suspender>| {
+                if let Some(before) = BEFORE_SUSPEND.with(|cell| cell.borrow_mut().take()) {
+                    before();
+                }
                 // Safety: set by the coroutine before it calls in.
                 unsafe { &*env.data().0 }.suspend(());
             });
         let imports = imports! { "h" => { "suspend" => suspend } };
         let instance = Instance::new(&mut *store, &module, &imports).unwrap();
-        let run: TypedFunction<i32, i32> =
-            instance.exports.get_typed_function(&*store, "run").unwrap();
-        let store_ptr: *mut Store = &mut *store;
-        let coroutine = Coroutine::new(move |suspend: &Suspend, ()| {
-            // Safety: the store is boxed and outlives the coroutine. While
-            // the coroutine runs, the test touches it only to resume it.
-            let store = unsafe { &mut *store_ptr };
-            env.as_mut(store).0 = suspend;
-            run.call(store, how)
-        });
-        Self {
-            coroutine: Some(coroutine),
+        let run = instance.exports.get_typed_function(&*store, "run").unwrap();
+        let mut guest = Self {
+            cothread: None,
+            run,
+            env,
             store,
-        }
+        };
+        guest.start(how);
+        guest
     }
 
-    /// Resumes the coroutine under its store's guard: `None` if it
-    /// suspended again, or what the call returned.
+    /// Starts a call to `run` on a new coroutine, dropping the previous one.
+    fn start(&mut self, how: i32) {
+        self.cothread = None;
+        let store_ptr: *mut Store = &mut *self.store;
+        let (env, run) = (self.env.clone(), self.run.clone());
+        self.cothread = Some(Cothread::new(Coroutine::new(
+            move |suspend: &Suspend, ()| {
+                // Safety: the store is boxed and outlives the coroutine.
+                // While the coroutine is suspended, the test uses the store
+                // only to start a call in place of a forgotten one.
+                let store = unsafe { &mut *store_ptr };
+                env.as_mut(store).0 = suspend;
+                run.call(store, how)
+            },
+        )));
+    }
+
+    /// Resumes the coroutine: `None` if it suspended again, or what the call
+    /// returned.
     fn resume(&mut self) -> Option<Result<i32, RuntimeError>> {
-        let store: *mut Store = &mut *self.store;
-        // Safety: held for exactly the duration of the resume, on the thread
-        // the coroutine runs on.
-        let _guard = unsafe { (*store).coroutine_store_guard() };
-        match self.coroutine.as_mut().unwrap().resume(()) {
+        let cothread = self.cothread.as_mut().expect("a call was started");
+        // Safety: resumes the coroutine, on the thread that made it.
+        match unsafe { cothread.resume(|coroutine| coroutine.resume(())) } {
             CoroutineResult::Yield(()) => None,
             CoroutineResult::Return(result) => Some(result),
         }
-    }
-
-    /// Drops the suspended coroutine, which resumes it to unwind it, under
-    /// its store's guard.
-    fn drop_suspended(&mut self) {
-        let store: *mut Store = &mut *self.store;
-        // Safety: as for `resume`.
-        let _guard = unsafe { (*store).coroutine_store_guard() };
-        drop(self.coroutine.take());
     }
 }
 
@@ -130,14 +144,12 @@ fn ending(name: &str) -> (i32, Option<TrapCode>) {
     (how, trap)
 }
 
-fn expect_suspended(what: &str, cothread: &mut Cothread) {
-    assert!(cothread.resume().is_none(), "{what} should suspend");
+fn expect_suspended(what: &str, guest: &mut Guest) {
+    assert!(guest.resume().is_none(), "{what} should suspend");
 }
 
-fn expect_ending(what: &str, cothread: &mut Cothread, trap: Option<TrapCode>) {
-    let result = cothread
-        .resume()
-        .unwrap_or_else(|| panic!("{what} suspended"));
+fn expect_ending(what: &str, guest: &mut Guest, trap: Option<TrapCode>) {
+    let result = guest.resume().unwrap_or_else(|| panic!("{what} suspended"));
     match (result, trap) {
         (Ok(value), None) => assert_eq!(value, 42, "{what}"),
         (Err(e), Some(code)) => assert_eq!(e.clone().to_trap(), Some(code), "{what}: {e}"),
@@ -150,11 +162,11 @@ fn no_store_context_left() -> bool {
     Store::with_current(|_| ()).is_none()
 }
 
-/// One coroutine, suspended in a host function and resumed: the guard of
-/// each resume finds the store off the thread.
+/// One coroutine, suspended in a host function and resumed: its store is
+/// off the thread in between.
 fn suspend_and_resume(ending_name: &str) {
     let (how, trap) = ending(ending_name);
-    let mut a = Cothread::new(how);
+    let mut a = Guest::new(how);
     expect_suspended("a", &mut a);
     assert!(
         no_store_context_left(),
@@ -169,8 +181,8 @@ fn suspend_and_resume(ending_name: &str) {
 /// entered Wasm.
 fn interleaved(ending_name: &str) {
     let (how, trap) = ending(ending_name);
-    let mut a = Cothread::new(how);
-    let mut b = Cothread::new(how);
+    let mut a = Guest::new(how);
+    let mut b = Guest::new(how);
     expect_suspended("a", &mut a);
     expect_suspended("b", &mut b);
     expect_ending("a", &mut a, trap);
@@ -181,11 +193,48 @@ fn interleaved(ending_name: &str) {
 /// A and B both suspend; A is dropped, which unwinds it, and B goes on.
 fn dropped_while_another_is_suspended(ending_name: &str) {
     let (how, trap) = ending(ending_name);
-    let mut a = Cothread::new(how);
-    let mut b = Cothread::new(how);
+    let mut a = Guest::new(how);
+    let mut b = Guest::new(how);
     expect_suspended("a", &mut a);
     expect_suspended("b", &mut b);
-    a.drop_suspended();
+    drop(a);
+    assert!(no_store_context_left());
+    expect_ending("b", &mut b, trap);
+    assert!(no_store_context_left());
+}
+
+/// A suspends and is forgotten; a new call on A's store, on a new coroutine,
+/// runs with nothing of the forgotten one's state.
+fn forgotten_then_a_new_call_on_its_store(ending_name: &str) {
+    let (how, trap) = ending(ending_name);
+    let mut a = Guest::new(how);
+    expect_suspended("a", &mut a);
+    std::mem::forget(a.cothread.take());
+    a.start(how);
+    expect_suspended("a's new call", &mut a);
+    expect_ending("a's new call", &mut a, trap);
+    assert!(no_store_context_left());
+}
+
+/// A suspends; B's host function drops it, or resumes it to its end, before
+/// B suspends in turn. The thread switches from B's call to A's and back
+/// while B is inside a host function.
+fn from_inside_another_host_function(what: &'static str, ending_name: &str) {
+    let (how, trap) = ending(ending_name);
+    let mut a = Guest::new(how);
+    let mut b = Guest::new(how);
+    expect_suspended("a", &mut a);
+    let before: Box<dyn FnOnce()> = match what {
+        "drop" => Box::new(move || drop(a)),
+        "resume" => Box::new(move || {
+            let mut a = a;
+            expect_ending("a", &mut a, trap);
+        }),
+        other => panic!("unknown action {other}"),
+    };
+    BEFORE_SUSPEND.with(|cell| *cell.borrow_mut() = Some(before));
+    expect_suspended("b", &mut b);
+    assert!(BEFORE_SUSPEND.with(|cell| cell.borrow().is_none()));
     assert!(no_store_context_left());
     expect_ending("b", &mut b, trap);
     assert!(no_store_context_left());
@@ -206,6 +255,9 @@ fn child_scenario() {
         "resume" => suspend_and_resume(ending),
         "interleaved" => interleaved(ending),
         "dropped" => dropped_while_another_is_suspended(ending),
+        "forgotten" => forgotten_then_a_new_call_on_its_store(ending),
+        "drop_inside" => from_inside_another_host_function("drop", ending),
+        "resume_inside" => from_inside_another_host_function("resume", ending),
         other => panic!("unknown scenario {other}"),
     }
     println!("{SCENARIO_COMPLETED} {scenario}");
@@ -280,7 +332,7 @@ fn run_children(kind: &str) {
 }
 
 #[test]
-fn a_coroutine_resumed_under_its_guard_finds_its_store() {
+fn a_resumed_coroutine_finds_its_store() {
     run_children("resume");
 }
 
@@ -292,4 +344,19 @@ fn guest_traps_are_caught_whatever_the_resumption_order() {
 #[test]
 fn a_suspended_coroutine_can_be_dropped_while_another_is_suspended() {
     run_children("dropped");
+}
+
+#[test]
+fn a_forgotten_coroutine_leaves_nothing_for_the_next_call_on_its_store() {
+    run_children("forgotten");
+}
+
+#[test]
+fn a_coroutine_can_be_dropped_from_another_ones_host_function() {
+    run_children("drop_inside");
+}
+
+#[test]
+fn a_coroutine_can_be_resumed_from_another_ones_host_function() {
+    run_children("resume_inside");
 }
