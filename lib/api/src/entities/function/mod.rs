@@ -303,6 +303,12 @@ impl Function {
     /// 2. If the function is defined in the host (in a native way), it will
     ///    call the trampoline.
     ///
+    /// On the JavaScript backend, a guest's function can be called with any
+    /// store, but the host functions it calls run only with their own: one of
+    /// another store fails the call without running. Calls nested in host
+    /// functions on one thread fail with a stack overflow once they are 100
+    /// deep, before the engine runs out of stack.
+    ///
     /// # Examples
     ///
     /// ```

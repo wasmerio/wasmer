@@ -120,6 +120,7 @@ use crate::{
     entities::function::call_wrapper::call_wrapped,
     js::{
         error::trap_value,
+        lent,
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
     },
@@ -382,14 +383,17 @@ impl Function {
         let mut store = store.as_store_mut();
         let function_type = ty.into();
         let func_ty = function_type.clone();
-        let raw_store = store.as_raw() as *mut u8;
+        // The host function runs with its store as the call it runs in lends
+        // it, which it finds by the store's id (see `lent`).
+        let store_id = store.as_store_ref().objects().id().as_raw().get();
         let raw_env = env.clone();
         if numeric::is_numeric(&function_type) {
             // Nothing but numbers: the guest calls the closure itself, with
             // no array of arguments in between.
             let arity = function_type.params().len();
             let function = numeric::closure(arity, move |numbers| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let store = lent::store(store_id).map_err(trap_value)?;
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let arguments = numeric::values(function_type.params(), numbers);
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
@@ -405,7 +409,8 @@ impl Function {
         }
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let store = lent::store(store_id).map_err(trap_value)?;
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let wasm_arguments = function_type
                     .params()
@@ -422,7 +427,8 @@ impl Function {
                 as Box<dyn Fn(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let store = lent::store(store_id).map_err(trap_value)?;
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let wasm_arguments = function_type
                     .params()
@@ -439,7 +445,8 @@ impl Function {
                 as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
+                let store = lent::store(store_id).map_err(trap_value)?;
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let wasm_arguments = function_type
                     .params()
@@ -482,7 +489,9 @@ impl Function {
 
         let ty = function.ty();
         let id = store.as_store_ref().objects().id();
-        let store = JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64);
+        // The store's id, by which the host function finds the store the
+        // call it runs in lends it (see `lent`).
+        let store = JsValue::from_f64(id.as_raw().get() as f64);
         let binded_func = with_leading_arguments(func.unchecked_ref(), &[store], ty.params().len());
         let vm_function = VMFunction::new(owned(binded_func, id), ty);
         Self {
@@ -512,12 +521,13 @@ impl Function {
         let func = as_table.get(address).unwrap();
 
         let ty = function.ty();
+        let id = store.as_store_ref().objects().id();
+        // As for `new_typed`, with the index of the environment.
         let leading = [
-            JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
+            JsValue::from_f64(id.as_raw().get() as f64),
             JsValue::from_f64(env.as_js().handle.internal_handle().index() as f64),
         ];
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
-        let id = store.as_store_ref().objects().id();
         let vm_function = VMFunction::new(owned(binded_func, id), ty);
         Self {
             handle: vm_function,
@@ -561,7 +571,8 @@ impl Function {
             // is called as `Reflect::apply` calls it below.
             let mut result = 0.0;
             let returns = !ty.results().is_empty();
-            call_wrapped(store, wrapper, |_| {
+            call_wrapped(store, wrapper, |store| {
+                let _lent = lent::lend(&mut store.as_store_mut())?;
                 let _entered = enter_sync();
                 let function = &self.handle.function;
                 result = numeric::call(function, &JsValue::NULL, &numbers, returns)?;
@@ -583,7 +594,8 @@ impl Function {
         }
 
         let mut result = JsValue::UNDEFINED;
-        call_wrapped(store, wrapper, |_| {
+        call_wrapped(store, wrapper, |store| {
+            let _lent = lent::lend(&mut store.as_store_mut())?;
             let _entered = enter_sync();
             result = js_sys::Reflect::apply(&self.handle.function, &JsValue::NULL, &arr)?;
             Ok(())
@@ -1155,7 +1167,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_id: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -1164,7 +1176,11 @@ macro_rules! impl_host_function {
             {
                 // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                 let func: &Func = unsafe { &*(&() as *const () as *const Func) };
-                let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
+                let store = match crate::backend::js::lent::store(store_id) {
+                    Ok(store) => store,
+                    Err(error) => crate::backend::js::error::raise(Box::new(error)),
+                };
+                let mut store = unsafe { StoreMut::from_raw(store) };
                 let entered = enter_sync();
 
                 let result = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -1201,7 +1217,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_id: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -1209,8 +1225,12 @@ macro_rules! impl_host_function {
                 T: Send + 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
-                let mut store2 = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
+                let store_ptr = match crate::backend::js::lent::store(store_id) {
+                    Ok(store) => store,
+                    Err(error) => crate::backend::js::error::raise(Box::new(error)),
+                };
+                let mut store = unsafe { StoreMut::from_raw(store_ptr) };
+                let mut store2 = unsafe { StoreMut::from_raw(store_ptr) };
                 let entered = enter_sync();
 
                 let result = {

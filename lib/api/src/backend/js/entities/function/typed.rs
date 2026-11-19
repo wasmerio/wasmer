@@ -13,6 +13,7 @@ use crate::{
     entities::function::call_wrapper::call_wrapped,
     js::{
         function::numeric,
+        lent,
         utils::convert::{AsJs, js_value_to_wasmer},
     },
 };
@@ -126,7 +127,8 @@ macro_rules! impl_native_traits {
                     // result read the same way.
                     let function = &self.func.as_js().handle.function;
                     let mut result = 0.0;
-                    call_wrapped(store, wrapper, |_| {
+                    call_wrapped(store, wrapper, |store| {
+                        let _lent = lent::lend(&mut store.as_store_mut())?;
                         let _entered = super::enter_sync();
                         let receiver = &JsValue::UNDEFINED;
                         result = numeric::call(function, receiver, &numbers, result_ty.is_some())?;
@@ -147,6 +149,7 @@ macro_rules! impl_native_traits {
                                 .map(|&(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
                         )
                     };
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
                     let _entered = super::enter_sync();
                     results = self
                         .func
