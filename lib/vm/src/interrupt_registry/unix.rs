@@ -162,6 +162,12 @@ impl ThreadInterruptState {
     }
 }
 
+/// Whether the thread's interrupt state is still there: it is not once the
+/// thread's locals are being destroyed.
+pub(crate) fn thread_is_usable() -> bool {
+    THREAD_INTERRUPT_STATE.try_with(|_| ()).is_ok()
+}
+
 /// The stores one activation has entered, innermost last. See
 /// [`crate::ActivationState`], which swaps it with the thread's at every
 /// switch so that the signal handler compares an interrupt's target against
@@ -184,6 +190,21 @@ impl ActiveStores {
             .rev()
             .find(|(id, _)| *id == store_id)
             .is_some_and(|(_, interrupted)| interrupted.load(Ordering::Acquire))
+    }
+
+    /// The activation's calls are gone without returning: each gives up the
+    /// installation it holds, as `uninstall` does for a call that returns,
+    /// without the thread they ran on. A store none holds any more is
+    /// removed, with its `interrupted` flag and the thread it was aimed at.
+    pub(crate) fn abandon(&mut self) {
+        for (store_id, _) in self.0.drain(..) {
+            if let Entry::Occupied(mut state) = STORE_INTERRUPT_STATE.entry(store_id) {
+                state.get_mut().installations -= 1;
+                if state.get().installations == 0 {
+                    state.remove();
+                }
+            }
+        }
     }
 
     pub(crate) fn swap(&mut self) {

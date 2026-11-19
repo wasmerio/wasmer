@@ -34,12 +34,9 @@ impl Instance {
         let externs = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
-        let mut handle = module.as_sys().instantiate(store, &externs)?;
-        let exports = Self::get_exports(store, module, handle.unwrap_sys_mut());
-
-        let instance = Self {
-            _handle: StoreHandle::new(store.objects_mut().as_sys_mut(), handle.unwrap_sys()),
-        };
+        let handle = module.as_sys().instantiate(store, &externs)?;
+        let exports = Self::get_exports(store, module, &handle);
+        let instance = Self { _handle: handle };
 
         Ok((instance, exports))
     }
@@ -51,14 +48,9 @@ impl Instance {
         externs: &[Extern],
     ) -> Result<(Self, Exports), InstantiationError> {
         let externs = externs.to_vec();
-        let mut handle = module.as_sys().instantiate(store, &externs)?;
-        let exports = Self::get_exports(store, module, handle.unwrap_sys_mut());
-        let instance = Self {
-            _handle: StoreHandle::new(
-                store.as_store_mut().objects_mut().as_sys_mut(),
-                handle.unwrap_sys(),
-            ),
-        };
+        let handle = module.as_sys().instantiate(store, &externs)?;
+        let exports = Self::get_exports(store, module, &handle);
+        let instance = Self { _handle: handle };
 
         Ok((instance, exports))
     }
@@ -66,13 +58,15 @@ impl Instance {
     fn get_exports(
         store: &mut impl AsStoreMut,
         module: &Module,
-        handle: &mut VMInstance,
+        handle: &StoreHandle<VMInstance>,
     ) -> Exports {
         module
             .exports()
             .map(|export| {
                 let name = export.name().to_string();
-                let export = handle.lookup(&name).expect("export");
+                let mut store_mut = store.as_store_mut();
+                let objects = store_mut.objects_mut().as_sys_mut();
+                let export = handle.get_mut(objects).lookup(&name).expect("export");
                 let extern_ = Extern::from_vm_extern(store, crate::vm::VMExtern::Sys(export));
                 (name, extern_)
             })

@@ -1,7 +1,9 @@
 use js_sys::WebAssembly;
 
+use wasmer_types::ExternType;
+
 use crate::{
-    AsStoreMut, BackendInstance, Exports, Extern, Imports, InstantiationError, Module,
+    AsStoreMut, BackendInstance, Exports, Extern, Function, Imports, InstantiationError, Module,
     js::{
         utils::{convert::AsJs, js_handle::JsHandle},
         vm::VMInstance,
@@ -61,9 +63,15 @@ impl Instance {
                 #[allow(unused_unsafe)]
                 let js_export =
                     unsafe { js_sys::Reflect::get(&instance_exports, &name.into()).unwrap() };
-                let extern_ = Extern::from_jsvalue(&mut store, extern_type, &js_export)
-                    .map_err(wasm_bindgen::JsValue::from)
-                    .unwrap();
+                let extern_ = match extern_type {
+                    ExternType::Function(function_type) => {
+                        Function::from_export_jsvalue(&mut *store, function_type, &js_export)
+                            .map(Extern::Function)
+                    }
+                    _ => Extern::from_jsvalue(&mut *store, extern_type, &js_export),
+                }
+                .map_err(wasm_bindgen::JsValue::from)
+                .unwrap();
                 Ok((name.to_string(), extern_))
             })
             .collect::<Result<Exports, InstantiationError>>()?;

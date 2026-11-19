@@ -41,16 +41,6 @@ fn host_functions(store: &mut Store, ty: Type) -> Vec<(&'static str, Function)> 
             }),
         ),
     ];
-    // Polled inside the import when a synchronous call reaches it.
-    #[cfg(feature = "experimental-async")]
-    functions.push((
-        "eager async",
-        Function::new_async(store, signature.clone(), |values| {
-            let values = values.to_vec();
-            async move { Ok(values) }
-        })
-        .eager(),
-    ));
     if ty == Type::I32 {
         functions.push(("typed", Function::new_typed(store, |value: i32| value)));
         functions.push((

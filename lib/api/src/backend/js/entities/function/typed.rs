@@ -110,20 +110,24 @@ macro_rules! numeric_lane {
     ($self:ident, $store:ident, $wrapper:ident, $params:ident; $( $x:ident ),*) => {
         if let Some(result_ty) = numeric_result(Rets::wasm_types()) {
             let function = &$self.func.as_js().handle.function;
-            let has_result = result_ty.is_some();
+            let returns = result_ty.is_some();
             let mut result = 0.0;
-            // i32s pass as i32s (see `numeric::Arguments`), other numbers as
-            // f64s.
+            // Called with the receiver of the general path below, and its
+            // result read the same way. i32s pass as i32s (see
+            // `numeric::Arguments`), other numbers as f64s.
+            let receiver = &JsValue::UNDEFINED;
             if let Some(integers) = raw_integers(&$params) {
                 call_wrapped($store, $wrapper, |_| {
-                    result = numeric::Arguments::call(integers, function, has_result)?;
+                    let _entered = super::enter_sync();
+                    result = numeric::Arguments::call(integers, function, receiver, returns)?;
                     Ok(())
                 })?;
                 return Ok(unsafe { numeric_rets::<Rets>($store, result_ty, result) });
             }
             if let Some(numbers) = raw_numbers(&$params) {
                 call_wrapped($store, $wrapper, |_| {
-                    result = numeric::Arguments::call(numbers, function, has_result)?;
+                    let _entered = super::enter_sync();
+                    result = numeric::Arguments::call(numbers, function, receiver, returns)?;
                     Ok(())
                 })?;
                 return Ok(unsafe { numeric_rets::<Rets>($store, result_ty, result) });
@@ -200,6 +204,7 @@ macro_rules! impl_native_traits {
                                 .map(|&(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
                         )
                     };
+                    let _entered = super::enter_sync();
                     results = self
                         .func
                         .as_js()
@@ -294,9 +299,35 @@ fn convert_results<Rets: WasmTypeList>(
         .zip(func_ty.results())
         .zip(results)
     {
-        debug_assert_eq!(value.ty(), *ty);
+        // `Rets::from_array` reads each raw value as the field of its type.
+        if value.ty() != *ty {
+            return Err(RuntimeError::new(format!(
+                "a result of type {} where the signature has {ty}",
+                value.ty()
+            )));
+        }
         *slot = value.as_raw(store);
     }
 
     Ok(unsafe { Rets::from_array(store, rets_list_array) })
+}
+
+
+/// The results of a typed call are read as the raw values of their types:
+/// values of another type are refused, not read as such.
+#[cfg(all(test, feature = "experimental-async"))]
+mod tests {
+    use super::*;
+    use crate::{Store, Value};
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn results_of_another_type_are_refused() {
+        let mut store = Store::default();
+        let ty = wasmer_types::FunctionType::new([], [Type::I64]);
+        let error = convert_results::<i64>(&mut store, ty.clone(), &[Value::I32(7)]).unwrap_err();
+        assert!(error.message().contains("I64"), "{error}");
+        let result = convert_results::<i64>(&mut store, ty, &[Value::I64(7)]).unwrap();
+        assert_eq!(result, 7);
+    }
 }

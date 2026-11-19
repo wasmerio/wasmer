@@ -99,6 +99,23 @@ impl ActivationState {
         }
         true
     }
+
+    /// Whether the calling thread still has what swapping a state in needs
+    /// of it; see the signal-based backend. Only the interrupt registry keeps
+    /// thread locals here.
+    pub fn thread_is_usable() -> bool {
+        #[cfg(feature = "experimental-host-interrupt")]
+        return crate::interrupt_registry::thread_is_usable();
+        #[cfg(not(feature = "experimental-host-interrupt"))]
+        true
+    }
+
+    /// Forgets the state of an activation whose stack is forgotten rather
+    /// than unwound; see the signal-based backend.
+    pub fn abandon(&mut self) {
+        #[cfg(feature = "experimental-host-interrupt")]
+        self.active_stores.abandon();
+    }
 }
 
 /// Runs `f` in-place (there is only one stack).
@@ -183,22 +200,33 @@ where
     unsafe { catch_traps(trap_handler, config, closure) }
 }
 
+/// The flags of [`CurrentThread`].
+struct ThreadFlags {
+    slot_call: Cell<bool>,
+    cothread: Cell<bool>,
+}
+
 thread_local! {
-    static SLOT_CALL: Cell<bool> = const { Cell::new(false) };
+    static THREAD_FLAGS: ThreadFlags = const {
+        ThreadFlags {
+            slot_call: Cell::new(false),
+            cothread: Cell::new(false),
+        }
+    };
 }
 
 /// The calling thread's state for entering Wasm; see the signal-based
-/// backend. Here it only holds [`Self::slot_call`].
+/// backend. Here it only holds [`Self::slot_call`] and [`Self::cothread`].
 #[derive(Clone, Copy)]
 pub struct CurrentThread {
-    slot_call: std::ptr::NonNull<Cell<bool>>,
+    flags: std::ptr::NonNull<ThreadFlags>,
 }
 
 impl CurrentThread {
     /// The calling thread's.
     pub fn get() -> Self {
         Self {
-            slot_call: SLOT_CALL.with(|slot_call| std::ptr::NonNull::from(slot_call)),
+            flags: THREAD_FLAGS.with(|flags| std::ptr::NonNull::from(flags)),
         }
     }
 
@@ -211,19 +239,29 @@ impl CurrentThread {
 
     /// The calling thread's, or `None` once its thread-locals were freed.
     pub fn try_get() -> Option<Self> {
-        SLOT_CALL
-            .try_with(|slot_call| Self {
-                slot_call: std::ptr::NonNull::from(slot_call),
+        THREAD_FLAGS
+            .try_with(|flags| Self {
+                flags: std::ptr::NonNull::from(flags),
             })
             .ok()
+    }
+
+    fn flags(&self) -> &ThreadFlags {
+        // SAFETY: a thread-local of this thread without a destructor, and a
+        // `CurrentThread` stays on its thread.
+        unsafe { self.flags.as_ref() }
     }
 
     /// Whether the innermost call into a store running on this thread went
     /// through the store's slot; see the signal-based backend.
     pub fn slot_call(&self) -> &Cell<bool> {
-        // SAFETY: a thread-local of this thread without a destructor, and a
-        // `CurrentThread` stays on its thread.
-        unsafe { self.slot_call.as_ref() }
+        &self.flags().slot_call
+    }
+
+    /// Whether the thread runs a coroutine that the embedder switches
+    /// itself; see the signal-based backend.
+    pub fn cothread(&self) -> &Cell<bool> {
+        &self.flags().cothread
     }
 }
 

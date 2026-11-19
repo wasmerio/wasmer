@@ -25,6 +25,12 @@ fn bits(value: &Value) -> (Type, u64) {
     }
 }
 
+/// The module of a text fixture, parsed here so that the tests do not need the
+/// library's `wat` feature.
+fn module(store: &impl AsEngineRef, text: &str) -> Module {
+    Module::new(store, wat::parse_str(text).unwrap()).unwrap()
+}
+
 fn all_bits(values: &[Value]) -> Vec<(Type, u64)> {
     values.iter().map(bits).collect()
 }
@@ -54,7 +60,7 @@ fn guest(
           (import "host" "host" (func $host (param {params}) (result {result})))
           (func (export "call") (param {params}) (result {result}) (call $host {arguments})))"#
     );
-    let module = Module::new(&store, wat).unwrap();
+    let module = module(&store, &wat);
     let calls = Calls::default();
     let host = Function::new(store, ty.clone(), {
         let calls = calls.clone();
@@ -180,7 +186,7 @@ fn numbers_arrive_as_they_were_sent_by_a_typed_call() -> Result<(), String> {
 #[engine_test]
 fn an_i32_keeps_its_bits() -> Result<(), String> {
     let mut store = Store::default();
-    let module = Module::new(
+    let module = module(
         &store,
         r#"(module
           (import "host" "host" (func $host (param i32) (result i32)))
@@ -188,8 +194,7 @@ fn an_i32_keeps_its_bits() -> Result<(), String> {
           (func (export "ones") (result i32) (call $host (i32.const 0xffffffff)))
           (func (export "shifted") (param i32) (result i32)
             (i32.shr_u (call $host (i32.shl (local.get 0) (i32.const 31))) (i32.const 31))))"#,
-    )
-    .unwrap();
+    );
     let seen = Arc::new(Mutex::new(Vec::new()));
     let host = Function::new(&mut store, FunctionType::new([Type::I32], [Type::I32]), {
         let seen = seen.clone();
@@ -379,13 +384,30 @@ fn other_types_are_not_affected() -> Result<(), String> {
     assert_eq!(bits(&returned[0]), bits(&arguments[2]));
     assert_eq!(*calls.lock().unwrap(), [all_bits(&arguments)]);
 
-    let module = Module::new(
+    // An `i64` that a dynamic host function returns reaches its guest, alone
+    // and next to another result. JavaScript has it as a BigInt.
+    for signature in [
+        FunctionType::new([Type::I64], [Type::I64]),
+        FunctionType::new([Type::I64, Type::F64], [Type::F64, Type::I64]),
+    ] {
+        let (call, _) = guest(&mut store, &signature, |arguments| {
+            arguments.iter().rev().cloned().collect()
+        });
+        for value in [i64::MIN + 1, (1 << 53) + 1, -7] {
+            let arguments = [Value::I64(value), Value::F64(0.5)];
+            let arguments = &arguments[..signature.params().len()];
+            let returned = call.call(&mut store, arguments).unwrap();
+            let expected: Vec<Value> = arguments.iter().rev().cloned().collect();
+            assert_eq!(all_bits(&returned), all_bits(&expected), "{signature}");
+        }
+    }
+
+    let module = module(
         &store,
         r#"(module
           (func (export "i64") (param i64) (result i64) (local.get 0))
           (func (export "both") (param i32 f64) (result f64 i32) (local.get 1) (local.get 0)))"#,
-    )
-    .unwrap();
+    );
     let exports = Instance::new(&mut store, &module, &imports! {})
         .unwrap()
         .exports;
@@ -414,12 +436,11 @@ fn other_types_are_not_affected() -> Result<(), String> {
 )]
 fn references_are_not_affected() -> Result<(), String> {
     let mut store = Store::default();
-    let module = Module::new(
+    let module = module(
         &store,
         r#"(module
           (func (export "reference") (param externref) (result externref) (local.get 0)))"#,
-    )
-    .unwrap();
+    );
     let exports = Instance::new(&mut store, &module, &imports! {})
         .unwrap()
         .exports;
@@ -482,7 +503,7 @@ fn a_dynamic_host_function_can_reenter_its_guest() -> Result<(), String> {
               (func (export "down") (param i32) (result i32)
                 (call $down (local.get 0) {extra_argument})))"#
         );
-        let module = Module::new(&store, wat).unwrap();
+        let module = module(&store, &wat);
         let env = FunctionEnv::new(&mut store, Env(None));
         let mut params = vec![Type::I32];
         params.extend((!extra_type.is_empty()).then_some(Type::I64));
@@ -644,6 +665,104 @@ mod arguments_of_another_type {
                     "{signature} {arguments:?}"
                 );
             }
+        }
+    }
+}
+
+/// JavaScript functions given to `wasmer` as they are, through `AsJs`, take
+/// the same lane when their signature has only numbers, and are called as the
+/// other lane calls them: without looking anything up on them, with the
+/// receiver of that lane (`null` for `Function::call`, `undefined` for a
+/// typed call), and without looking at what they return when the signature
+/// has no result.
+#[cfg(feature = "js")]
+mod javascript_functions {
+    use wasm_bindgen::{JsValue, prelude::wasm_bindgen};
+    use wasm_bindgen_test::wasm_bindgen_test;
+    use wasmer::{js::AsJs, *};
+
+    #[wasm_bindgen(inline_js = r#"
+    export function receiverOf() {
+      return function () { return this === null ? 1 : this === undefined ? 2 : 3; };
+    }
+    export function returningASymbol() {
+      return function () { return Symbol(); };
+    }
+    export function returningABigInt() {
+      return function () { return 1n; };
+    }
+    export function returningAnObjectThatThrows() {
+      return function () { return { valueOf() { throw new Error("valueOf threw"); } }; };
+    }
+    export function withItsOwnCall(f) {
+      Object.defineProperty(f, "call", { value() { throw new Error("its own call"); } });
+      return f;
+    }
+    "#)]
+    extern "C" {
+        #[wasm_bindgen(js_name = receiverOf)]
+        fn receiver_of() -> JsValue;
+        #[wasm_bindgen(js_name = returningASymbol)]
+        fn returning_a_symbol() -> JsValue;
+        #[wasm_bindgen(js_name = returningABigInt)]
+        fn returning_a_big_int() -> JsValue;
+        #[wasm_bindgen(js_name = returningAnObjectThatThrows)]
+        fn returning_an_object_that_throws() -> JsValue;
+        #[wasm_bindgen(js_name = withItsOwnCall)]
+        fn with_its_own_call(f: JsValue) -> JsValue;
+    }
+
+    fn function(store: &mut Store, ty: FunctionType, value: &JsValue) -> Function {
+        Function::from_jsvalue(store, &ty, value).unwrap()
+    }
+
+    #[wasm_bindgen_test]
+    fn they_get_the_receiver_of_their_lane() {
+        let mut store = Store::default();
+        let ty = FunctionType::new([], [Type::I32]);
+        for value in [receiver_of(), with_its_own_call(receiver_of())] {
+            let f = function(&mut store, ty.clone(), &value);
+            let result = f.call(&mut store, &[]).unwrap();
+            assert_eq!(result[0].unwrap_i32(), 1, "Function::call passes null");
+            let typed: TypedFunction<(), i32> = f.typed(&store).unwrap();
+            assert_eq!(
+                typed.call(&mut store).unwrap(),
+                2,
+                "a typed call passes undefined"
+            );
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn what_they_return_without_a_result_is_ignored() {
+        let mut store = Store::default();
+        let f = function(
+            &mut store,
+            FunctionType::new([Type::I32], []),
+            &returning_a_symbol(),
+        );
+        assert!(f.call(&mut store, &[Value::I32(1)]).unwrap().is_empty());
+        let typed: TypedFunction<i32, ()> = f.typed(&store).unwrap();
+        typed.call(&mut store, 1).unwrap();
+    }
+
+    /// A result that is no number becomes one as WebAssembly makes one of
+    /// what an import returns. Where that throws, the call fails with what
+    /// was thrown, as any call into JavaScript that throws does.
+    #[wasm_bindgen_test]
+    fn a_result_that_cannot_be_a_number_fails_the_call() {
+        let mut store = Store::default();
+        let ty = FunctionType::new([], [Type::I32]);
+        for (value, message) in [
+            (returning_a_big_int(), "BigInt"),
+            (returning_an_object_that_throws(), "valueOf threw"),
+        ] {
+            let f = function(&mut store, ty.clone(), &value);
+            let error = f.call(&mut store, &[]).unwrap_err();
+            assert!(error.message().contains(message), "{error}");
+            let typed: TypedFunction<(), i32> = f.typed(&store).unwrap();
+            let error = typed.call(&mut store).unwrap_err();
+            assert!(error.message().contains(message), "{error}");
         }
     }
 }

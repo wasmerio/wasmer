@@ -73,6 +73,12 @@ Wasmer is not only fast, but also designed to be *highly customizable*:
   compilers available, it's the one available in the JavaScript
   environment that will be used.
 
+  The `js` feature ships small static JavaScript helpers as
+  `wasm-bindgen` snippets, rather than making functions from strings
+  at run time, which a Content Security Policy may forbid. It works
+  with every `wasm-bindgen` target but `--target no-modules`, which
+  takes no snippets.
+
 Wasmer ships by default with the Cranelift compiler as its great for
 development purposes.  However, we strongly encourage to use the LLVM
 compiler in production as it performs about 50% faster, achieving

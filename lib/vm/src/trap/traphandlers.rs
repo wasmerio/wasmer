@@ -218,6 +218,8 @@ struct ThreadState {
     /// that sets it around an entry into Wasm looks up one thread-local for
     /// both.
     slot_call: Cell<bool>,
+    /// See [`CurrentThread::cothread`]; here for the same reason.
+    cothread: Cell<bool>,
 }
 
 /// How many entry coroutines a thread keeps: one for calls from the host and
@@ -336,6 +338,7 @@ thread_local! {
             stack: ManuallyDrop::new(Cell::new(None)),
             flags: Cell::new(0),
             slot_call: Cell::new(false),
+            cothread: Cell::new(false),
         }
     };
 }
@@ -399,6 +402,17 @@ impl CurrentThread {
     #[inline]
     pub fn slot_call(&self) -> &Cell<bool> {
         &self.state().slot_call
+    }
+
+    /// Whether the thread runs a coroutine that the embedder switches itself,
+    /// whose calls into stores keep the state they leave on the thread where
+    /// the embedder can take it with the coroutine when it suspends.
+    ///
+    /// The VM only keeps it: the embedder sets it while such a coroutine
+    /// runs, and reads it when a call enters a store.
+    #[inline]
+    pub fn cothread(&self) -> &Cell<bool> {
+        &self.state().cothread
     }
 }
 
@@ -1330,6 +1344,19 @@ impl ActivationState {
         self.active_stores.is_interrupted(store_id)
     }
 
+    /// Whether the calling thread still has what swapping a state in, and
+    /// unwinding a stack suspended in Wasm, need of it: false once its thread
+    /// locals are being destroyed, as it exits. A stack suspended then is to
+    /// be forgotten rather than unwound.
+    pub fn thread_is_usable() -> bool {
+        // `ThreadExit` is the thread-local of this module with a destructor:
+        // once that ran, the thread is exiting.
+        let usable = THREAD_EXIT.try_with(|_| ()).is_ok() && THREAD_STATE.try_with(|_| ()).is_ok();
+        #[cfg(feature = "experimental-host-interrupt")]
+        let usable = usable && interrupt_registry::thread_is_usable();
+        usable
+    }
+
     /// Whether nothing is installed: true before an activation first runs and
     /// after it has finished, when nothing may be left pointing into its stack.
     pub fn is_empty(&self) -> bool {
@@ -1338,6 +1365,19 @@ impl ActivationState {
             return false;
         }
         self.trap_handler.is_null()
+    }
+
+    /// Forgets the state of an activation whose stack is forgotten rather
+    /// than unwound, while the state is not swapped in: its calls never
+    /// return. What they keep beyond the thread is given up as their return
+    /// would, the interrupt registrations of the stores they entered, which
+    /// would otherwise keep those stores interrupted, and aimed at this
+    /// thread, for good. The thread's own state is not touched: it may be
+    /// gone (see [`Self::thread_is_usable`]).
+    pub fn abandon(&mut self) {
+        self.trap_handler = ptr::null_mut();
+        #[cfg(feature = "experimental-host-interrupt")]
+        self.active_stores.abandon();
     }
 }
 

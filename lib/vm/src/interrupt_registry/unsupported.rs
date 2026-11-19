@@ -26,6 +26,10 @@ pub fn is_interrupted(_store_id: StoreId) -> bool {
 }
 
 /// On unsupported platforms no store is ever registered as active.
+pub(crate) fn thread_is_usable() -> bool {
+    true
+}
+
 pub(crate) struct ActiveStores;
 
 impl ActiveStores {
@@ -42,4 +46,6 @@ impl ActiveStores {
     }
 
     pub(crate) fn swap(&mut self) {}
+
+    pub(crate) fn abandon(&mut self) {}
 }

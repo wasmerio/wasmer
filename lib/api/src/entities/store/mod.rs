@@ -34,7 +34,7 @@ pub use obj::*;
 
 use crate::{AsEngineRef, BackendEngine, Engine, EngineRef};
 #[cfg(feature = "unsafe-cothread")]
-pub use context::CoroutineStoreGuard;
+pub use context::Cothread;
 pub(crate) use context::*;
 pub(crate) use inner::*;
 use wasmer_types::StoreId;
@@ -151,37 +151,6 @@ impl Store {
     pub fn with_current<R>(f: impl FnOnce(&mut StoreMut<'_>) -> R) -> Option<R> {
         let mut store = StoreContext::try_get_current_unborrowed()?;
         Some(f(&mut store.as_mut()))
-    }
-
-    /// Puts the thread state of a coroutine that runs Wasm on this store onto
-    /// the thread for one resume of the coroutine, and takes it off again
-    /// when the guard is dropped.
-    ///
-    /// This is for embedders that run calls on coroutines they switch
-    /// themselves, and suspend them inside host functions. A call keeps state
-    /// on its thread while it runs: the entry its host functions find the
-    /// store through, and the trap handler the signal handler consults. A
-    /// coroutine suspended inside a call has to take that state with it, or
-    /// a call resumed in another order than the calls entered Wasm finds
-    /// another call's: its traps are handled on the wrong stack. Hold a guard
-    /// for exactly the duration of every resume of the coroutine, from the
-    /// first one on, including the one that unwinds it when it is dropped
-    /// while suspended. Between resumes, the state of the coroutine is kept
-    /// on its thread, with the store it was made for.
-    ///
-    /// # Panics
-    /// Panics if the store is anywhere on the current thread's context stack
-    /// (active or suspended), as it is while a call on it runs outside the
-    /// coroutine.
-    ///
-    /// # Safety
-    /// At most one coroutine that runs Wasm on this store may be suspended at
-    /// a time. It must be resumed, and dropped, on the thread it suspended
-    /// on, each time under a guard of this store held for exactly the
-    /// duration of the resume.
-    #[cfg(feature = "unsafe-cothread")]
-    pub unsafe fn coroutine_store_guard(&mut self) -> CoroutineStoreGuard<'_> {
-        unsafe { CoroutineStoreGuard::new(self.inner.as_mut()) }
     }
 
     /// Builds an [`Interrupter`] for this store. Calling [`Interrupter::interrupt`]

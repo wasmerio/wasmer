@@ -7,7 +7,7 @@ use crate::{
 };
 #[cfg(feature = "experimental-async")]
 use crate::{
-    AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock, StoreInner,
+    AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock,
 };
 #[cfg(feature = "experimental-async")]
 use wasmer_types::StoreId;
@@ -219,29 +219,8 @@ impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
 
 #[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvMut<T> {
-    pub(crate) store: AsyncFunctionEnvMutStore,
+    pub(crate) store: StoreAsync,
     pub(crate) func_env: FunctionEnv<T>,
-}
-
-/// How an async host function reaches its store. Its guest was entered by
-/// `Function::call_async`, or, for an eager host function only, by a
-/// synchronous call: there is no [`StoreAsync`] to hand out then.
-#[cfg(feature = "experimental-async")]
-pub(crate) enum AsyncFunctionEnvMutStore {
-    Async(StoreAsync),
-    /// The store the synchronous call lent to the guest, which is only used
-    /// while the host function is polled inside the import call.
-    Sync(StoreId, *mut StoreInner),
-}
-
-#[cfg(feature = "experimental-async")]
-impl Clone for AsyncFunctionEnvMutStore {
-    fn clone(&self) -> Self {
-        match self {
-            Self::Async(store) => Self::Async(store.store()),
-            Self::Sync(id, store) => Self::Sync(*id, *store),
-        }
-    }
 }
 
 #[cfg(feature = "experimental-async")]
@@ -260,7 +239,10 @@ pub struct AsyncFunctionEnvHandleMut<T> {
 impl<T> Clone for AsyncFunctionEnvMut<T> {
     fn clone(&self) -> Self {
         Self {
-            store: self.store.clone(),
+            store: StoreAsync {
+                id: self.store.id,
+                inner: self.store.inner.clone(),
+            },
             func_env: self.func_env.clone(),
         }
     }
@@ -272,11 +254,7 @@ where
     T: Send + Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let read_lock = match &self.store {
-            AsyncFunctionEnvMutStore::Async(store) => store.inner.try_read(),
-            AsyncFunctionEnvMutStore::Sync(..) => None,
-        };
-        match read_lock {
+        match self.store.inner.try_read() {
             Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
             None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
         }
@@ -286,49 +264,27 @@ where
 #[cfg(feature = "experimental-async")]
 impl<T: 'static> AsyncFunctionEnvMut<T> {
     pub(crate) fn store_id(&self) -> StoreId {
-        match &self.store {
-            AsyncFunctionEnvMutStore::Async(store) => store.id,
-            AsyncFunctionEnvMutStore::Sync(id, _) => *id,
-        }
+        self.store.id
     }
 
     pub async fn read(&self) -> AsyncFunctionEnvHandle<T> {
-        let read_lock = match &self.store {
-            AsyncFunctionEnvMutStore::Async(store) => store.read_lock().await,
-            // There is no lock to wait for beneath a synchronous call, and
-            // the guest cannot wait there either.
-            AsyncFunctionEnvMutStore::Sync(..) => std::future::pending().await,
-        };
         AsyncFunctionEnvHandle {
-            read_lock,
+            read_lock: self.store.read_lock().await,
             func_env: self.func_env.clone(),
         }
     }
 
     pub async fn write(&self) -> AsyncFunctionEnvHandleMut<T> {
-        let write_lock = match &self.store {
-            AsyncFunctionEnvMutStore::Async(store) => store.write_lock().await,
-            AsyncFunctionEnvMutStore::Sync(..) => std::future::pending().await,
-        };
         AsyncFunctionEnvHandleMut {
-            write_lock,
+            write_lock: self.store.write_lock().await,
             func_env: self.func_env.clone(),
         }
     }
 
-    /// Runs `f` with the store, as soon as it can be had: what the typed
+    /// Runs `f` with the store, once its write lock is had: what the typed
     /// host functions convert their results with.
     pub(crate) async fn with_store_mut<R>(&self, f: impl FnOnce(&mut StoreMut<'_>) -> R) -> R {
-        match &self.store {
-            AsyncFunctionEnvMutStore::Async(store) => {
-                f(&mut store.write_lock().await.as_store_mut())
-            }
-            // SAFETY: a host function with this kind of store is polled once,
-            // inside the import call, and dropped if it is not finished then.
-            // The synchronous call beneath lent the store to the guest for
-            // at least that long.
-            AsyncFunctionEnvMutStore::Sync(_, store) => f(&mut unsafe { StoreMut::from_raw(*store) }),
-        }
+        f(&mut self.store.write_lock().await.as_store_mut())
     }
 
     pub fn as_ref(&self) -> FunctionEnv<T> {
@@ -340,11 +296,9 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
-        match &self.store {
-            AsyncFunctionEnvMutStore::Async(store) => store.store(),
-            AsyncFunctionEnvMutStore::Sync(..) => {
-                panic!("Cannot build a StoreAsync within a sync context")
-            }
+        StoreAsync {
+            id: self.store.id,
+            inner: self.store.inner.clone(),
         }
     }
 }

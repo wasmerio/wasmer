@@ -3,12 +3,16 @@ use std::any::Any;
 use crate::js::utils::js_handle::JsHandle;
 use js_sys::{Array, Function as JsFunction, Reflect, Symbol};
 use wasm_bindgen::{JsCast, JsValue};
-use wasmer_types::{FunctionType, RawValue, StoreId, Type};
-
-use crate::AsStoreRef;
+use wasmer_types::{FunctionType, RawValue, Type};
 
 fn type_key() -> Symbol {
     Symbol::for_("wasmer.function-type")
+}
+
+#[cfg(feature = "experimental-async")]
+thread_local! {
+    /// Where a function keeps its `WebAssembly.promising` wrapper.
+    static PROMISING_KEY: Symbol = Symbol::for_("wasmer.promising");
 }
 
 fn encode_types(types: &[Type]) -> Array {
@@ -33,6 +37,10 @@ fn decode_types(types: &Array) -> Option<Vec<Type>> {
 }
 
 /// The VM Function type
+///
+/// What a function keeps besides its type, it keeps on its JavaScript
+/// object, which belongs to the worker that made it, rather than in the
+/// handle, which any thread may clone and drop.
 #[derive(Clone)]
 pub struct VMFunction {
     pub(crate) function: JsHandle<JsFunction>,
@@ -40,16 +48,6 @@ pub struct VMFunction {
     /// Whether calls of the function take the numeric lane: worked out once
     /// from `ty`, which does not change, instead of on every call.
     pub(crate) numeric: bool,
-    /// The store of a host function. `None` for the functions of a guest,
-    /// which run whatever store they are called with.
-    pub(crate) store: Option<StoreId>,
-    /// `WebAssembly.promising(function)`, which makes a new function every
-    /// time it is called: made by the first `call_async` and kept.
-    #[cfg(feature = "experimental-async")]
-    pub(crate) promising: std::rc::Rc<std::cell::OnceCell<JsFunction>>,
-    /// For an async host function: makes the eager form of it.
-    #[cfg(feature = "experimental-async")]
-    pub(crate) eager: Option<std::rc::Rc<dyn Fn() -> JsFunction>>,
 }
 
 impl Eq for VMFunction {}
@@ -64,26 +62,24 @@ impl VMFunction {
             function: JsHandle::new(function),
             numeric: crate::js::function::numeric::is_numeric(&ty),
             ty,
-            store: None,
-            #[cfg(feature = "experimental-async")]
-            promising: Default::default(),
-            #[cfg(feature = "experimental-async")]
-            eager: None,
         }
     }
 
-    /// The function as a host function of `store`.
-    pub(crate) fn of_store(self, store: &impl AsStoreRef) -> Self {
-        Self {
-            store: Some(store.as_store_ref().objects().id()),
-            ..self
-        }
-    }
-
-    /// Whether the function can be used with `store`.
-    pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.store
-            .is_none_or(|id| id == store.as_store_ref().objects().id())
+    /// `WebAssembly.promising(function)`, which makes a new function every
+    /// time it is called: made by the first `call_async` and kept on the
+    /// function. A function that cannot keep it, being frozen, makes it again
+    /// for every call.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn promising(&self) -> Result<JsFunction, JsValue> {
+        let function: &JsFunction = &self.function;
+        PROMISING_KEY.with(|key| {
+            if let Ok(promising) = Reflect::get(function, key)?.dyn_into::<JsFunction>() {
+                return Ok(promising);
+            }
+            let promising = crate::js::jspi::promising(function)?;
+            let _ = Reflect::set(function, key, &promising);
+            Ok(promising)
+        })
     }
 
     pub(crate) fn annotate_type(function: &JsFunction, ty: &FunctionType) {

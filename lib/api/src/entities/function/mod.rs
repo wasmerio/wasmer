@@ -231,52 +231,6 @@ impl Function {
         Self(BackendFunction::new_typed_with_env_async(store, env, func))
     }
 
-    /// Makes an async host function *eager*: its future is polled once inside
-    /// the import call itself, on the guest's stack.
-    ///
-    /// A guest that calls an async host function is normally suspended while
-    /// the future of [`Function::call_async`] polls the host future. On the
-    /// `js` backend that costs a trip through the event loop even when the
-    /// host function has nothing to wait for. An eager host function is polled
-    /// once before the guest is suspended:
-    ///
-    /// * If the future is ready, the guest goes on with its results at once,
-    ///   and is never suspended. That also works where a guest cannot be
-    ///   suspended at all: in a function entered with [`Function::call`], or
-    ///   in a start function.
-    /// * If it is not, the guest is suspended and the call polls the future
-    ///   from then on, as for any async host function. Where the guest cannot
-    ///   be suspended, the future is dropped instead and the import fails
-    ///   with [`TrapCode::YieldOutsideAsyncContext`](wasmer_types::TrapCode).
-    ///
-    /// So everything an eager host function does up to its first pending
-    /// `await` runs inside the import call, and it may be dropped right
-    /// there: that part has to be safe to cancel. During that poll the store
-    /// is lent to the host function: [`AsyncFunctionEnvMut::read`] and
-    /// [`AsyncFunctionEnvMut::write`] return at once, as does a lock taken
-    /// through [`AsyncFunctionEnvMut::as_store_async`], unless another guard
-    /// of that store is alive. A guard the future still holds when it has to
-    /// wait stays with it. Beneath a synchronous call there is no async store
-    /// to lock, and those three never finish, as on every backend.
-    ///
-    /// A guest that only ever calls eager host functions that are ready
-    /// never gives the event loop a turn: nothing forces it to.
-    ///
-    /// This returns the eager function and leaves existing clones of the
-    /// original as they are. It has no effect on a function that is not an
-    /// async host function, and none on backends other than `js`: on `sys`, a
-    /// host future that is ready never makes the call wait in the first
-    /// place, and outside an async call it is polled once and dropped at its
-    /// first `Pending` all the same.
-    ///
-    /// ```ignore
-    /// let now = Function::new_typed_async(&mut store, async || clock.now()).eager();
-    /// ```
-    #[cfg(feature = "experimental-async")]
-    pub fn eager(self) -> Self {
-        Self(self.0.eager())
-    }
-
     /// Returns the [`FunctionType`] of the `Function`.
     ///
     /// # Example
@@ -415,6 +369,61 @@ impl Function {
     /// coroutine stack. Host functions created with [`Function::new_async`] may
     /// suspend execution by awaiting futures, and their completion will resume
     /// the Wasm instance according to the JSPI proposal.
+    ///
+    /// On the `sys` backend that coroutine has a fixed stack of 1 MiB. The
+    /// host functions the guest calls run on it; one that needs more stack
+    /// runs into the stack's guard page, and the process is killed. The
+    /// guest's own frames are on a stack of their own, whose size
+    /// `wasmer_vm::set_stack_size` sets. The future of an async host function
+    /// is polled by the future of the call, on the executor's stack.
+    ///
+    /// On `sys`, dropping the call while its guest waits in an async host
+    /// function unwinds the coroutine with a panic: guest frames are
+    /// discarded, and host frames run their destructors, whoever holds the
+    /// store then. Those destructors must not use the store, through a
+    /// `FunctionEnvMut` they keep for instance, and a host function that
+    /// catches the panics of a guest it calls must resume those it does not
+    /// know. A call dropped while its thread exits, from a thread local, is
+    /// forgotten instead, with its stack.
+    ///
+    /// On the `js` backend the engine suspends the guest's stack (JSPI). A
+    /// function that is neither a WebAssembly function nor an async host
+    /// function, a synchronous host function or JavaScript an embedder gave,
+    /// is called as [`Function::call`] calls it, and an async host function
+    /// called directly returns the values its future returned, as they are.
+    /// The first call on a thread compiles a small WebAssembly module, whose
+    /// trap unwinds a guest that must not run again: on a host that refuses
+    /// to compile it, the call fails before it enters anything. The
+    /// call holds the store's write lock while its guest runs, and gives it
+    /// up while the guest waits in an async host function. Dropping the call
+    /// while its guest waits unwinds the guest, which runs no more code, and
+    /// gives the store back. The call keeps the store for as long as the
+    /// engine may still resume the guest where Wasmer does not see it, also
+    /// once the call is dropped, since nothing can stop the engine then:
+    ///
+    /// * while the guest is suspended in a `WebAssembly.Suspending` function
+    ///   that Wasmer did not make;
+    /// * while the promise the guest waits on waits for a thenable: an
+    ///   `externref` result of an async host function whose `then` reads
+    ///   differently the second time, as a `Proxy` can make it, which the
+    ///   promise takes for a thenable (any other thenable result fails the
+    ///   import);
+    /// * on JavaScriptCore, while a thenable the guest returned is pending:
+    ///   the engine resolves the call's promise with it, and the call ends
+    ///   with what it settles with.
+    ///
+    /// A thenable that never settles keeps the store for good: it cannot be
+    /// taken back with `StoreAsync::into_store`.
+    ///
+    /// A guest entered while another guest of the same store runs, by a
+    /// synchronous call, a host function, or a JavaScript function given with
+    /// `Function::from_jsvalue`, cannot be suspended: an async host function
+    /// it calls fails with `TrapCode::YieldOutsideAsyncContext`. JavaScript
+    /// that Wasmer never saw, an import of a module instantiated without it,
+    /// must not call a guest's export while a guest of the same store runs:
+    /// on engines that run an async import before they refuse to suspend its
+    /// guest (Node.js 24, and JavaScriptCore beneath a JavaScript frame),
+    /// Wasmer cannot tell the refused import from one that waits.
     #[must_use = "This function spawns a future that must be awaited to produce results"]
     #[cfg(feature = "experimental-async")]
     pub fn call_async(
