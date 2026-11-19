@@ -1,6 +1,6 @@
 use crate::{
-    VMExceptionObj, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory,
-    VMTable, VMTag,
+    CurrentThread, VMExceptionObj, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal,
+    VMInstance, VMMemory, VMTable, VMTag,
 };
 use core::slice::Iter;
 use std::{
@@ -12,24 +12,53 @@ use std::{
 };
 use wasmer_types::StoreId;
 
-/// The cell behind [`StoreObjects::slot`].
-struct StoreSlot(NonNull<Cell<*mut u8>>);
+/// What a call into a store leaves for the host functions among its objects
+/// while it runs (see [`StoreObjects::slot`]).
+pub struct StoreSlot {
+    store: Cell<*mut u8>,
+    thread: Cell<Option<CurrentThread>>,
+}
 
-impl Default for StoreSlot {
-    fn default() -> Self {
-        let cell: &mut Cell<*mut u8> = Box::leak(Box::new(Cell::new(std::ptr::null_mut())));
-        Self(NonNull::from(cell))
+impl StoreSlot {
+    /// The store of the innermost call into it, null outside of any: the
+    /// embedder writes it before the call enters Wasm and puts the previous
+    /// value back when the call returns.
+    #[inline]
+    pub fn store(&self) -> &Cell<*mut u8> {
+        &self.store
+    }
+
+    /// The thread that call runs on, which the embedder writes and puts back
+    /// with the store. A host function the call reaches is on that thread, and
+    /// can take it from here instead of looking it up (see
+    /// [`host_call_in_place_on`](crate::host_call_in_place_on)).
+    #[inline]
+    pub fn thread(&self) -> &Cell<Option<CurrentThread>> {
+        &self.thread
     }
 }
 
-impl Drop for StoreSlot {
+/// The allocation behind [`StoreObjects::slot`].
+struct StoreSlotBox(NonNull<StoreSlot>);
+
+impl Default for StoreSlotBox {
+    fn default() -> Self {
+        let slot: &mut StoreSlot = Box::leak(Box::new(StoreSlot {
+            store: Cell::new(std::ptr::null_mut()),
+            thread: Cell::new(None),
+        }));
+        Self(NonNull::from(slot))
+    }
+}
+
+impl Drop for StoreSlotBox {
     fn drop(&mut self) {
         // SAFETY: leaked from a box by `default`, and freed only here.
         drop(unsafe { Box::from_raw(self.0.as_ptr()) });
     }
 }
 
-impl fmt::Debug for StoreSlot {
+impl fmt::Debug for StoreSlotBox {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("StoreSlot").field(&self.0).finish()
     }
@@ -86,7 +115,7 @@ pub struct StoreObjects {
     tags: Vec<VMTag>,
     function_environments: Vec<VMFunctionEnvironment>,
     /// Last, so that it outlives every object above.
-    slot: StoreSlot,
+    slot: StoreSlotBox,
 }
 
 impl StoreObjects {
@@ -115,21 +144,21 @@ impl StoreObjects {
             function_environments,
             exceptions,
             tags,
-            slot: StoreSlot::default(),
+            slot: StoreSlotBox::default(),
         }
     }
 
-    /// A pointer-sized cell in a heap allocation of its own, owned by these
+    /// A [`StoreSlot`] in a heap allocation of its own, owned by these
     /// objects and freed with them, after every object in them.
     ///
-    /// The embedder uses it to hand its store to the host functions among the
-    /// objects while a call into the store runs. It belongs to the objects
-    /// rather than to the store around them, so that it goes wherever the
-    /// objects go, together with the host functions that keep a pointer to
-    /// it. Being a separate allocation, it is not covered by borrows of the
-    /// objects.
+    /// The embedder uses it to hand its store, and the thread a call into the
+    /// store runs on, to the host functions among the objects while the call
+    /// runs. It belongs to the objects rather than to the store around them,
+    /// so that it goes wherever the objects go, together with the host
+    /// functions that keep a pointer to it. Being a separate allocation, it is
+    /// not covered by borrows of the objects.
     #[inline]
-    pub fn slot(&self) -> NonNull<Cell<*mut u8>> {
+    pub fn slot(&self) -> NonNull<StoreSlot> {
         self.slot.0
     }
 
@@ -431,5 +460,13 @@ mod tests {
         let theirs = objects();
         let handle = StoreHandle::new(&mut ours, VMFunctionEnvironment::new(1u8));
         handle.get(&theirs);
+    }
+
+    #[test]
+    fn a_slot_starts_empty() {
+        let objects = objects();
+        let slot = unsafe { objects.slot().as_ref() };
+        assert!(slot.store().get().is_null());
+        assert!(slot.thread().get().is_none());
     }
 }

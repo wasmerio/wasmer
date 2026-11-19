@@ -142,6 +142,12 @@ pub fn host_call_in_place() -> Option<HostCallInPlace> {
     })
 }
 
+/// Always starts the call in place: there is only one stack.
+#[inline(always)]
+pub fn host_call_in_place_on(_thread: CurrentThread) -> Option<HostCallInPlace> {
+    host_call_in_place()
+}
+
 /// Just run the `closure` and return its result wrapped in `Ok()`. Nothing is
 /// caught in `baremetal` mode.
 ///
@@ -194,6 +200,13 @@ impl CurrentThread {
         Self {
             slot_call: SLOT_CALL.with(|slot_call| std::ptr::NonNull::from(slot_call)),
         }
+    }
+
+    /// [`Self::get`] out of line; see the signal-based backend.
+    #[cold]
+    #[inline(never)]
+    pub fn get_out_of_line() -> Self {
+        Self::get()
     }
 
     /// The calling thread's, or `None` once its thread-locals were freed.

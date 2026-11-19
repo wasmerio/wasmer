@@ -363,6 +363,14 @@ impl CurrentThread {
         }
     }
 
+    /// [`Self::get`] out of line, for a fallback: inlined, the lookup may be
+    /// done ahead of the branch that needs it, as the compiler is free to.
+    #[cold]
+    #[inline(never)]
+    pub fn get_out_of_line() -> Self {
+        Self::get()
+    }
+
     /// The calling thread's, or `None` on targets where thread-locals are
     /// freed when the thread exits, once its state was.
     #[inline]
@@ -1829,9 +1837,22 @@ impl Drop for HostCallInPlace {
 /// asynchronous one does, must not use this.
 #[inline(always)]
 pub fn host_call_in_place() -> Option<HostCallInPlace> {
-    let state = THREAD_STATE.with(|state| NonNull::from(state));
-    // SAFETY: as in `with_thread_state`.
-    let state_ref = unsafe { state.as_ref() };
+    host_call_in_place_on(CurrentThread::get())
+}
+
+/// [`host_call_in_place`] on `thread`, which must be the calling thread's:
+/// for a caller that has it at hand, such as from a [`StoreSlot`] the call
+/// into the store filled, and so saves looking the thread up.
+///
+/// [`StoreSlot`]: crate::StoreSlot
+#[inline(always)]
+pub fn host_call_in_place_on(thread: CurrentThread) -> Option<HostCallInPlace> {
+    debug_assert!(
+        thread.state == CurrentThread::get().state,
+        "a host call on another thread's state"
+    );
+    let state = thread.state;
+    let state_ref = thread.state();
     let wasm_stack = state_ref.wasm_stack.get();
     if let Some(stack) = wasm_stack {
         // SAFETY: it lives on the stack of the coroutine that is running.

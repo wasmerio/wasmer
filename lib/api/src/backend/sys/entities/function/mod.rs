@@ -929,7 +929,14 @@ where
             }))
         };
         let result = if IN_PLACE {
-            match wasmer_vm::host_call_in_place() {
+            // A call into a plain store left its thread in the slot, which
+            // saves looking the thread up.
+            let thread = this
+                .ctx
+                .slot
+                .thread()
+                .unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+            match wasmer_vm::host_call_in_place_on(thread) {
                 Some(in_place) => {
                     let result = call();
                     drop(in_place);
@@ -1082,7 +1089,10 @@ macro_rules! impl_host_function {
                     }))
                 };
                 let result = if IN_PLACE {
-                    match wasmer_vm::host_call_in_place() {
+                    // A call into a plain store left its thread in the slot,
+                    // which saves looking the thread up.
+                    let thread = env.slot.thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+                    match wasmer_vm::host_call_in_place_on(thread) {
                         Some(in_place) => {
                             let result = call();
                             drop(in_place);
@@ -1202,7 +1212,10 @@ macro_rules! impl_host_function {
                     }))
                 };
                 let result = if IN_PLACE {
-                    match wasmer_vm::host_call_in_place() {
+                    // A call into a plain store left its thread in the slot,
+                    // which saves looking the thread up.
+                    let thread = env.slot.thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+                    match wasmer_vm::host_call_in_place_on(thread) {
                         Some(in_place) => {
                             let result = call();
                             drop(in_place);

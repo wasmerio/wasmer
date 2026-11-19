@@ -218,22 +218,36 @@ pub(crate) mod context_mode {
 /// outlives them.
 #[cfg(feature = "sys")]
 #[derive(Clone, Copy)]
-pub(crate) struct SlotRef(NonNull<Cell<*mut StoreInner>>);
+pub(crate) struct SlotRef(NonNull<wasmer_vm::StoreSlot>);
 
 #[cfg(feature = "sys")]
 impl SlotRef {
     /// The slot of `objects`, which host functions made among them keep.
     #[inline]
     pub(crate) fn of(objects: &crate::StoreObjects) -> Self {
-        Self(objects.as_sys().slot().cast())
+        Self(objects.as_sys().slot())
     }
 
     #[inline]
-    fn cell(&self) -> &Cell<*mut StoreInner> {
+    fn slot(&self) -> &wasmer_vm::StoreSlot {
         // SAFETY: valid for as long as the objects that own it, and with them
         // the host functions that keep it, live; only `Cell`'s shared access
         // is used.
         unsafe { self.0.as_ref() }
+    }
+
+    #[inline]
+    fn cell(&self) -> &Cell<*mut StoreInner> {
+        // SAFETY: the same pointer, typed as what this crate writes into it.
+        unsafe { &*std::ptr::from_ref(self.slot().store()).cast::<Cell<*mut StoreInner>>() }
+    }
+
+    /// The thread the innermost call into the store runs on, if one is
+    /// running through the slot: the calling thread, for a host function
+    /// that call reaches.
+    #[inline]
+    pub(crate) fn thread(&self) -> Option<wasmer_vm::CurrentThread> {
+        self.slot().thread().get()
     }
 
     /// The store of the innermost call into it, if one is running.
@@ -250,11 +264,12 @@ pub(crate) enum StoreEntryGuard {
     /// The call wrote its pointer into the store's slot.
     Slot {
         slot: SlotRef,
-        /// The slot's value before the call.
+        /// The slot's store and thread before the call.
         saved: *mut StoreInner,
-        /// This thread's flag of whether a plain call is innermost (see
-        /// [`inside_plain_call`]), and its value before the call.
-        inside_plain_call: *const Cell<bool>,
+        saved_thread: Option<wasmer_vm::CurrentThread>,
+        /// The calling thread, and its flag of whether a plain call is
+        /// innermost (see [`inside_plain_call`]) before the call.
+        thread: wasmer_vm::CurrentThread,
         saved_inside_plain_call: bool,
     },
     /// The call went through the context stack.
@@ -288,13 +303,15 @@ impl Drop for StoreEntryGuard {
             Self::Slot {
                 slot,
                 saved,
-                inside_plain_call,
+                saved_thread,
+                thread,
                 saved_inside_plain_call,
             } => {
                 slot.cell().set(*saved);
-                // SAFETY: in this thread's VM state (the guard is not
-                // `Send`), which outlives the call.
-                unsafe { (**inside_plain_call).set(*saved_inside_plain_call) };
+                slot.slot().thread().set(*saved_thread);
+                // This thread's (the guard is not `Send`), whose state
+                // outlives the call.
+                thread.slot_call().set(*saved_inside_plain_call);
             }
             // Dropped by its own `Drop`.
             Self::Stack(_) => {}
@@ -510,13 +527,13 @@ impl StoreContext {
         // functions among them look.
         let slot = SlotRef::of(unsafe { &(*store_ptr).objects });
         let saved = slot.cell().replace(store_ptr);
-        let inside_plain_call = std::ptr::from_ref(thread.slot_call());
-        // SAFETY: this thread's, see `StoreEntryGuard::drop`.
-        let saved_inside_plain_call = unsafe { (*inside_plain_call).replace(true) };
+        let saved_thread = slot.slot().thread().replace(Some(thread));
+        let saved_inside_plain_call = thread.slot_call().replace(true);
         StoreEntryGuard::Slot {
             slot,
             saved,
-            inside_plain_call,
+            saved_thread,
+            thread,
             saved_inside_plain_call,
         }
     }
@@ -1294,6 +1311,24 @@ mod borrow_provenance_slot {
             "a plain store is entered through its slot"
         );
         guard
+    }
+
+    /// A call through the slot leaves the calling thread there with its
+    /// store, for the host functions it reaches to take, and puts back what
+    /// was there before when it returns.
+    #[test]
+    fn a_call_through_the_slot_leaves_its_thread_there() {
+        let mut store = Store::default();
+        let slot = slot_of(&store);
+        assert!(slot.thread().is_none());
+        let this_thread = wasmer_vm::CurrentThread::get();
+        let mut caller = store.as_store_mut();
+        let entry = enter(&mut caller);
+        let thread = slot.thread().expect("the call left its thread");
+        assert!(std::ptr::eq(thread.slot_call(), this_thread.slot_call()));
+        drop(entry);
+        assert!(slot.thread().is_none());
+        assert!(slot.get().is_none());
     }
 
     /// `Function::call(&mut store)` -> import -> the host function calls the
