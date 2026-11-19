@@ -62,7 +62,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
                     JoinStatus {
                         tag: JoinStatusType::ExitNormal,
                         u: JoinStatusUnion {
-                            exit_normal: exit_code.into(),
+                            exit_normal: exit_code,
                         },
                     }
                 }
