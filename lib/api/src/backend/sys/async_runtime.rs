@@ -681,6 +681,13 @@ fn run_immediate(mut future: HostFuture) -> Result<Vec<Value>, AsyncRuntimeError
     }
 }
 
+/// A store of this backend, whichever backend `Store::default` picks: the
+/// Windows test lane makes V8 the default, which has no async host functions.
+#[cfg(test)]
+fn sys_store() -> Store {
+    Store::new(crate::backend::sys::entities::engine::default_engine())
+}
+
 #[cfg(test)]
 mod stack_pool {
     use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -720,7 +727,7 @@ mod stack_pool {
         fn new() -> Self {
             // Tests can share a thread (`--test-threads=1`).
             STACK_POOL.with(|pool| pool.borrow_mut().clear());
-            let mut store = Store::default();
+            let mut store = sys_store();
             let gate = Rc::new(Cell::new(false));
             let ran_at = Rc::new(Cell::new(0));
             let ty = FunctionType::new(vec![], vec![]);
@@ -877,7 +884,7 @@ mod first_poll {
     /// the call with both back in place.
     #[test]
     fn a_panic_unwinds_the_call_with_its_store_and_coroutine_in_place() {
-        let mut store = Store::default();
+        let mut store = sys_store();
         let ty = FunctionType::new(vec![], vec![]);
         let panics = Function::new_async(&mut store, ty.clone(), |_| async {
             panic!("host future panicked")
@@ -923,7 +930,7 @@ mod first_poll {
     /// back for the frames the panic unwinds through.
     #[test]
     fn a_panic_with_the_store_locked_unwinds_the_call_with_its_store_in_place() {
-        let mut store = Store::default();
+        let mut store = sys_store();
         let ty = FunctionType::new(vec![], vec![]);
         let env = FunctionEnv::new(&mut store, ());
         let panics = Function::new_with_env_async(

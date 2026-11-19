@@ -335,8 +335,7 @@ fn other_types_are_not_affected() -> Result<(), String> {
         &store,
         r#"(module
           (func (export "i64") (param i64) (result i64) (local.get 0))
-          (func (export "both") (param i32 f64) (result f64 i32) (local.get 1) (local.get 0))
-          (func (export "reference") (param externref) (result externref) (local.get 0)))"#,
+          (func (export "both") (param i32 f64) (result f64 i32) (local.get 1) (local.get 0)))"#,
     )
     .unwrap();
     let exports = Instance::new(&mut store, &module, &imports! {})
@@ -355,6 +354,27 @@ fn other_types_are_not_affected() -> Result<(), String> {
         all_bits(&returned.unwrap()),
         all_bits(&[Value::F64(0.5), Value::I32(-3)])
     );
+    Ok(())
+}
+
+/// A reference, which is not a plain number either, goes the way it always
+/// did.
+#[engine_test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "extern refs are not supported by the default v8 backend"
+)]
+fn references_are_not_affected() -> Result<(), String> {
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (func (export "reference") (param externref) (result externref) (local.get 0)))"#,
+    )
+    .unwrap();
+    let exports = Instance::new(&mut store, &module, &imports! {})
+        .unwrap()
+        .exports;
     let reference = ExternRef::new(&mut store, 99u32);
     let identity = exports.get_function("reference").unwrap();
     let returned = identity.call(&mut store, &[Value::ExternRef(Some(reference))]);
