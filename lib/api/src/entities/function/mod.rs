@@ -376,6 +376,38 @@ impl Function {
     /// guest's own frames are on a stack of their own, whose size
     /// `wasmer_vm::set_stack_size` sets. The future of an async host function
     /// is polled by the future of the call, on the executor's stack.
+    ///
+    /// On the `js` backend the engine suspends the guest's stack (JSPI). The
+    /// call holds the store's write lock while its guest runs, and gives it
+    /// up while the guest waits in an async host function. Dropping the call
+    /// while its guest waits unwinds the guest, which runs no more code, and
+    /// gives the store back. The call keeps the store for as long as the
+    /// engine may still resume the guest where Wasmer does not see it, also
+    /// once the call is dropped, since nothing can stop the engine then:
+    ///
+    /// * while the guest is suspended in a `WebAssembly.Suspending` function
+    ///   that Wasmer did not make;
+    /// * while the promise the guest waits on waits for a thenable: an
+    ///   `externref` result of an async host function whose `then` reads
+    ///   differently the second time, as a `Proxy` can make it, which the
+    ///   promise takes for a thenable (any other thenable result fails the
+    ///   import);
+    /// * on JavaScriptCore, while a thenable the guest returned is pending:
+    ///   the engine resolves the call's promise with it, and the call ends
+    ///   with what it settles with.
+    ///
+    /// A thenable that never settles keeps the store for good: it cannot be
+    /// taken back with `StoreAsync::into_store`.
+    ///
+    /// A guest entered while another guest of the same store runs, by a
+    /// synchronous call, a host function, or a JavaScript function given with
+    /// `Function::from_jsvalue`, cannot be suspended: an async host function
+    /// it calls fails with `TrapCode::YieldOutsideAsyncContext`. JavaScript
+    /// that Wasmer never saw, an import of a module instantiated without it,
+    /// must not call a guest's export while a guest of the same store runs:
+    /// on engines that run an async import before they refuse to suspend its
+    /// guest (Node.js 24, and JavaScriptCore beneath a JavaScript frame),
+    /// Wasmer cannot tell the refused import from one that waits.
     #[must_use = "This function spawns a future that must be awaited to produce results"]
     #[cfg(feature = "experimental-async")]
     pub fn call_async(

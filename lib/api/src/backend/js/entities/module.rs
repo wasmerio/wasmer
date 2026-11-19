@@ -282,8 +282,15 @@ impl Module {
             #[allow(unused_unsafe)]
             unsafe {
                 if let Some(import) = resolved_import {
-                    // An async host function is given in its suspending form.
-                    let value = import.as_jsvalue(&store.as_store_ref());
+                    // An async host function is imported in its suspending
+                    // form, and a function the embedder gave as what marks it.
+                    let value = match &import {
+                        #[cfg(feature = "experimental-async")]
+                        Extern::Function(function) => {
+                            crate::js::jspi::import(&function.as_js().handle.function.clone().into())
+                        }
+                        _ => import.as_jsvalue(&store.as_store_ref()),
+                    };
                     let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
                     if !val.is_undefined() {
                         // If the namespace is already set

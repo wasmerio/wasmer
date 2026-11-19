@@ -153,6 +153,8 @@ thread_local! {
     static SHIM: () = shim_init(
         &Closure::wrap(Box::new(done) as Box<dyn Fn(i32, i32, JsValue)>).into_js_value(),
         &Closure::wrap(Box::new(check) as Box<dyn Fn(i32, i32)>).into_js_value(),
+        &Closure::wrap(Box::new(crate::js::function::mark_entered) as Box<dyn Fn(bool) -> bool>)
+            .into_js_value(),
     );
 }
 
@@ -173,10 +175,10 @@ thread_local! {
 // the import's body runs once the guest's slice is over.
 #[wasm_bindgen(inline_js = r#"
 const resolvers = [], rejecters = [];
-let done, check, trapError, wakes = 0;
+let done, check, mark, trapError, wakes = 0;
 const pendingWakes = [], pendingValues = [];
-export function jspiInit(d, c) {
-  done = d; check = c;
+export function jspiInit(d, c, m) {
+  done = d; check = c; mark = m;
 }
 export function jspiTrapError() {
   if (trapError === undefined) {
@@ -203,6 +205,36 @@ export function jspiIsHost(value) {
 }
 export function jspiImport(value) {
   return suspendingOf.get(value) ?? value;
+}
+const apply = Reflect.apply, markedOf = new WeakMap(), embedderOf = new WeakMap();
+const wasmFunctions = new WeakSet();
+let probe;
+function isWasmFunction(value) {
+  if (wasmFunctions.has(value)) return true;
+  probe ??= new WebAssembly.Table({ element: "anyfunc", initial: 1 });
+  try { probe.set(0, value); } catch { return false; }
+  probe.set(0, null);
+  wasmFunctions.add(value);
+  return true;
+}
+export function jspiEmbedderFunction(value) {
+  if (typeof value !== "function" || suspendingOf.has(value) || embedderOf.has(value)) {
+    return value;
+  }
+  let marked = markedOf.get(value);
+  if (marked === undefined) {
+    if (isWasmFunction(value)) return value;
+    marked = function (...args) {
+      const previous = mark(true);
+      try { return apply(value, this, args); } finally { mark(previous); }
+    };
+    markedOf.set(value, marked);
+    embedderOf.set(marked, value);
+  }
+  return marked;
+}
+export function jspiPublic(value) {
+  return suspendingOf.get(value) ?? embedderOf.get(value) ?? value;
 }
 export function jspiWait(token) {
   return new Promise((resolve, reject) => { resolvers[token] = resolve; rejecters[token] = reject; });
@@ -252,7 +284,7 @@ export function jspiSettle(promise, token) {
 "#)]
 extern "C" {
     #[wasm_bindgen(js_name = jspiInit)]
-    fn shim_init(done: &JsValue, check: &JsValue);
+    fn shim_init(done: &JsValue, check: &JsValue, mark: &JsValue);
     #[wasm_bindgen(js_name = jspiTrapError)]
     fn trap_error() -> JsValue;
     #[wasm_bindgen(js_name = jspiHost)]
@@ -263,6 +295,10 @@ extern "C" {
     fn shim_import(value: &JsValue) -> JsValue;
     #[wasm_bindgen(js_name = jspiHostOf)]
     fn shim_host_of(value: &JsValue) -> JsValue;
+    #[wasm_bindgen(js_name = jspiEmbedderFunction)]
+    fn shim_embedder_function(value: &JsValue) -> JsValue;
+    #[wasm_bindgen(js_name = jspiPublic)]
+    fn shim_public(value: &JsValue) -> JsValue;
     #[wasm_bindgen(js_name = jspiWait)]
     fn shim_wait(token: i32) -> JsValue;
     #[wasm_bindgen(js_name = jspiWake)]
@@ -367,6 +403,23 @@ pub(crate) fn import(value: &JsValue) -> JsValue {
 /// [`import`] gives it; anything else as it is.
 pub(crate) fn host_of(value: &JsValue) -> JsValue {
     shim_host_of(value)
+}
+
+/// A JavaScript function an embedder gives, `value`, as a guest is to call
+/// it: a function that marks what it runs as entered synchronously (see
+/// [`suspendable`]), and calls `value` with its receiver and arguments. The
+/// same one for the same function. WebAssembly functions, and the functions
+/// of this crate, are given as they are.
+pub(crate) fn embedder_function(value: &JsValue) -> JsValue {
+    SHIM.with(|_| ());
+    shim_embedder_function(value)
+}
+
+/// What a function is given to JavaScript as: the `WebAssembly.Suspending`
+/// form of an async host function, and the embedder's own function for one
+/// [`embedder_function`] made.
+pub(crate) fn public(value: &JsValue) -> JsValue {
+    shim_public(value)
 }
 
 impl Activation {
@@ -623,14 +676,15 @@ pub(crate) fn refusal(error: &JsValue) -> Option<RuntimeError> {
 /// call since, or that has any other JavaScript frame on the stack since it
 /// was entered. Some engines refuse before the body of the import runs, and
 /// others after. A guest entered by a synchronous call of this crate, or from
-/// inside a host function it made, refuses itself here, before it makes a
-/// wait. Only JavaScript this crate did not make, an import of the embedder's
-/// own that calls an export directly, can enter a guest that makes a wait the
-/// engine then refuses. That wait is forgotten once the guest goes on, and
-/// the store, which the activation holds until the wait is confirmed, is
-/// never given up for it, unless the guest is suspended next somewhere else
-/// before its slice is over: nothing tells that from a wait. Entering guests
-/// from such JavaScript while a guest of the store runs is not supported.
+/// inside a host function it made or a JavaScript function it was given,
+/// refuses itself here, before it makes a wait. Only JavaScript this crate
+/// never saw, an import of a module instantiated without it, can enter a
+/// guest that makes a wait the engine then refuses. That wait is forgotten
+/// once the guest goes on, and the store, which the activation holds until
+/// the wait is confirmed, is never given up for it, unless the guest is
+/// suspended next somewhere else before its slice is over: nothing tells
+/// that from a wait. Entering guests from such JavaScript while a guest of
+/// the store runs is not supported (see `Function::call_async`).
 fn suspendable(id: StoreId) -> Result<Rc<Activation>, JsValue> {
     if entered_synchronously() {
         return Err(cannot_suspend());

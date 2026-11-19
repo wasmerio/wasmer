@@ -295,19 +295,46 @@ impl AsJs for Function {
     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
         let function: JsValue = self.as_js().handle.function.clone().into();
         #[cfg(feature = "experimental-async")]
-        let function = crate::js::jspi::import(&function);
+        let function = crate::js::jspi::public(&function);
         function
     }
 
     /// Takes the `WebAssembly.Suspending` form of an async host function, as
-    /// `as_jsvalue` gives it, for that function.
+    /// `as_jsvalue` gives it, for that function. With `experimental-async`, a
+    /// guest calls a JavaScript function given here through one that marks
+    /// what it runs as entered synchronously: a guest it enters cannot be
+    /// suspended, and an async import refuses to before it runs (see
+    /// `Function::call_async`). `as_jsvalue` gives the function itself back.
     fn from_jsvalue(
         store: &mut impl AsStoreMut,
         function_type: &Self::DefinitionType,
         value: &JsValue,
     ) -> Result<Self, JsError> {
         #[cfg(feature = "experimental-async")]
+        let value = &crate::js::jspi::embedder_function(&crate::js::jspi::host_of(value));
+        Self::from_js_function(store, function_type, value)
+    }
+}
+
+impl Function {
+    /// A function from a JavaScript value as a WebAssembly instance exports
+    /// it: given as it is, but for the suspending form of an async host
+    /// function, which is taken for that function.
+    pub(crate) fn from_export_jsvalue(
+        store: &mut impl AsStoreMut,
+        function_type: &crate::FunctionType,
+        value: &JsValue,
+    ) -> Result<Self, JsError> {
+        #[cfg(feature = "experimental-async")]
         let value = &crate::js::jspi::host_of(value);
+        Self::from_js_function(store, function_type, value)
+    }
+
+    fn from_js_function(
+        store: &mut impl AsStoreMut,
+        function_type: &crate::FunctionType,
+        value: &JsValue,
+    ) -> Result<Self, JsError> {
         if value.is_instance_of::<JsFunction>() {
             Ok(Self::from_vm_extern(
                 store,

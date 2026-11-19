@@ -36,9 +36,9 @@ thread_local! {
 /// nothing to mark.
 ///
 /// Synchronous calls of this crate mark the guest they enter, and the host
-/// functions it makes mark whatever they run: a guest entered from inside
-/// one, also by JavaScript that calls an export directly, is beneath a
-/// JavaScript frame.
+/// functions it makes, and the JavaScript functions it is given, mark
+/// whatever they run: a guest entered from inside one, also by JavaScript
+/// that calls an export directly, is beneath a JavaScript frame.
 #[inline]
 pub(crate) fn enter_sync() -> EnteredGuest {
     EnteredGuest::new(true)
@@ -55,6 +55,14 @@ pub(crate) fn enter_async() -> EnteredGuest {
 #[cfg(feature = "experimental-async")]
 pub(crate) fn entered_synchronously() -> bool {
     ENTERED_SYNCHRONOUSLY.get()
+}
+
+/// Marks what runs from now on as entered synchronously, or not, and returns
+/// how it was marked before: for the JavaScript functions an embedder gives,
+/// which JavaScript calls (see `jspi`).
+#[cfg(feature = "experimental-async")]
+pub(crate) fn mark_entered(synchronously: bool) -> bool {
+    ENTERED_SYNCHRONOUSLY.replace(synchronously)
 }
 
 /// Restores how the guest before was entered when dropped.
@@ -1005,7 +1013,7 @@ macro_rules! impl_host_function {
                 // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                 let func: &Func = unsafe { &*(&() as *const () as *const Func) };
                 let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
-                let _entered = enter_sync();
+                let entered = enter_sync();
 
                 let result = panic::catch_unwind(AssertUnwindSafe(|| {
                     func($(
@@ -1015,6 +1023,8 @@ macro_rules! impl_host_function {
                         }
                     ),* ).into_result()
                 }));
+                // Before anything is thrown below: a throw skips destructors.
+                drop(entered);
 
                 match result {
                     Ok(Ok(result)) => {
@@ -1049,7 +1059,7 @@ macro_rules! impl_host_function {
             {
                 let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
                 let mut store2 = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
-                let _entered = enter_sync();
+                let entered = enter_sync();
 
                 let result = {
                     // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
@@ -1071,6 +1081,8 @@ macro_rules! impl_host_function {
                         ),* ).into_result()
                     }))
                 };
+                // Before anything is thrown below: a throw skips destructors.
+                drop(entered);
 
                 match result {
                     Ok(Ok(result)) => {

@@ -682,7 +682,14 @@ const CATCH_ALL_LEGACY: &str = r#"(module
       (call $fail (local.get 0))
     catch_all
       (call $observe (i32.const 9))
-    end))"#;
+    end)
+  (func (export "fail_then_wait") (param i32) (result i32)
+    try
+      (call $fail (local.get 0))
+    catch_all
+      (call $observe (i32.const 9))
+    end
+    (call $wait (i32.const 1000))))"#;
 
 const CATCH_ALL_TRY_TABLE: &str = r#"(module
   (import "host" "wait" (func $wait (param i32) (result i32)))
@@ -703,7 +710,15 @@ const CATCH_ALL_TRY_TABLE: &str = r#"(module
       (try_table (catch_all $caught)
         (call $fail (local.get 0))
         (return)))
-    (call $observe (i32.const 9))))"#;
+    (call $observe (i32.const 9)))
+  (func (export "fail_then_wait") (param i32) (result i32)
+    (block $done
+      (block $caught
+        (try_table (catch_all $caught)
+          (call $fail (local.get 0)))
+        (br $done))
+      (call $observe (i32.const 9)))
+    (call $wait (i32.const 1000))))"#;
 
 /// The guests of the tests below: without a handler, and with each kind of
 /// handler the engine compiles.
@@ -767,7 +782,8 @@ async fn a_guest_cancelled_after_its_wake_runs_no_more_code() {
 }
 
 /// The handlers of the guests above do run: a guest that is not cancelled
-/// goes on, and they catch what a synchronous host function throws.
+/// goes on, and they catch what a synchronous host function throws. A guest
+/// that caught one can wait in an async import right after.
 #[wasm_bindgen_test]
 async fn the_handlers_catch_what_can_be_caught() {
     for (name, guest) in guests_with_handlers().into_iter().skip(1) {
@@ -786,6 +802,9 @@ async fn the_handlers_catch_what_can_be_caught() {
             ],
             "{name}"
         );
+        let waited = guest.call("fail_then_wait", &[3]).await;
+        assert_eq!(i32_of(waited), AUTO, "{name}");
+        assert_eq!(guest.log()[4..], ["9: async, locked", "wait1000"], "{name}");
     }
 }
 
@@ -1098,6 +1117,13 @@ mod foreign {
       const promise = new Promise((r) => { resolve = r; });
       return [new WebAssembly.Suspending(() => promise), resolve];
     }
+    export function reentering() {
+      const holder = {};
+      const reenter = (id) => {
+        try { return holder.inner(id); } catch (error) { holder.error = error; return -1; }
+      };
+      return [reenter, holder];
+    }
     export function throwingProxy() {
       const trap = () => { throw new Error("a trap ran"); };
       return new Proxy(function () {}, { get: trap, has: trap, getOwnPropertyDescriptor: trap });
@@ -1118,6 +1144,9 @@ mod foreign {
             bytes: &[u8],
             suspending: &wasm_bindgen::JsValue,
         ) -> wasm_bindgen::JsValue;
+        /// A JavaScript function of an `i32` that calls `holder.inner` with
+        /// it, and the holder, where what that throws is kept as `error`.
+        pub(super) fn reentering() -> js_sys::Array;
         /// A function whose `Proxy` traps throw.
         #[wasm_bindgen(js_name = throwingProxy)]
         pub(super) fn throwing_proxy() -> wasm_bindgen::JsValue;
@@ -1245,6 +1274,81 @@ async fn a_refused_reentry_then_a_foreign_suspension_keeps_the_store() {
     );
     assert_eq!(gate.dropped(), 0);
     env.as_mut(&mut store.write_lock().await).inner = None;
+    assert!(store.into_store().is_ok());
+}
+
+/// The same with a JavaScript function of the embedder's own, given with
+/// `Function::from_jsvalue`, that calls the export directly: the guest calls
+/// it through one that marks what it runs, so the import refuses there too.
+#[wasm_bindgen_test]
+async fn an_embedder_reentry_then_a_foreign_suspension_keeps_the_store() {
+    let pair = foreign::foreign_suspending();
+    let relay = wat::parse_str(
+        r#"(module
+          (import "h" "s" (func $s (result i32)))
+          (func (export "s") (result i32) (call $s)))"#,
+    )
+    .unwrap();
+    let suspending = foreign::relay(&relay, &pair.get(0));
+    let resolve: js_sys::Function = pair.get(1).unchecked_into();
+    let reentering = foreign::reentering();
+    let (reenter, holder) = (reentering.get(0), reentering.get(1));
+
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (import "host" "wait" (func $wait (param i32) (result i32)))
+          (import "host" "reenter" (func $reenter (param i32) (result i32)))
+          (import "host" "s" (func $s (result i32)))
+          (func (export "inner") (param i32) (result i32) (call $wait (local.get 0)))
+          (func (export "run") (result i32)
+            (i32.add (call $reenter (i32.const 99)) (call $s))))"#,
+    )
+    .unwrap();
+    let log: Log = Rc::default();
+    let gate = Gate::new(&log);
+    let unary = FunctionType::new([Type::I32], [Type::I32]);
+    let ty = FunctionType::new([], [Type::I32]);
+    let imports = imports! {
+        "host" => {
+            "wait" => gate.import(&mut store),
+            "reenter" => Function::from_jsvalue(&mut store, &unary, &reenter).unwrap(),
+            "s" => Function::from_jsvalue(&mut store, &ty, &suspending).unwrap(),
+        }
+    };
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
+    let inner = instance
+        .exports
+        .get_function("inner")
+        .unwrap()
+        .as_jsvalue(&store);
+    js_sys::Reflect::set(&holder, &"inner".into(), &inner).unwrap();
+    let run = instance.exports.get_function("run").unwrap().clone();
+    let store = store.into_async();
+
+    let mut call: Call = Box::pin(run.call_async(&store, vec![]));
+    assert!(poll_once(&mut call).is_pending());
+    settle().await;
+    assert!(poll_once(&mut call).is_pending());
+    assert!(
+        locked(&store),
+        "the store was given up while the guest waits"
+    );
+    assert!(log.borrow().is_empty(), "the refused host function ran");
+    resolve
+        .call1(&JsValue::UNDEFINED, &JsValue::from(5))
+        .unwrap();
+    // The re-entry failed with -1.
+    assert_eq!(i32_of(call.await), 4);
+    let error = js_sys::Reflect::get(&holder, &"error".into()).unwrap();
+    let error = RuntimeError::from(error);
+    assert_eq!(
+        error.clone().to_trap(),
+        Some(TrapCode::YieldOutsideAsyncContext),
+        "{error}"
+    );
+    assert_eq!(gate.dropped(), 0);
     assert!(store.into_store().is_ok());
 }
 
