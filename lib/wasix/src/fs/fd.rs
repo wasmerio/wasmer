@@ -70,11 +70,29 @@ pub struct InodeVal {
 
 impl InodeVal {
     pub fn read(&self) -> RwLockReadGuard<'_, Kind> {
-        self.kind.read().unwrap()
+        self.kind.read().unwrap_or_else(|poisoned| {
+            self.recover_poisoned_kind();
+            poisoned.into_inner()
+        })
     }
 
     pub fn write(&self) -> RwLockWriteGuard<'_, Kind> {
-        self.kind.write().unwrap()
+        self.kind.write().unwrap_or_else(|poisoned| {
+            self.recover_poisoned_kind();
+            poisoned.into_inner()
+        })
+    }
+
+    /// Called when a panic poisoned the lock of [`InodeVal::kind`].
+    ///
+    /// The lock is still used: every write leaves `Kind` in a valid state, and
+    /// the inode tree only caches the backing filesystem. Failing every later
+    /// access instead would turn one panic into a permanent failure of the
+    /// inode, and of every process sharing it.
+    #[cold]
+    fn recover_poisoned_kind(&self) {
+        tracing::error!("recovering an inode lock poisoned by a panic");
+        self.kind.clear_poison();
     }
 }
 
@@ -151,4 +169,38 @@ pub enum Kind {
 pub enum SymlinkKind {
     Backing,
     Virtual,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        borrow::Cow,
+        panic::{AssertUnwindSafe, catch_unwind},
+        sync::RwLock,
+    };
+
+    use wasmer_wasix_types::wasi::Filestat;
+
+    use super::{InodeVal, Kind};
+
+    #[test]
+    fn inode_lock_stays_usable_after_a_panic_while_held() {
+        let inode = InodeVal {
+            stat: RwLock::new(Filestat::default()),
+            is_preopened: false,
+            name: RwLock::new(Cow::Borrowed("file")),
+            kind: RwLock::new(Kind::Buffer { buffer: Vec::new() }),
+        };
+
+        let panicked = catch_unwind(AssertUnwindSafe(|| {
+            let _guard = inode.write();
+            panic!("panic while holding the inode lock");
+        }));
+        assert!(panicked.is_err());
+        assert!(inode.kind.is_poisoned());
+
+        assert!(matches!(*inode.read(), Kind::Buffer { .. }));
+        assert!(!inode.kind.is_poisoned(), "recovering clears the poison");
+        drop(inode.write());
+    }
 }
