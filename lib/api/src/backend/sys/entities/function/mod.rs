@@ -502,6 +502,60 @@ impl Function {
             .clone()
     }
 
+    fn call_wasm(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        let format_types_for_error_message = |items: &[Value]| {
+            items
+                .iter()
+                .map(|param| param.ty().to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        };
+        // The signature is borrowed from the function, not cloned.
+        let store_ref = store.as_store_ref();
+        let vm_function = self.handle.get(store_ref.objects().as_sys());
+        let signature = &vm_function.signature;
+        let trampoline = unsafe { vm_function.anyfunc.as_ptr().as_ref().call_trampoline };
+        if signature.params().len() != params.len() {
+            return Err(RuntimeError::new(format!(
+                "Parameters of type [{}] did not match signature {}",
+                format_types_for_error_message(params),
+                signature
+            )));
+        }
+
+        let mut values_vec: RawValues =
+            smallvec![RawValue { i32: 0 }; max(params.len(), signature.results().len())];
+
+        // Store the argument values into `values_vec`.
+        let param_tys = signature.params().iter();
+        for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
+            if arg.ty() != *ty {
+                let param_types = format_types_for_error_message(params);
+                return Err(RuntimeError::new(format!(
+                    "Parameters of type [{param_types}] did not match signature {signature}",
+                )));
+            }
+            if !arg.is_from_store(&store_ref) {
+                return Err(RuntimeError::new("cross-`Store` values are not supported"));
+            }
+            *slot = arg.as_raw(&store_ref);
+        }
+
+        // The result types are copied out, and the borrow of the function
+        // ends here: its signature lives in the store's function list, which
+        // the call (or reading a funcref result) may grow and move.
+        let result_types = Types::from_slice(signature.results());
+
+        // Invoke the call
+        self.call_wasm_raw(store, wrapper, trampoline, &mut values_vec)?;
+        Ok(unsafe { results_from_raw(store, &result_types, &values_vec) })
+    }
+
     /// Calls the function with its arguments in `params`, which must also have
     /// room for its results: the call leaves them at the start of `params`.
     fn call_wasm_raw(
@@ -591,53 +645,7 @@ impl Function {
         wrapper: Option<&mut dyn CallWrapper>,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
-        let store_ref = store.as_store_ref();
-        let vm_function = self.handle.get(store_ref.objects().as_sys());
-        let signature = &vm_function.signature;
-        let trampoline = unsafe { vm_function.anyfunc.as_ptr().as_ref().call_trampoline };
-        let format_types_for_error_message = |items: &[Value]| {
-            items
-                .iter()
-                .map(|param| param.ty().to_string())
-                .collect::<Vec<String>>()
-                .join(", ")
-        };
-        if signature.params().len() != params.len() {
-            return Err(RuntimeError::new(format!(
-                "Parameters of type [{}] did not match signature {}",
-                format_types_for_error_message(params),
-                signature
-            )));
-        }
-
-        let mut values_vec: RawValues =
-            smallvec![RawValue { i32: 0 }; max(params.len(), signature.results().len())];
-
-        // Store the argument values into `values_vec`.
-        for ((arg, slot), ty) in params
-            .iter()
-            .zip(&mut values_vec)
-            .zip(signature.params())
-        {
-            if arg.ty() != *ty {
-                let param_types = format_types_for_error_message(params);
-                return Err(RuntimeError::new(format!(
-                    "Parameters of type [{param_types}] did not match signature {signature}",
-                )));
-            }
-            if !arg.is_from_store(&store_ref) {
-                return Err(RuntimeError::new("cross-`Store` values are not supported"));
-            }
-            *slot = arg.as_raw(&store_ref);
-        }
-
-        // The result types are copied out, and the borrow of the function
-        // ends here: its signature lives in the store's function list, which
-        // the call (or reading a funcref result) may grow and move.
-        let result_types = Types::from_slice(signature.results());
-
-        self.call_wasm_raw(store, wrapper, trampoline, &mut values_vec)?;
-        Ok(unsafe { results_from_raw(store, &result_types, &values_vec) })
+        self.call_wasm(store, wrapper, params)
     }
 
     #[cfg(feature = "experimental-async")]
