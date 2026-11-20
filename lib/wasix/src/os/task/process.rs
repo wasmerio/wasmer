@@ -816,45 +816,71 @@ impl WasiProcess {
                 waits.push(async move {
                     let join = process.join().await;
                     let mut inner = inner.0.lock().unwrap();
-                    inner.children.retain(|a| a.pid != child.pid);
-                    join
+                    // A concurrent proc_join may have reaped this child while
+                    // we waited. Only the waiter that removes it owns its
+                    // result.
+                    inner
+                        .children
+                        .iter()
+                        .position(|item| item.pid == child.pid)
+                        .map(|index| {
+                            inner.children.remove(index);
+                            join
+                        })
                 })
             }
         }
-        futures::future::join_all(waits).await.into_iter().next()
+        futures::future::join_all(waits)
+            .await
+            .into_iter()
+            .flatten()
+            .next()
     }
 
     /// Waits for any of the children to finished
     pub async fn join_any_child(&mut self) -> Result<Option<(WasiProcessId, ExitCode)>, Errno> {
         let _guard = WasiProcessWait::new(self);
-        let children: Vec<_> = {
-            let inner = self.inner.0.lock().unwrap();
-            inner.children.clone()
-        };
-        if children.is_empty() {
-            return Err(Errno::Child);
-        }
-
-        let mut waits = Vec::new();
-        for child in children {
-            if let Some(process) = self.compute.must_upgrade().get_process(child.pid) {
-                let inner = self.inner.clone();
-                waits.push(async move {
-                    let join = process.join().await;
-                    let mut inner = inner.0.lock().unwrap();
-                    inner.children.retain(|a| a.pid != child.pid);
-                    (child, join)
-                })
+        loop {
+            let children: Vec<_> = {
+                let inner = self.inner.0.lock().unwrap();
+                inner.children.clone()
+            };
+            if children.is_empty() {
+                return Err(Errno::Child);
             }
+
+            let mut waits = Vec::new();
+            for child in children {
+                if let Some(process) = self.compute.must_upgrade().get_process(child.pid) {
+                    waits.push(async move { (child, process.join().await) });
+                }
+            }
+            if waits.is_empty() {
+                return Err(Errno::Child);
+            }
+            let (child, res) = futures::future::select_all(waits.into_iter().map(Box::pin))
+                .await
+                .0;
+            // Another concurrent wait may have claimed this child while we
+            // were suspended. Only the caller that removes it may report its
+            // exit status; losers retry with the remaining children.
+            let claimed = {
+                let mut inner = self.inner.0.lock().unwrap();
+                if let Some(index) = inner.children.iter().position(|item| item.pid == child.pid) {
+                    inner.children.remove(index);
+                    true
+                } else {
+                    false
+                }
+            };
+            if !claimed {
+                continue;
+            }
+
+            let code =
+                res.unwrap_or_else(|e| e.as_exit_code().unwrap_or_else(|| Errno::Canceled.into()));
+            return Ok(Some((child.pid, code)));
         }
-        let (child, res) = futures::future::select_all(waits.into_iter().map(Box::pin))
-            .await
-            .0;
-
-        let code =
-            res.unwrap_or_else(|e| e.as_exit_code().unwrap_or_else(|| Errno::Canceled.into()));
-
-        Ok(Some((child.pid, code)))
     }
 
     /// Terminate the process and all its threads
