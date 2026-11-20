@@ -116,6 +116,43 @@ impl FileHandle {
 }
 
 impl VirtualFile for FileHandle {
+    fn poll_sync_data(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let mut fs = self
+            .filesystem
+            .inner
+            .write()
+            .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
+
+        let inode = fs.storage.get_mut(self.inode);
+        match inode {
+            Some(Node::File(node)) => Poll::Ready(node.file.flush()),
+            Some(Node::OffloadedFile(node)) => Poll::Ready(node.file.flush()),
+            Some(Node::ReadOnlyFile(node)) => Poll::Ready(node.file.flush()),
+            Some(Node::CustomFile(node)) => {
+                let mut file = node.file.lock().unwrap();
+                let file = Pin::new(file.as_mut());
+                file.poll_sync_data(cx)
+            }
+            Some(Node::ArcFile { .. }) => {
+                drop(fs);
+                match self.lazy_load_arc_file_mut() {
+                    Ok(file) => {
+                        let file = Pin::new(file);
+                        file.poll_sync_data(cx)
+                    }
+                    Err(_) => Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!("inode `{}` doesn't match a file", self.inode),
+                    ))),
+                }
+            }
+            _ => Poll::Ready(Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("inode `{}` doesn't match a file", self.inode),
+            ))),
+        }
+    }
+
     fn last_accessed(&self) -> u64 {
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,

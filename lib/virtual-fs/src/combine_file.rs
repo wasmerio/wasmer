@@ -18,6 +18,10 @@ impl CombineFile {
 }
 
 impl VirtualFile for CombineFile {
+    fn poll_sync_data(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.tx.as_mut()).poll_sync_data(cx)
+    }
+
     fn last_accessed(&self) -> u64 {
         self.rx.last_accessed()
     }

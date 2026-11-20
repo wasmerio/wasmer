@@ -482,6 +482,15 @@ impl WasiStateFileGuard {
 }
 
 impl VirtualFile for WasiStateFileGuard {
+    fn poll_sync_data(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        let mut guard = self.lock_write();
+        if let Some(file) = guard.as_mut() {
+            Pin::new(file.deref_mut()).poll_sync_data(cx)
+        } else {
+            Poll::Ready(Err(std::io::ErrorKind::Unsupported.into()))
+        }
+    }
+
     fn last_accessed(&self) -> u64 {
         let guard = self.lock_read();
         if let Some(file) = guard.as_ref() {

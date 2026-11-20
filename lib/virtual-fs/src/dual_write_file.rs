@@ -26,6 +26,10 @@ impl DualWriteFile {
 }
 
 impl VirtualFile for DualWriteFile {
+    fn poll_sync_data(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(self.inner.as_mut()).poll_sync_data(cx)
+    }
+
     fn last_accessed(&self) -> u64 {
         self.inner.last_accessed()
     }
