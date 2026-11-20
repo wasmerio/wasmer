@@ -275,7 +275,9 @@ pub(crate) mod context_mode {
 /// another store (`objects_mut` hands them out): wherever they go, the slot
 /// goes with them, and a call into that store writes the slot its host
 /// functions read. The objects free it after the host functions, so it
-/// outlives them.
+/// outlives them. A single host function cannot be moved to another store's
+/// objects without unsafe code (`StoreObject::list_mut`): it would read the
+/// slot of the objects it came from.
 #[cfg(feature = "sys")]
 #[derive(Clone, Copy)]
 pub(crate) struct SlotRef(NonNull<wasmer_vm::StoreSlot>);

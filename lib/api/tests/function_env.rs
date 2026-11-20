@@ -57,7 +57,8 @@ fn a_replaced_environment_is_refused() {
     let mut store = Store::default();
     let env = FunctionEnv::new(&mut store, 7u32);
     assert_eq!(*env.as_ref(&store), 7);
-    for slot in VMFunctionEnvironment::list_mut(store.objects_mut().as_sys_mut()) {
+    // Safety: replaces function environments, which nothing points into.
+    for slot in unsafe { VMFunctionEnvironment::list_mut(store.objects_mut().as_sys_mut()) } {
         *slot = VMFunctionEnvironment::new(1u8);
     }
     let read = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| *env.as_ref(&store)));

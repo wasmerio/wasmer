@@ -71,7 +71,18 @@ pub trait StoreObject: Sized {
     fn list(ctx: &StoreObjects) -> &Vec<Self>;
 
     /// List the objects in the store, mutably.
-    fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self>;
+    ///
+    /// # Safety
+    ///
+    /// The objects stay with the objects they were added to: none may be
+    /// moved into another [`StoreObjects`], and none that something points
+    /// into may be removed or replaced. The host functions among the objects
+    /// keep a pointer to their slot ([`StoreObjects::slot`]), which these
+    /// objects free when they are dropped, and instances keep pointers into
+    /// the functions, memories, tables, globals and tags they import. Adding
+    /// objects is fine, and so is replacing a function environment: its
+    /// handles check the type of what they find.
+    unsafe fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self>;
 }
 
 macro_rules! impl_context_object {
@@ -81,7 +92,7 @@ macro_rules! impl_context_object {
                 fn list(ctx: &StoreObjects) -> &Vec<Self> {
                     &ctx.$field
                 }
-                fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self> {
+                unsafe fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self> {
                     &mut ctx.$field
                 }
             }
@@ -181,7 +192,8 @@ impl StoreObjects {
         b: InternalStoreHandle<T>,
     ) -> (&mut T, &mut T) {
         assert_ne!(a.index(), b.index());
-        let list = T::list_mut(self);
+        // SAFETY: the objects stay in the list.
+        let list = unsafe { T::list_mut(self) };
         if a.index() < b.index() {
             let (low, high) = list.split_at_mut(b.index());
             (&mut low[a.index()], &mut high[0])
@@ -362,7 +374,8 @@ impl<T> Eq for InternalStoreHandle<T> {}
 impl<T: StoreObject> InternalStoreHandle<T> {
     /// Moves the given object into a context and returns a handle to it.
     pub fn new(ctx: &mut StoreObjects, val: T) -> Self {
-        let list = T::list_mut(ctx);
+        // SAFETY: only adds an object.
+        let list = unsafe { T::list_mut(ctx) };
         let idx = NonZeroUsize::new(list.len() + 1).unwrap();
         list.push(val);
         Self {
@@ -378,7 +391,9 @@ impl<T: StoreObject> InternalStoreHandle<T> {
 
     /// Returns a mutable reference to the object that this handle points to.
     pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects) -> &'a mut T {
-        &mut T::list_mut(ctx)[self.idx.get() - 1]
+        // SAFETY: the objects stay in the list.
+        let list = unsafe { T::list_mut(ctx) };
+        &mut list[self.idx.get() - 1]
     }
 
     pub(crate) fn index(&self) -> usize {

@@ -102,7 +102,9 @@ mod tests {
             Vec::new(),
         );
         let handle = StoreHandle::new(&mut objects, VMFunctionEnvironment::new(7u32));
-        VMFunctionEnvironment::list_mut(&mut objects)[0] = VMFunctionEnvironment::new(1u8);
+        // SAFETY: replaces a function environment, which nothing points into.
+        let list = unsafe { VMFunctionEnvironment::list_mut(&mut objects) };
+        list[0] = VMFunctionEnvironment::new(1u8);
         let env = handle.get(&objects);
         assert!(env.downcast_ref::<u32>().is_none());
         assert_eq!(env.downcast_ref::<u8>(), Some(&1));
