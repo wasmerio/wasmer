@@ -5,7 +5,9 @@ use std::{
 };
 
 use crate::Result;
+#[cfg(any(feature = "hyper", feature = "tokio-tungstenite"))]
 use bincode::config;
+#[cfg(any(feature = "hyper", feature = "tokio-tungstenite"))]
 use bytes::Bytes;
 use futures_util::{Future, Sink, SinkExt, Stream, future::BoxFuture};
 #[cfg(feature = "hyper")]
