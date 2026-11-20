@@ -1233,27 +1233,29 @@ macro_rules! impl_host_function {
                     Err(error) => crate::backend::js::error::raise(Box::new(error)),
                 };
                 let mut store = unsafe { StoreMut::from_raw(store_ptr) };
-                let mut store2 = unsafe { StoreMut::from_raw(store_ptr) };
                 let entered = enter_sync();
 
                 let result = {
-                    // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                     let func: &Func = unsafe { &*(&() as *const () as *const Func) };
                     panic::catch_unwind(AssertUnwindSafe(|| {
+                        // The arguments first, and then the environment, which
+                        // borrows the store until the function returns: one
+                        // borrow of the store at a time.
+                        $(
+                            let $x: $x = {
+                                let native = unsafe { NativeWasmTypeInto::from_abi(&mut store, $x) };
+                                FromToNativeWasmType::from_native(native)
+                            };
+                        )*
                         let handle: crate::backend::js::store::StoreHandle<crate::backend::js::vm::VMFunctionEnvironment> =
                           unsafe {
                               crate::backend::js::store::StoreHandle::from_internal(
-                                  store2.objects_mut().id(),
+                                  store.objects_mut().id(),
                                   crate::backend::js::store::InternalStoreHandle::from_index(handle_index).unwrap(),
                               )
                           };
-                        let env: crate::backend::js::function::env::FunctionEnvMut<T> = crate::backend::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store2);
-                        func(BackendFunctionEnvMut::Js(env).into(), $(
-                            {
-                                let native = unsafe { NativeWasmTypeInto::from_abi(&mut store, $x) };
-                                FromToNativeWasmType::from_native(native)
-                            }
-                        ),* ).into_result()
+                        let env: crate::backend::js::function::env::FunctionEnvMut<T> = crate::backend::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store);
+                        func(BackendFunctionEnvMut::Js(env).into(), $( $x ),* ).into_result()
                     }))
                 };
                 // Before anything is thrown below: a throw skips destructors.

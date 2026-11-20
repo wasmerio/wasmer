@@ -341,6 +341,10 @@ impl Future for AsyncCallFuture {
                     || self.activation.vm.is_interrupted(store_id)
                 {
                     self.remove_from_wakers_list();
+                    // The call ends here, so its coroutine goes now, and with
+                    // it the installations that keep the store interrupted.
+                    self.cancel();
+                    self.pending_future = None;
                     return Poll::Ready(Err(super::vm::Trap::lib(
                         super::vm::TrapCode::HostInterrupt,
                     )
@@ -430,30 +434,40 @@ impl Future for AsyncCallFuture {
     }
 }
 
-impl Drop for AsyncCallFuture {
-    fn drop(&mut self) {
-        self.remove_from_wakers_list();
-        // A call dropped while suspended is cancelled by unwinding its
-        // coroutine: host frames run their destructors, guest frames are
-        // discarded without running. The unwind happens on the coroutine, so
-        // it needs the coroutine's state like any other resumption. The store
-        // is not locked for it and nothing on the way may use it. The pending
-        // host future is dropped afterwards, with the other fields.
+impl AsyncCallFuture {
+    /// Ends a call whose coroutine will not be resumed. A suspended coroutine
+    /// is unwound: guest frames are discarded without running, and the
+    /// frames of the call between them run their destructors. The unwind
+    /// happens on the coroutine, so it needs the coroutine's state like any
+    /// other resumption. It needs no store: a coroutine suspends only where
+    /// no host function holds a borrow of its store (see
+    /// `block_on_host_future`), so no frame on its stack uses one.
+    fn cancel(&mut self) {
         if self
             .coroutine
             .as_ref()
             .is_some_and(|c| c.started() && !c.done())
         {
             if !StoreContext::thread_can_unwind() {
-                // The thread is exiting, and what the unwind needs of it is
-                // gone: the coroutine is forgotten, with its stack, and so
-                // are the registrations its calls hold.
+                // What the unwind needs of the thread is gone: the coroutine
+                // is forgotten, with its stack, and so are the registrations
+                // its calls hold.
                 std::mem::forget(self.coroutine.take());
                 self.activation.vm.abandon();
                 return;
             }
             self.switch_to_coroutine(None);
         }
+        self.coroutine = None;
+    }
+}
+
+impl Drop for AsyncCallFuture {
+    fn drop(&mut self) {
+        self.remove_from_wakers_list();
+        // The pending host future is dropped afterwards, with the other
+        // fields.
+        self.cancel();
     }
 }
 
@@ -508,8 +522,11 @@ pub(crate) fn block_on_host_future(future: HostFuture) -> Result<Vec<Value>, Asy
             run_immediate(future)
         }
         // A store entered synchronously from inside a coroutine (another
-        // store, called by a host function) is a sync context too.
-        Some(_) if !StoreContext::top_is_async() => run_immediate(future),
+        // store, called by a host function) is a sync context too, and so is
+        // a guest call a host function made on its own store: the host
+        // function holds a borrow of the store across it, which the store
+        // must not be given up under (see `StoreContext::top_can_suspend`).
+        Some(_) if !StoreContext::top_can_suspend() => run_immediate(future),
         Some(context) => unsafe { context.as_ref().expect("valid context pointer") }
             .block_on_future(future)
             .map_err(AsyncRuntimeError::RuntimeError),
@@ -522,12 +539,14 @@ pub(crate) fn block_on_host_future(future: HostFuture) -> Result<Vec<Value>, Asy
 // correctly.
 #[cfg(feature = "experimental-host-interrupt")]
 pub(crate) fn notify_pending_futures_of_interrupt(store_id: StoreId) {
-    let dashmap::Entry::Occupied(entry) = ASYNC_CALL_FUTURE_WAKERS.entry(store_id) else {
-        return;
+    // Woken once the map is unlocked: a waker may poll its call at once,
+    // which takes the map's lock again.
+    let wakers: Vec<Waker> = match ASYNC_CALL_FUTURE_WAKERS.get(&store_id) {
+        Some(wakers) => wakers.values().cloned().collect(),
+        None => return,
     };
-
-    for waker in entry.get().values() {
-        waker.wake_by_ref();
+    for waker in wakers {
+        waker.wake();
     }
 }
 
@@ -765,11 +784,12 @@ mod instantiation {
         <wasmer_vm::VMInstance as wasmer_vm::StoreObject>::list(objects).len()
     }
 
-    /// An instance whose start function waits is the store's already: if the
-    /// call that instantiates is cancelled while it waits, the instance is
-    /// left to the store, which frees it with itself, rather than to nobody.
+    /// A start function that `Instance::new` runs from a host function cannot
+    /// suspend its call: the host function holds a borrow of the store across
+    /// it. An async import it waits in fails, and so does the instantiation;
+    /// the instance is the store's already, which frees it with itself.
     #[test]
-    fn a_cancelled_start_function_leaves_its_instance_to_the_store() {
+    fn a_start_function_run_by_a_host_function_cannot_suspend() {
         let mut store = sys_store();
         let module = Module::new(
             &store,
@@ -786,9 +806,11 @@ mod instantiation {
             move |mut env: FunctionEnvMut<()>, _: &[Value]| {
                 let mut imports = Imports::new();
                 imports.define("h", "wait", wait.clone());
-                Instance::new(&mut env, &module, &imports)
-                    .map_err(|error| RuntimeError::new(error.to_string()))?;
-                Ok(vec![])
+                match Instance::new(&mut env, &module, &imports) {
+                    Ok(_) => Ok(vec![]),
+                    Err(crate::InstantiationError::Start(error)) => Err(error),
+                    Err(error) => Err(RuntimeError::new(error.to_string())),
+                }
             }
         });
         let before = instances(&store);
@@ -796,7 +818,13 @@ mod instantiation {
         let mut call: Pin<Box<dyn Future<Output = CallResult>>> =
             Box::pin(instantiate.call_async(&store, vec![]));
         let waker = futures::task::noop_waker();
-        assert!(call.as_mut().poll(&mut Context::from_waker(&waker)).is_pending());
+        let Poll::Ready(Err(error)) = call.as_mut().poll(&mut Context::from_waker(&waker)) else {
+            panic!("the start function suspended the call");
+        };
+        assert_eq!(
+            error.to_trap(),
+            Some(crate::sys::vm::TrapCode::YieldOutsideAsyncContext)
+        );
         drop(call);
         let Ok(store) = store.into_store() else {
             panic!("the store is still shared");

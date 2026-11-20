@@ -240,6 +240,12 @@ fn cannot_yield_when_not_in_async_context() -> Result<()> {
     Ok(())
 }
 
+/// A synchronous host function of a `call_async` calls back into its guest,
+/// holding its borrow of the store across that call, so the guest it calls
+/// cannot be suspended: whoever used the store while it waited would alias
+/// that borrow. An async import that is ready at once goes through; one that
+/// has to wait fails with `YieldOutsideAsyncContext`, as on the JavaScript
+/// backend, and the host function goes on with its store.
 #[test]
 #[cfg_attr(
     feature = "v8-default",
@@ -248,10 +254,14 @@ fn cannot_yield_when_not_in_async_context() -> Result<()> {
 fn nested_async_in_sync() -> Result<()> {
     const WAT: &str = r#"
     (module
-        (import "env" "sync" (func $sync (result i32)))
+        (import "env" "sync" (func $sync (param i32) (result i32)))
+        (import "env" "ready" (func $ready (result i32)))
         (import "env" "async" (func $async (result i32)))
-        (func (export "entry") (result i32)
-            call $sync
+        (func (export "entry") (param i32) (result i32)
+            (call $sync (local.get 0))
+        )
+        (func (export "inner_ready") (result i32)
+            call $ready
         )
         (func (export "inner_async") (result i32)
             call $async
@@ -264,25 +274,39 @@ fn nested_async_in_sync() -> Result<()> {
     let module = Module::new(&store, wasm)?;
 
     struct Env {
-        inner_async: RefCell<Option<wasmer::TypedFunction<(), i32>>>,
+        inner: RefCell<Vec<wasmer::TypedFunction<(), i32>>>,
     }
     let env = FunctionEnv::new(
         &mut store,
         Env {
-            inner_async: RefCell::new(None),
+            inner: RefCell::new(Vec::new()),
         },
     );
 
-    let sync = Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<Env>| {
-        let (env, mut store) = env.data_and_store_mut();
-        env.inner_async
-            .borrow()
-            .as_ref()
-            .expect("inner_async function to be set")
-            .call(&mut store)
-            .expect("inner async call to succeed")
-    });
+    let sync = Function::new_typed_with_env(
+        &mut store,
+        &env,
+        |mut env: FunctionEnvMut<Env>, which: i32| -> i32 {
+            let inner = env.data().inner.borrow()[which as usize].clone();
+            match inner.call(&mut env) {
+                Ok(value) => value,
+                Err(error) => {
+                    assert_eq!(error.to_trap(), Some(TrapCode::YieldOutsideAsyncContext));
+                    // The host function goes on with its store.
+                    -(env.data().inner.borrow().len() as i32)
+                }
+            }
+        },
+    );
 
+    // A typed async host function takes the store's lock to convert its
+    // results, which it cannot get where its guest cannot be suspended, as in
+    // a synchronous call: this one gives its results as they are.
+    let ready = Function::new_async(
+        &mut store,
+        FunctionType::new(vec![], vec![Type::I32]),
+        |_| async { Ok(vec![Value::I32(7)]) },
+    );
     let async_ = Function::new_typed_async(&mut store, async || {
         tokio::task::yield_now().await;
         42
@@ -291,31 +315,32 @@ fn nested_async_in_sync() -> Result<()> {
     let imports = imports! {
         "env" => {
             "sync" => sync,
+            "ready" => ready,
             "async" => async_,
         }
     };
 
     let instance = Instance::new(&mut store, &module, &imports)?;
 
-    let inner_async = instance
-        .exports
-        .get_typed_function::<(), i32>(&store, "inner_async")
-        .unwrap();
-    env.as_mut(&mut store)
-        .inner_async
-        .borrow_mut()
-        .replace(inner_async);
+    for name in ["inner_ready", "inner_async"] {
+        let inner = instance
+            .exports
+            .get_typed_function::<(), i32>(&store, name)
+            .unwrap();
+        env.as_mut(&mut store).inner.borrow_mut().push(inner);
+    }
 
     let entry = instance
         .exports
-        .get_typed_function::<(), i32>(&store, "entry")?;
-    let result = tokio::runtime::Builder::new_current_thread()
+        .get_typed_function::<i32, i32>(&store, "entry")?;
+    let store = store.into_async();
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
-        .unwrap()
-        .block_on(entry.call_async(&store.into_async()))?;
+        .unwrap();
 
-    assert_eq!(result, 42);
+    assert_eq!(runtime.block_on(entry.call_async(&store, 0))?, 7);
+    assert_eq!(runtime.block_on(entry.call_async(&store, 1))?, -2);
 
     Ok(())
 }
