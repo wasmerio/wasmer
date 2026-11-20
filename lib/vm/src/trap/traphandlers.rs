@@ -1897,8 +1897,11 @@ pub fn host_call_in_place_on(thread: CurrentThread) -> Option<HostCallInPlace> {
     if let Some(stack) = wasm_stack {
         // SAFETY: it lives on the stack of the coroutine that is running.
         let limit = unsafe { stack.as_ref() }.limit;
-        // On a Wasm stack, the stack pointer is above its limit.
-        let left = stack_pointer().wrapping_sub(limit);
+        // Below the limit is none: a frame can reach below it, into the guard
+        // page, before it touches the page. Then the host function must not
+        // run as host code there, where the signal handler leaves its fault
+        // alone and the process dies; switching stacks faults as the guest.
+        let left = stack_pointer().saturating_sub(limit);
         if left < HOST_CALL_RESERVE.load(Ordering::Relaxed) {
             return None;
         }
@@ -3152,6 +3155,40 @@ mod tests {
             unsafe { raise_lib_trap(Trap::lib(TrapCode::IntegerDivisionByZero)) }
         });
         assert!(r.is_err(), "the outer call unwinds from its own stack");
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    /// A host call from a frame that reaches below the limit, into the guard
+    /// page, without having touched it yet, has no room left: it switches
+    /// stacks. Run in place, as host code, it would fault there, and the
+    /// signal handler would leave the fault alone.
+    #[test]
+    fn a_host_call_from_below_the_limit_switches_stacks() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        let _config = RestoreHostCallConfig::new();
+        set_host_calls_on_native_stack(false);
+        set_host_call_reserve(DEFAULT_HOST_CALL_RESERVE);
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r = on_wasm_stack(get_stack_size(), None, || {
+            let outer = current_wasm_stack().expect("running on a Wasm stack");
+            // The stack as such a frame sees it: its limit above the frame.
+            let below = WasmStack {
+                yielder: unsafe { outer.as_ref() }.yielder,
+                limit: stack_pointer() + region::page::size(),
+            };
+            THREAD_STATE.with(|state| state.wasm_stack.set(Some(NonNull::from(&below))));
+            let in_place = host_call_in_place();
+            let switches = in_place.is_none();
+            drop(in_place);
+            THREAD_STATE.with(|state| state.wasm_stack.set(Some(outer)));
+            switches
+        });
+        assert_eq!(r.ok(), Some(true));
 
         clear_tls_stack();
         drain_stack_pool();
