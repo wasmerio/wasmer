@@ -137,6 +137,15 @@ struct ThreadState {
     /// stack: `None` means no Wasm is running at this point, which the signal
     /// handler relies on to tell faults in host code from Wasm traps.
     wasm_stack: Cell<Option<NonNull<WasmStack>>>,
+    /// The Wasm stack that host code runs on in place, if it does (see
+    /// [`host_call_in_place`]): set while such a host call runs, and cleared
+    /// for whatever it runs on another stack. A call into Wasm from host code
+    /// in place resumes its coroutine from the stack that Wasm stack's
+    /// coroutine was resumed from, and `on_host_stack` runs there too, so
+    /// that the stack an entry coroutine switches back to is never another
+    /// Wasm stack. It belongs to the running activation, and is exchanged by
+    /// [`ActivationState::swap`].
+    in_place: Cell<Option<NonNull<WasmStack>>>,
     /// Entry coroutines kept between calls, suspended (see `EntryCoroutine`):
     /// a call is one resume of one of them instead of setting up a new
     /// coroutine. A call takes the first slot no running call uses and uses
@@ -269,6 +278,7 @@ thread_local! {
         ThreadState {
             trap_handler: AtomicPtr::new(ptr::null_mut()),
             wasm_stack: Cell::new(None),
+            in_place: Cell::new(None),
             entries: ManuallyDrop::new([UnsafeCell::new(None), UnsafeCell::new(None)]),
             entry_busy: Cell::new(0),
             job: Cell::new(EntryJob::NONE),
@@ -1217,6 +1227,8 @@ where
 /// same around its own switches.
 pub struct ActivationState {
     trap_handler: *mut TrapHandlerContext,
+    /// See `ThreadState::in_place`.
+    in_place: Option<NonNull<WasmStack>>,
     #[cfg(feature = "experimental-host-interrupt")]
     active_stores: interrupt_registry::ActiveStores,
 }
@@ -1232,6 +1244,7 @@ impl ActivationState {
     pub const fn new() -> Self {
         Self {
             trap_handler: ptr::null_mut(),
+            in_place: None,
             #[cfg(feature = "experimental-host-interrupt")]
             active_stores: interrupt_registry::ActiveStores::new(),
         }
@@ -1247,23 +1260,27 @@ impl ActivationState {
     /// - Calls come in pairs on one thread: one immediately before switching
     ///   to the stack that owns this state, and one immediately after control
     ///   comes back from it, whether it suspended, returned or unwound.
-    /// - It is called from host code, never while running on a Wasm stack
-    ///   (host functions run inside [`on_host_stack`], so they qualify).
+    /// - It is called from host code, never while Wasm runs. Host code may
+    ///   run in place on a Wasm stack (see [`host_call_in_place`]): which one
+    ///   it is goes with the activation too, so that the calls into Wasm the
+    ///   switched-to stack makes start from that stack.
     /// - A state that is not empty (see [`Self::is_empty`]) must not be
     ///   swapped in once the stack that owns it is gone, nor on another
     ///   thread.
     pub unsafe fn swap(&mut self) {
-        // Only the trap handler (and the interrupt registry's active stores)
-        // belongs to an activation. The Wasm stack is not part of the
-        // exchange because it is unset on both sides: host code runs with it
-        // taken (`on_host_stack`, `host_call_in_place`), and `on_wasm_stack`
-        // clears it on the way out. The cached stacks, the entry coroutines
-        // and the one-time setup flags belong to the thread.
+        // Only the trap handler, the Wasm stack host code runs on in place
+        // (and the interrupt registry's active stores) belong to an
+        // activation. The Wasm stack is not part of the exchange because it is
+        // unset on both sides: host code runs with it taken (`on_host_stack`,
+        // `host_call_in_place`), and `on_wasm_stack` clears it on the way out.
+        // The cached stacks, the entry coroutines and the one-time setup flags
+        // belong to the thread.
         THREAD_STATE.with(|state| {
             debug_assert!(
                 state.wasm_stack.get().is_none(),
                 "activation switched while running on the Wasm stack"
             );
+            self.in_place = state.in_place.replace(self.in_place);
             compiler_fence(Ordering::Release);
             self.trap_handler = state
                 .trap_handler
@@ -1313,6 +1330,7 @@ impl ActivationState {
     /// gone (see [`Self::thread_is_usable`]).
     pub fn abandon(&mut self) {
         self.trap_handler = ptr::null_mut();
+        self.in_place = None;
         #[cfg(feature = "experimental-host-interrupt")]
         self.active_stores.abandon();
     }
@@ -1493,6 +1511,39 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     outcome.map(|()| unsafe { result.assume_init() })
 }
 
+/// Runs `f` on the stack that the coroutine of `wasm_stack`, where host code
+/// runs in place, was resumed from, with no host code in place while it runs.
+#[cold]
+#[inline(never)]
+fn on_parent_of_in_place<F: FnOnce(&ThreadState) -> T, T>(
+    state: &ThreadState,
+    wasm_stack: NonNull<WasmStack>,
+    f: F,
+) -> T {
+    // SAFETY: it lives on the stack of the coroutine that is running, under
+    // the host code that runs in place on it.
+    let yielder = unsafe { wasm_stack.as_ref().yielder.as_ref() };
+    let wrapped = SendWrapper((f, ptr::from_ref(state), wasm_stack));
+    yielder.on_parent_stack(move || {
+        let wrapped = wrapped;
+        let (f, state, wasm_stack) = wrapped.0;
+        // SAFETY: this thread's state; the closure runs on this thread.
+        let state = unsafe { &*state };
+        state.in_place.set(None);
+        defer! {
+            state.in_place.set(Some(wasm_stack));
+        }
+        f(state)
+    })
+}
+
+/// `Yielder::on_parent_stack` requires its closure to be `Send`, so that the
+/// yielder cannot be called from the parent stack. That is not a problem
+/// here, since the yielder is not exposed, and the closure runs on the same
+/// thread.
+struct SendWrapper<T>(T);
+unsafe impl<T> Send for SendWrapper<T> {}
+
 /// Runs the call set in `state.job` as one resume of `entry`, with the thread
 /// state pointing at the coroutine's trap handler context.
 ///
@@ -1520,7 +1571,11 @@ unsafe fn resume_entry(
         state.trap_handler.store(prev, Ordering::Relaxed);
         compiler_fence(Ordering::Acquire);
     }
-    match entry.coro.resume(()) {
+    let resumed = match state.in_place.get() {
+        None => entry.coro.resume(()),
+        Some(wasm_stack) => resume_from_parent_of(state, wasm_stack, &mut entry.coro),
+    };
+    match resumed {
         // The call returned, and the coroutine waits for the next one.
         CoroutineResult::Yield(reason) if reason.is_null() => Ok(()),
         // This came from unwind_with, which requires that there be only Wasm
@@ -1533,6 +1588,27 @@ unsafe fn resume_entry(
         // A trap handler made the coroutine return.
         CoroutineResult::Return(reason) => Err(reason),
     }
+}
+
+/// Resumes `coro` for a call into Wasm from host code that runs in place on
+/// `wasm_stack` (see [`host_call_in_place`]): from the stack that
+/// `wasm_stack`'s coroutine was resumed from, which becomes `coro`'s parent,
+/// as it is for a call from a host function that switched stacks.
+///
+/// Resumed from the Wasm stack, `coro` would switch back to that stack: what
+/// the call runs on the native stack (host functions that always do, the
+/// linker's stubs, `on_host_stack` in general) would run there, with what is
+/// left of the host call's reserve, and an asynchronous host function would
+/// suspend its `call_async` coroutine from the wrong stack. Only the resume
+/// moves: the call itself, and its result, stay on the frame of the caller.
+#[cold]
+#[inline(never)]
+fn resume_from_parent_of(
+    state: &ThreadState,
+    wasm_stack: NonNull<WasmStack>,
+    coro: &mut EntryCoro,
+) -> CoroutineResult<*mut UnwindReason, UnwindReason> {
+    on_parent_of_in_place(state, wasm_stack, |_| coro.resume(()))
 }
 
 /// Whether entry slot `index`, which no running call uses, holds a coroutine
@@ -1610,8 +1686,10 @@ impl EntryJob {
 /// `entry_body`). It suspends with null after each call and with the reason
 /// from `unwind_with`; a trap handler makes it return. Between two calls
 /// nothing on its stack needs dropping, so it can be reset at any suspension.
+type EntryCoro = Coroutine<(), *mut UnwindReason, UnwindReason, DefaultStack>;
+
 struct EntryCoroutine {
-    coro: Coroutine<(), *mut UnwindReason, UnwindReason, DefaultStack>,
+    coro: EntryCoro,
     /// The size of its stack, compared with the size a call asks for.
     stack_size: usize,
     /// What the signal handler uses while a call runs on the coroutine.
@@ -1743,18 +1821,17 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     // One thread-local lookup for the take and the restore below: the host
     // call returns to this thread before the restore runs.
     with_thread_state(|state| {
-        // If we are already on the host stack, execute the function directly.
-        // This happens if a host function is called directly from the API.
+        // Host code runs here: on the host stack already, as when a host
+        // function is called directly from the API, where `f` runs as it is,
+        // or in place on a Wasm stack, which it leaves as a call into Wasm
+        // from there does.
         let Some(wasm_stack) = state.wasm_stack.get() else {
-            return f();
+            return match state.in_place.get() {
+                None => f(),
+                Some(in_place) => on_parent_of_in_place(state, in_place, |_| f()),
+            };
         };
         let yielder = unsafe { wasm_stack.as_ref().yielder.as_ref() };
-
-        // on_parent_stack requires the closure to be Send so that the Yielder
-        // cannot be called from the parent stack. This is not a problem for us
-        // since we don't expose the Yielder.
-        struct SendWrapper<T>(T);
-        unsafe impl<T> Send for SendWrapper<T> {}
         let wrapped = SendWrapper((f, ptr::from_ref(state), wasm_stack));
         yielder.on_parent_stack(move || {
             let wrapped = wrapped;
@@ -1785,6 +1862,9 @@ pub struct HostCallInPlace {
     state: NonNull<ThreadState>,
     /// The Wasm stack the host function was called on, if any.
     wasm_stack: Option<NonNull<WasmStack>>,
+    /// What `ThreadState::in_place` was before the call: none if it came
+    /// from Wasm.
+    in_place: Option<NonNull<WasmStack>>,
 }
 
 impl Drop for HostCallInPlace {
@@ -1792,22 +1872,26 @@ impl Drop for HostCallInPlace {
     fn drop(&mut self) {
         // SAFETY: this thread's state (the guard is not `Send`), which
         // outlives the host call.
-        unsafe { self.state.as_ref() }
-            .wasm_stack
-            .set(self.wasm_stack);
+        let state = unsafe { self.state.as_ref() };
+        state.in_place.set(self.in_place);
+        state.wasm_stack.set(self.wasm_stack);
     }
 }
 
 /// Starts a call of a synchronous host function from Wasm where it stands, on
 /// the Wasm stack, if at least [`HOST_CALL_RESERVE`] is left on that stack;
 /// returns `None` otherwise, and the host function must then run through
-/// [`on_host_stack`].
+/// [`on_host_stack`]. It also returns `None` while a coroutine that the
+/// embedder switches itself runs (see [`CurrentThread::cothread`]): its host
+/// functions may suspend it, which they must do from its own stack.
 ///
 /// Like `on_host_stack`, it takes the Wasm stack for as long as the returned
 /// guard lives: the host code runs as host code, which unwinding from inside
-/// it (`raise_user_trap` and the like) and the signal handler rely on. Called
-/// outside of Wasm, it returns a guard that does nothing, as `on_host_stack`
-/// then runs its function in place.
+/// it (`raise_user_trap` and the like) and the signal handler rely on. A call
+/// into Wasm that the host code makes meanwhile starts from the stack the
+/// Wasm stack's coroutine was resumed from (see `ThreadState::in_place`).
+/// Called outside of Wasm, it returns a guard that does nothing, as
+/// `on_host_stack` then runs its function in place.
 ///
 /// A host function that may suspend the coroutine it was called from, as an
 /// asynchronous one does, must not use this.
@@ -1830,20 +1914,31 @@ pub fn host_call_in_place_on(thread: CurrentThread) -> Option<HostCallInPlace> {
     let state = thread.state;
     let state_ref = thread.state();
     let wasm_stack = state_ref.wasm_stack.get();
-    if let Some(stack) = wasm_stack {
-        // SAFETY: it lives on the stack of the coroutine that is running.
-        let limit = unsafe { stack.as_ref() }.limit;
-        // Below the limit is none: a frame can reach below it, into the guard
-        // page, before it touches the page. Then the host function must not
-        // run as host code there, where the signal handler leaves its fault
-        // alone and the process dies; switching stacks faults as the guest.
-        let left = stack_pointer().saturating_sub(limit);
-        if left < HOST_CALL_RESERVE {
-            return None;
+    let in_place = match wasm_stack {
+        Some(stack) => {
+            // SAFETY: it lives on the stack of the coroutine that is running.
+            let limit = unsafe { stack.as_ref() }.limit;
+            // Below the limit is none: a frame can reach below it, into the
+            // guard page, before it touches the page. Then the host function
+            // must not run as host code there, where the signal handler
+            // leaves its fault alone and the process dies; switching stacks
+            // faults as the guest.
+            let left = stack_pointer().saturating_sub(limit);
+            if left < HOST_CALL_RESERVE || state_ref.cothread.get() {
+                return None;
+            }
+            state_ref.wasm_stack.set(None);
+            state_ref.in_place.set(Some(stack));
+            // Host code was not in place while Wasm ran.
+            None
         }
-        state_ref.wasm_stack.set(None);
-    }
-    Some(HostCallInPlace { state, wasm_stack })
+        None => state_ref.in_place.get(),
+    };
+    Some(HostCallInPlace {
+        state,
+        wasm_stack,
+        in_place,
+    })
 }
 
 /// The current stack pointer, or an address in the current frame where it
@@ -2954,6 +3049,17 @@ mod tests {
         THREAD_STATE.with(|state| state.wasm_stack.get())
     }
 
+    fn current_in_place() -> Option<NonNull<WasmStack>> {
+        THREAD_STATE.with(|state| state.in_place.get())
+    }
+
+    /// Whether `sp` is on the Wasm stack `stack` describes: above its guard
+    /// page and below its `WasmStack`, which `entry_body` keeps near its top.
+    fn on_stack(sp: usize, stack: NonNull<WasmStack>) -> bool {
+        let limit = unsafe { stack.as_ref() }.limit;
+        sp > limit - region::page::size() && sp < stack.as_ptr() as usize
+    }
+
     #[test]
     fn a_host_call_outside_wasm_runs_in_place() {
         let _lock = GLOBAL_STATE.lock().unwrap();
@@ -2974,18 +3080,18 @@ mod tests {
 
         let r = on_wasm_stack(get_stack_size(), None, || {
             let outer = current_wasm_stack().expect("running on a Wasm stack");
+            assert!(current_in_place().is_none());
             let in_place = host_call_in_place().expect("a fresh Wasm stack has room");
             assert!(
                 current_wasm_stack().is_none(),
                 "the host call runs as host code"
             );
-            // Still on the Wasm stack: above its limit and below its
-            // `WasmStack`, which `entry_body` keeps near its top.
-            let sp = stack_pointer();
-            let limit = unsafe { outer.as_ref() }.limit;
-            assert!(sp > limit && sp < outer.as_ptr() as usize);
+            assert_eq!(current_in_place(), Some(outer));
+            // Still on the Wasm stack.
+            assert!(on_stack(stack_pointer(), outer));
             drop(in_place);
             assert_eq!(current_wasm_stack(), Some(outer));
+            assert!(current_in_place().is_none());
         });
         assert!(r.is_ok());
 
@@ -3013,10 +3119,34 @@ mod tests {
             assert!(host_call_in_place().is_none());
             // Nothing was taken.
             assert_eq!(current_wasm_stack(), Some(short));
-            let switched = on_host_stack(|| current_wasm_stack().is_none());
+            let switched = on_host_stack(|| {
+                current_wasm_stack().is_none() && !on_stack(stack_pointer(), outer)
+            });
             THREAD_STATE.with(|state| state.wasm_stack.set(Some(outer)));
             switched
         });
+        assert_eq!(r.ok(), Some(true));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    /// While a coroutine that the embedder switches itself runs, every host
+    /// call from Wasm switches: its host functions may suspend it.
+    #[test]
+    fn host_calls_in_a_cothread_always_switch() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let thread = CurrentThread::get();
+        let outer = thread.cothread().replace(true);
+        let r = on_wasm_stack(get_stack_size(), None, || host_call_in_place().is_none());
+        thread.cothread().set(outer);
+        assert_eq!(r.ok(), Some(true));
+
+        let r = on_wasm_stack(get_stack_size(), None, || host_call_in_place().is_some());
         assert_eq!(r.ok(), Some(true));
 
         clear_tls_stack();
@@ -3037,13 +3167,28 @@ mod tests {
         let r: Result<(), UnwindReason> = on_wasm_stack(size, None, move || {
             let outer = current_wasm_stack().expect("running on a Wasm stack");
             let in_place = host_call_in_place().expect("a fresh Wasm stack has room");
-            let inner = on_wasm_stack(size, None, move || {
-                let inner = current_wasm_stack().expect("running on a Wasm stack");
-                assert_ne!(inner, outer);
-                5
-            });
-            assert_eq!(inner.ok(), Some(5));
+            let inner = unsafe {
+                catch_traps(
+                    None,
+                    &VMConfig {
+                        wasm_stack_size: None,
+                    },
+                    move || {
+                        let inner = current_wasm_stack().expect("running on a Wasm stack");
+                        assert_ne!(inner, outer);
+                        assert!(current_in_place().is_none(), "Wasm runs");
+                        // The inner call's coroutine was resumed from the native
+                        // stack, which is where its host calls switch to.
+                        on_host_stack(|| !on_stack(stack_pointer(), outer))
+                    },
+                )
+            };
+            assert_eq!(inner.ok(), Some(true));
             assert!(current_wasm_stack().is_none(), "still in host code");
+            assert_eq!(current_in_place(), Some(outer));
+            // Host code in place that wants the native stack goes there too.
+            assert!(on_host_stack(|| !on_stack(stack_pointer(), outer)));
+            assert_eq!(current_in_place(), Some(outer));
             drop(in_place);
             assert_eq!(current_wasm_stack(), Some(outer));
             unsafe { raise_lib_trap(Trap::lib(TrapCode::IntegerDivisionByZero)) }
@@ -3120,11 +3265,12 @@ mod tests {
     // Thread state
     // -----------------------------------------------------------------
 
-    /// `ActivationState::swap` exchanges the trap handler, and leaves the
-    /// thread's cached entry coroutines and its one-time setup alone: they
-    /// belong to the thread, not to the activation that is switched out.
+    /// `ActivationState::swap` exchanges the trap handler and the Wasm stack
+    /// host code runs on in place, and leaves the thread's cached entry
+    /// coroutines and its one-time setup alone: they belong to the thread,
+    /// not to the activation that is switched out.
     #[test]
-    fn activation_swap_exchanges_only_the_trap_handler() {
+    fn activation_swap_exchanges_only_the_activations_state() {
         let _lock = GLOBAL_STATE.lock().unwrap();
         drain_stack_pool();
         clear_tls_stack();
@@ -3138,19 +3284,24 @@ mod tests {
         // A suspended activation's trap handler. Never dereferenced: nothing
         // traps while it is installed.
         let outer = NonNull::<TrapHandlerContext>::dangling().as_ptr();
+        let in_place = NonNull::<WasmStack>::dangling();
         let mut activation = ActivationState::new();
         activation.trap_handler = outer;
+        activation.in_place = Some(in_place);
         unsafe { activation.swap() };
         THREAD_STATE.with(|state| {
             assert_eq!(state.trap_handler.load(Ordering::Relaxed), outer);
+            assert_eq!(state.in_place.get(), Some(in_place));
             assert_eq!(state.flags.get(), flags);
             assert!(state.wasm_stack.get().is_none());
         });
         assert_eq!(cached_entries(), cached);
         unsafe { activation.swap() };
         assert_eq!(activation.trap_handler, outer);
+        assert_eq!(activation.in_place, Some(in_place));
         THREAD_STATE.with(|state| {
             assert!(state.trap_handler.load(Ordering::Relaxed).is_null());
+            assert!(state.in_place.get().is_none());
         });
 
         clear_tls_stack();

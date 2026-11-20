@@ -290,3 +290,64 @@ fn an_async_host_function_always_runs_on_the_native_stack() {
     function.set_calls_on_native_stack(&mut store, false);
     assert!(function.calls_on_native_stack(&store));
 }
+
+/// Records the frame of the caller, for `on_native_stack`.
+fn mark_caller_frame(local: &u8) {
+    CALLER_FRAME.store(black_box(local) as *const u8 as usize, Ordering::Relaxed);
+}
+
+/// A host function running on the Wasm stack that calls back into the guest
+/// makes the call from the native stack: what that call runs on the native
+/// stack (here a host function set to) runs there, not on the Wasm stack of
+/// the host function, with what is left of its reserve.
+#[test]
+fn a_call_back_into_wasm_starts_from_the_native_stack() -> Result<(), Box<dyn std::error::Error>> {
+    let _lock = CALLER.lock().unwrap_or_else(|e| e.into_inner());
+
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+            (import "host" "reenter" (func $reenter (result i32)))
+            (import "host" "native" (func $native (result i32)))
+            (import "host" "in_place" (func $in_place (result i32)))
+            (func (export "outer") (result i32) call $reenter)
+            (func (export "inner") (result i32)
+                call $native
+                i32.const 2
+                i32.mul
+                call $in_place
+                i32.add))"#,
+    )?;
+    let env = FunctionEnv::new(&mut store, None::<TypedFunction<(), i32>>);
+    let reenter = Function::new_typed_with_env(
+        &mut store,
+        &env,
+        |mut env: FunctionEnvMut<Option<TypedFunction<(), i32>>>| {
+            let in_place = !on_native_stack();
+            let (inner, mut store) = env.data_and_store_mut();
+            let inner = inner.as_ref().unwrap().call(&mut store).unwrap();
+            inner * 2 + i32::from(in_place)
+        },
+    );
+    let native = Function::new_typed(&mut store, || i32::from(on_native_stack()));
+    native.set_calls_on_native_stack(&mut store, true);
+    let in_place = Function::new_typed(&mut store, || i32::from(!on_native_stack()));
+    let imports = imports! {
+        "host" => {
+            "reenter" => reenter,
+            "native" => native,
+            "in_place" => in_place,
+        }
+    };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    *env.as_mut(&mut store) = Some(instance.exports.get_typed_function(&store, "inner")?);
+    let outer: TypedFunction<(), i32> = instance.exports.get_typed_function(&store, "outer")?;
+
+    let local = 0u8;
+    mark_caller_frame(&local);
+    // Bits, from the lowest: `reenter` ran on the Wasm stack, `in_place` did
+    // too, and `native` ran on the native stack.
+    assert_eq!(outer.call(&mut store)?, 0b111);
+    Ok(())
+}
