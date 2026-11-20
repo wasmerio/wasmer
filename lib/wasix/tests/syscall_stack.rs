@@ -15,7 +15,11 @@ fn syscalls_run_on_the_native_stack() {
         .unwrap();
     let _guard = runtime.enter();
 
-    let engine = wasmer::Engine::default();
+    // A `sys` engine whatever the default backend is: with `v8-default`, as on
+    // the Windows test lane, it is V8, which has no Wasm stacks of its own,
+    // and `calls_on_native_stack` is always `false` there. Nothing is
+    // compiled, so a headless engine is enough to make the imports.
+    let engine: wasmer::Engine = wasmer::sys::EngineBuilder::headless().engine().into();
     let mut store = Store::new(engine.clone());
     let env = WasiEnv::builder("syscall-stack")
         .engine(engine)

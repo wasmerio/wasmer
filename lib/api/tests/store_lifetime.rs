@@ -70,6 +70,10 @@ fn argument(ty: Type) -> Value {
 }
 
 #[engine_test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "the v8 backend does not record the store of a function: `is_from_store` is always true"
+)]
 fn a_host_function_is_only_from_the_store_it_was_made_in() -> Result<(), String> {
     // `i64` takes the general path of the `js` backend, the others the
     // numeric lane.

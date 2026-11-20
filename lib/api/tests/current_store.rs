@@ -256,6 +256,10 @@ fn an_idle_store_is_lent_only_once_parked() -> Result<(), String> {
 /// store, and it lends nothing until it parks that.
 #[cfg(feature = "sys")]
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "with `v8-default`, `Store::default()` is a V8 store, which has no plain-store calls"
+)]
 fn a_call_hides_an_outer_park() -> Result<(), String> {
     let mut outer = Store::default();
     let mut store = Store::default();
@@ -301,6 +305,10 @@ fn a_call_hides_an_outer_park() -> Result<(), String> {
 /// whose own store is held by the call.
 #[cfg(all(feature = "sys", feature = "experimental-async"))]
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "with `v8-default`, `Store::default()` is a V8 store, which has no plain-store calls"
+)]
 fn an_async_store_is_not_locked_from_inside_a_host_function() -> Result<(), String> {
     use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -327,6 +335,10 @@ fn an_async_store_is_not_locked_from_inside_a_host_function() -> Result<(), Stri
 /// the call ends.
 #[cfg(all(feature = "sys", feature = "experimental-async"))]
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "with `v8-default`, `Store::default()` is a V8 store, which has no plain-store calls"
+)]
 fn an_async_host_function_does_not_keep_a_plain_store() -> Result<(), String> {
     use std::cell::RefCell;
     use std::panic::{AssertUnwindSafe, catch_unwind};

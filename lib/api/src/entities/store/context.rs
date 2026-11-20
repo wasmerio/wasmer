@@ -1627,7 +1627,9 @@ mod borrow_provenance {
 /// cargo +nightly miri test -p wasmer --lib --no-default-features \
 ///     --features sys,headless,experimental-async -- borrow_provenance
 /// ```
-#[cfg(all(test, feature = "sys"))]
+// With `v8-default` (the Windows test lane) `Store::default()` is a V8 store,
+// which has no slot.
+#[cfg(all(test, feature = "sys", not(feature = "v8-default")))]
 mod borrow_provenance_slot {
     use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -2319,6 +2321,10 @@ mod cothread {
     /// which the `Cothread` takes with it, rather than through the slot, and
     /// its host functions find it there.
     #[test]
+    #[cfg_attr(
+        feature = "v8-default",
+        ignore = "with `v8-default`, `Store::default()` is a V8 store, which has no slot"
+    )]
     fn a_coroutine_enters_a_plain_store_through_the_stack() {
         let mut store = Store::default();
         let (id, ptr) = pointer(&mut store);
@@ -2355,6 +2361,10 @@ mod cothread {
     /// its host functions, and the slot holds the call beneath again when the
     /// coroutine suspends, and once its call returns.
     #[test]
+    #[cfg_attr(
+        feature = "v8-default",
+        ignore = "with `v8-default`, `Store::default()` is a V8 store, which has no slot"
+    )]
     fn a_coroutine_lent_a_plain_store_hides_its_slot() {
         let mut store = Store::default();
         let (id, ptr) = pointer(&mut store);

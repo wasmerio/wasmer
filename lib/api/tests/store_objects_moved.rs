@@ -3,7 +3,9 @@
 //! `AsStoreMut` decides which objects a function is made in). A host function
 //! must then find the store its objects are in, and never the store it was made
 //! in, which may be gone.
-#![cfg(feature = "sys")]
+// With `v8-default` (the Windows test lane) `Store::default()` is a V8 store,
+// whose objects cannot move to another store.
+#![cfg(all(feature = "sys", not(feature = "v8-default")))]
 
 use std::cell::RefCell;
 
