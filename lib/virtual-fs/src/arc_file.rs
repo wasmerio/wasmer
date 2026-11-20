@@ -123,6 +123,10 @@ where
         let inner = self.inner.lock().unwrap();
         inner.size()
     }
+    fn metadata(&self) -> crate::Result<crate::Metadata> {
+        let inner = self.inner.lock().unwrap();
+        inner.metadata()
+    }
     fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         let mut inner = self.inner.lock().unwrap();
         inner.set_len(new_size)

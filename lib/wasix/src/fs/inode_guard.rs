@@ -531,6 +531,15 @@ impl VirtualFile for WasiStateFileGuard {
         }
     }
 
+    fn metadata(&self) -> Result<virtual_fs::Metadata, FsError> {
+        let guard = self.lock_read();
+        if let Some(file) = guard.as_ref() {
+            file.metadata()
+        } else {
+            Err(FsError::IOError)
+        }
+    }
+
     fn set_len(&mut self, new_size: u64) -> Result<(), FsError> {
         let mut guard = self.lock_write();
         if let Some(file) = guard.as_mut() {

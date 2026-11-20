@@ -77,6 +77,10 @@ where
         self.inner.size()
     }
 
+    fn metadata(&self) -> crate::Result<Metadata> {
+        self.inner.metadata()
+    }
+
     fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         self.inner.set_len(new_size)
     }
@@ -1063,6 +1067,10 @@ where
 
         fn size(&self) -> u64 {
             self.state.as_ref().size()
+        }
+
+        fn metadata(&self) -> crate::Result<Metadata> {
+            self.state.as_ref().metadata()
         }
 
         fn set_len(&mut self, new_size: u64) -> crate::Result<()> {

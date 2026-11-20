@@ -46,6 +46,10 @@ impl VirtualFile for DualWriteFile {
         self.inner.size()
     }
 
+    fn metadata(&self) -> Result<Metadata> {
+        self.inner.metadata()
+    }
+
     fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         self.inner.set_len(new_size)
     }

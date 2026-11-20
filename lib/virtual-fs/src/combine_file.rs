@@ -38,6 +38,17 @@ impl VirtualFile for CombineFile {
         self.rx.size()
     }
 
+    fn metadata(&self) -> Result<Metadata> {
+        let rx = self.rx.metadata()?;
+        let tx = self.tx.metadata()?;
+        Ok(Metadata {
+            accessed: rx.accessed,
+            modified: tx.modified,
+            created: tx.created,
+            ..rx
+        })
+    }
+
     fn set_len(&mut self, new_size: u64) -> Result<()> {
         self.tx.set_len(new_size)
     }
