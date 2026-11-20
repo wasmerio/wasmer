@@ -85,8 +85,9 @@ enum State {
     /// waits for is driven by the call.
     Waiting,
     /// The guest is given its results in a microtask, with the store, which
-    /// the activation holds, or was given them since: see
-    /// [`Activation::wake`].
+    /// the activation holds: see [`Activation::wake`]. Until then it is off
+    /// the stack, and dropping its call unwinds it instead; once that
+    /// microtask ran ([`woken`]), it is `Running`.
     Woken,
     /// The guest was woken with a trap. It runs no more and holds nothing.
     Unwinding,
@@ -125,8 +126,9 @@ struct Activation {
     /// The call is being polled and is entering the guest. It looks at the
     /// activation again when the guest leaves the stack, and need not be woken.
     entering: Cell<bool>,
-    /// Counts the waits of the guest, so that a microtask queued for one of
-    /// them knows whether it is still the current one.
+    /// The guest's current wait, numbered on the thread rather than by
+    /// activation, so that a microtask queued for a wait knows whether it is
+    /// still the current one, also once its token belongs to another call.
     waits: Cell<u32>,
     /// The engine suspended the guest for its current wait.
     accepted: Cell<bool>,
@@ -164,6 +166,8 @@ thread_local! {
     /// The activation of a direct call of an async host function, while
     /// [`Call::enter`] calls it: the body runs for that call, and no other.
     static DIRECT: RefCell<Option<Rc<Activation>>> = const { RefCell::new(None) };
+    /// The last wait any guest of the thread started: see `Activation::waits`.
+    static LAST_WAIT: Cell<u32> = const { Cell::new(0) };
     /// The error of a trap was made: see [`prepare_trap`].
     static TRAP_READY: Cell<bool> = const { Cell::new(false) };
     /// Hands the JavaScript half its Rust callbacks, once per thread.
@@ -172,6 +176,7 @@ thread_local! {
         &Closure::wrap(Box::new(check) as Box<dyn Fn(i32, i32)>).into_js_value(),
         &Closure::wrap(Box::new(crate::js::function::mark_entered) as Box<dyn Fn(bool) -> bool>)
             .into_js_value(),
+        &Closure::wrap(Box::new(woken) as Box<dyn Fn(i32)>).into_js_value(),
     );
 }
 
@@ -195,10 +200,10 @@ thread_local! {
 // the import's body runs once the guest's slice is over.
 #[wasm_bindgen(inline_js = r#"
 const resolvers = [], rejecters = [];
-let done, check, mark, trapError, wakes = 0;
+let done, check, mark, woken, trapError, wakes = 0;
 const pendingWakes = [], pendingValues = [];
-export function jspiInit(d, c, m) {
-  done = d; check = c; mark = m;
+export function jspiInit(d, c, m, w) {
+  done = d; check = c; mark = m; woken = w;
 }
 export function jspiPrepareTrap() {
   if (trapError !== undefined) return;
@@ -326,6 +331,7 @@ export function jspiWakeLater(token, value) {
     pendingWakes[token] = 0;
     pendingValues[token] = undefined;
     jspiWake(token, value);
+    woken(token);
   });
 }
 export function jspiCancelWake(token) {
@@ -350,13 +356,26 @@ export function jspiIsSuspendError(value) {
     return false;
   }
 }
+// The promising form of each function, made once. Kept here rather than on
+// the function, where any JavaScript could replace it; and the reaction is
+// attached with the `then` of the promises the engine makes, as it was when
+// this module loaded.
+const promisingOf = new WeakMap(), then = Promise.prototype.then;
+export function jspiPromising(fn) {
+  let promising = promisingOf.get(fn);
+  if (promising === undefined) {
+    promising = WebAssembly.promising(fn);
+    promisingOf.set(fn, promising);
+  }
+  return promising;
+}
 export function jspiSettle(promise, token) {
-  promise.then((value) => done(token, 0, value), (error) => done(token, 1, error));
+  apply(then, promise, [(value) => done(token, 0, value), (error) => done(token, 1, error)]);
 }
 "#)]
 extern "C" {
     #[wasm_bindgen(js_name = jspiInit)]
-    fn shim_init(done: &JsValue, check: &JsValue, mark: &JsValue);
+    fn shim_init(done: &JsValue, check: &JsValue, mark: &JsValue, woken: &JsValue);
     #[wasm_bindgen(js_name = jspiPrepareTrap, catch)]
     fn shim_prepare_trap() -> Result<(), JsValue>;
     #[wasm_bindgen(js_name = jspiTrapError)]
@@ -399,12 +418,8 @@ extern "C" {
     fn shim_is_suspend_error(value: &JsValue) -> bool;
     #[wasm_bindgen(js_name = jspiSettle)]
     fn shim_settle(promise: &JsValue, token: i32);
-}
-
-#[wasm_bindgen]
-extern "C" {
-    #[wasm_bindgen(js_namespace = WebAssembly, js_name = promising, catch)]
-    fn promising_raw(function: &Function) -> Result<Function, JsValue>;
+    #[wasm_bindgen(js_name = jspiPromising, catch)]
+    fn shim_promising(function: &Function) -> Result<Function, JsValue>;
 }
 
 /// The results of an import, as a `WebAssembly.Suspending` function returns
@@ -580,6 +595,10 @@ impl Activation {
 
     /// The guest leaves the stack, or will not use the store again.
     fn switch_out(self: &Rc<Self>, to: State) {
+        debug_assert!(
+            !self.held.get(),
+            "the store is given up while a host function holds it"
+        );
         let this = RUNNING.with(|running| {
             let mut running = running.borrow_mut();
             let index = running.iter().position(|other| Rc::ptr_eq(other, self))?;
@@ -621,7 +640,8 @@ impl Activation {
     /// the guest after this ran.
     fn wait(self: &Rc<Self>) -> JsValue {
         let promise = shim_wait(self.token);
-        let wait = self.waits.get().wrapping_add(1);
+        let wait = LAST_WAIT.get().wrapping_add(1);
+        LAST_WAIT.set(wait);
         self.waits.set(wait);
         self.accepted.set(false);
         self.state.set(State::Waiting);
@@ -819,6 +839,12 @@ impl Drop for Held {
 /// the store runs with in a slice of the guest that JavaScript resumed, which
 /// no call lends it the store (see `lent`). An error if another host function
 /// holds it.
+///
+/// Only a guest that can be on the stack lends its store: one that runs, or
+/// whose wait the engine may still refuse. Dropping the call of either keeps
+/// the store with the activation (see `Call::drop`). A woken guest is off the
+/// stack until its microtask, and dropping its call gives the store up, which
+/// a host function holding it would go on using.
 pub(crate) fn hold_running(
     id: usize,
 ) -> Option<Result<(*mut StoreInner, Held), RuntimeError>> {
@@ -827,10 +853,21 @@ pub(crate) fn hold_running(
         let mut running = running.iter();
         running.find(|activation| activation.store_id.as_raw().get() == id).cloned()
     })?;
-    let store = activation.store_ptr()?;
-    if activation.held.replace(true) {
+    let on_stack = match activation.state.get() {
+        State::Running => true,
+        State::Waiting => !activation.accepted.get(),
+        _ => false,
+    };
+    if !on_stack {
+        return None;
+    }
+    // Before the store is reached at all: the host function that holds it
+    // goes on with its borrow.
+    if activation.held.get() {
         return Some(Err(crate::js::lent::held()));
     }
+    let store = activation.store_ptr()?;
+    activation.held.set(true);
     Some(Ok((store, Held(activation))))
 }
 
@@ -935,6 +972,17 @@ fn check(token: i32, wait: i32) {
     match caller {
         Some(caller) => activation.drive(&mut Context::from_waker(&caller), true),
         None => activation.wake_caller(),
+    }
+}
+
+/// The microtask that wakes a guest woken a microtask later (see
+/// [`Activation::wake`]) resolved its promise: nothing stops the engine
+/// resuming it now, and it runs, with its store, from here on.
+fn woken(token: i32) {
+    if let Some(activation) = activation(token)
+        && activation.state.get() == State::Woken
+    {
+        activation.state.set(State::Running);
     }
 }
 
@@ -1133,13 +1181,12 @@ pub(crate) fn promising(function: &Function) -> Result<Function, JsValue> {
     if shim_is_host(function) {
         return Ok(function.clone());
     }
-    promising_raw(function)
+    shim_promising(function)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wasm_bindgen::JsCast;
     use crate::{Function, Store, Type};
     use js_sys::Promise;
     use wasm_bindgen_futures::JsFuture;
@@ -1288,7 +1335,8 @@ mod tests {
     }
 
     /// `WebAssembly.promising` is called for the first `call_async` of a
-    /// function, and never again.
+    /// function, and never again: every function of the same JavaScript
+    /// function gets the same promising form.
     #[cfg(feature = "wat")]
     #[wasm_bindgen_test]
     async fn the_promising_wrapper_of_a_function_is_kept() {
@@ -1302,19 +1350,12 @@ mod tests {
         let host = instance.exports.get_function("id").unwrap().clone();
         let again = instance.exports.get_function("id").unwrap().clone();
         let store = store.into_async();
-        let key = js_sys::Symbol::for_("wasmer.promising");
-        let promising = |function: &Function| {
-            Reflect::get(&function.as_js().handle.function, &key)
-                .unwrap()
-                .dyn_into::<js_sys::Function>()
-                .ok()
-        };
-        assert!(promising(&host).is_none());
+        let form = |function: &Function| promising(&function.as_js().handle.function).unwrap();
 
         host.call_async(&store, vec![Value::I32(1)]).await.unwrap();
-        let first = promising(&host).expect("made by the first call");
+        let first = form(&host);
         again.call_async(&store, vec![Value::I32(2)]).await.unwrap();
-        assert!(js_sys::Object::is(&first, &promising(&host).unwrap()));
-        assert!(js_sys::Object::is(&first, &promising(&again).unwrap()));
+        assert!(js_sys::Object::is(&first, &form(&host)));
+        assert!(js_sys::Object::is(&first, &form(&again)));
     }
 }
