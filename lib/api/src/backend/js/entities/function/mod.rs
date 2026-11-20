@@ -110,7 +110,7 @@ use crate::{
     entities::function::call_wrapper::call_wrapped,
     js::{
         error::trap_value,
-        store::StoreSlot,
+        lent,
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
     },
@@ -374,15 +374,18 @@ impl Function {
         let mut store = store.as_store_mut();
         let function_type = ty.into();
         let func_ty = function_type.clone();
-        let slot = StoreSlot::of(&store);
+        // The host function runs with its store as the call it runs in lends
+        // it, which it finds by the store's id, and holds it until it returns
+        // (see `lent`).
+        let store_id = store.as_store_ref().objects().id().as_raw().get();
         let raw_env = env.clone();
         if numeric::is_numeric(&function_type) {
             // Nothing but numbers: the guest passes them as they are, with
             // no array of arguments in between.
             let arity = function_type.params().len();
             let function = numeric::host(arity, move |numbers| {
-                // SAFETY: a guest calls this host function of the store.
-                let mut store = unsafe { slot.store()? };
+                let (store, _hold) = lent::hold(store_id).map_err(trap_value)?;
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let arguments = numeric::values(function_type.params(), numbers);
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
@@ -398,8 +401,8 @@ impl Function {
         }
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                // SAFETY: a guest calls this host function of the store.
-                let mut store = unsafe { slot.store()? };
+                let (store, _hold) = lent::hold(store_id).map_err(trap_value)?;
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let wasm_arguments = function_type
                     .params()
@@ -416,8 +419,8 @@ impl Function {
                 as Box<dyn Fn(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                // SAFETY: a guest calls this host function of the store.
-                let mut store = unsafe { slot.store()? };
+                let (store, _hold) = lent::hold(store_id).map_err(trap_value)?;
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let wasm_arguments = function_type
                     .params()
@@ -434,8 +437,8 @@ impl Function {
                 as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                // SAFETY: a guest calls this host function of the store.
-                let mut store = unsafe { slot.store()? };
+                let (store, _hold) = lent::hold(store_id).map_err(trap_value)?;
+                let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let wasm_arguments = function_type
                     .params()
@@ -478,12 +481,10 @@ impl Function {
 
         let ty = function.ty();
         let id = store.as_store_ref().objects().id();
-        // The function is given the address of the slot of its store, and
-        // keeps the slot alive.
-        let slot = StoreSlot::of(&store);
-        let leading = [JsValue::from_f64(slot.address())];
+        // The store's id, by which the host function finds the store the
+        // call it runs in lends it (see `lent`).
+        let leading = [JsValue::from_f64(id.as_raw().get() as f64)];
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
-        slot.keep_alive_by(&binded_func);
         let vm_function = VMFunction::new(binded_func, ty).of_store(id);
         Self {
             handle: vm_function,
@@ -512,14 +513,13 @@ impl Function {
         let func = as_table.get(address).unwrap();
 
         let ty = function.ty();
-        let slot = StoreSlot::of(&store);
+        let id = store.as_store_ref().objects().id();
+        // As for `new_typed`, with the index of the environment.
         let leading = [
-            JsValue::from_f64(slot.address()),
+            JsValue::from_f64(id.as_raw().get() as f64),
             JsValue::from_f64(env.as_js().handle.internal_handle().index() as f64),
         ];
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
-        slot.keep_alive_by(&binded_func);
-        let id = store.as_store_ref().objects().id();
         let vm_function = VMFunction::new(binded_func, ty).of_store(id);
         Self {
             handle: vm_function,
@@ -574,7 +574,8 @@ impl Function {
                 results.map(|ty| numeric::value(ty, result)).collect()
             };
             if let Some(integers) = numeric::integers(ty, params) {
-                call_wrapped(store, wrapper, |_| {
+                call_wrapped(store, wrapper, |store| {
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
                     let _entered = enter_sync();
                     result = numeric::call_integers(function, receiver, &integers, returns)?;
                     Ok(())
@@ -582,7 +583,8 @@ impl Function {
                 return Ok(results(result));
             }
             if let Some(numbers) = numeric::numbers(ty, params) {
-                call_wrapped(store, wrapper, |_| {
+                call_wrapped(store, wrapper, |store| {
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
                     let _entered = enter_sync();
                     result = numeric::call(function, receiver, &numbers, returns)?;
                     Ok(())
@@ -603,7 +605,8 @@ impl Function {
         }
 
         let mut result = JsValue::UNDEFINED;
-        call_wrapped(store, wrapper, |_| {
+        call_wrapped(store, wrapper, |store| {
+            let _lent = lent::lend(&mut store.as_store_mut())?;
             let _entered = enter_sync();
             result = js_sys::Reflect::apply(&self.handle.function, &JsValue::NULL, &arr)?;
             Ok(())
@@ -910,8 +913,7 @@ mod tests {
     /// for more, the bound function stands for itself. Nothing is made from
     /// text: the hosts that forbid it, and report every attempt, make the
     /// same arrows. Its leading arguments go to i32 parameters, so it passes
-    /// them as the int32 those make of them, the address of a slot above
-    /// 2 GiB too.
+    /// them as the int32 those make of them, numbers above 2 GiB too.
     #[wasm_bindgen_test]
     fn an_arrow_with_leading_arguments_calls_as_a_bound_function_does() {
         let to_string: JsFunction = js_sys::Reflect::get(&js_sys::global(), &"String".into())
@@ -1186,7 +1188,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( slot: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_id: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -1195,12 +1197,11 @@ macro_rules! impl_host_function {
             {
                 // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                 let func: &Func = unsafe { &*(&() as *const () as *const Func) };
-                // SAFETY: `slot` is the address of the slot of the function's
-                // store, which the function keeps alive.
-                let mut store = match unsafe { crate::backend::js::store::store_at(slot) } {
-                    Ok(store) => store,
-                    Err(error) => wasm_bindgen::throw_val(error),
+                let (store, hold) = match crate::backend::js::lent::hold(store_id) {
+                    Ok(held) => held,
+                    Err(error) => crate::backend::js::error::raise(Box::new(error)),
                 };
+                let mut store = unsafe { StoreMut::from_raw(store) };
                 let entered = enter_sync();
 
                 let result = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -1214,11 +1215,13 @@ macro_rules! impl_host_function {
                 // Before anything is thrown below: a throw skips destructors.
                 drop(entered);
 
+                let result = result.map(|result| {
+                    result.map(|result| unsafe { result.into_c_struct(&mut store) })
+                });
+                drop(hold);
+
                 match result {
-                    Ok(Ok(result)) => {
-                        let c_struct = unsafe { result.into_c_struct(&mut store) };
-                        return c_struct;
-                    },
+                    Ok(Ok(c_struct)) => c_struct,
                     Ok(Err(trap)) => crate::backend::js::error::raise(Box::new(trap)),
                     Err(panic) => raise_host_function_panic(panic),
                 }
@@ -1237,7 +1240,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( slot: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_id: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -1245,12 +1248,11 @@ macro_rules! impl_host_function {
                 T: Send + 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                // SAFETY: `slot` is the address of the slot of the function's
-                // store, which the function keeps alive.
-                let mut store = match unsafe { crate::backend::js::store::store_at(slot) } {
-                    Ok(store) => store,
-                    Err(error) => wasm_bindgen::throw_val(error),
+                let (store, hold) = match crate::backend::js::lent::hold(store_id) {
+                    Ok(held) => held,
+                    Err(error) => crate::backend::js::error::raise(Box::new(error)),
                 };
+                let mut store = unsafe { StoreMut::from_raw(store) };
                 let entered = enter_sync();
 
                 let result = {
@@ -1279,11 +1281,13 @@ macro_rules! impl_host_function {
                 // Before anything is thrown below: a throw skips destructors.
                 drop(entered);
 
+                let result = result.map(|result| {
+                    result.map(|result| unsafe { result.into_c_struct(&mut store) })
+                });
+                drop(hold);
+
                 match result {
-                    Ok(Ok(result)) => {
-                        let c_struct = unsafe { result.into_c_struct(&mut store) };
-                        return c_struct;
-                    },
+                    Ok(Ok(c_struct)) => c_struct,
                     #[allow(deprecated)]
                     #[cfg(feature = "std")]
                     Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),

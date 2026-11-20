@@ -76,12 +76,10 @@ impl Store {
             }
         };
 
-        let mut inner = Box::new(StoreInner {
+        let inner = Box::new(StoreInner {
             objects: StoreObjects::from_store_ref(&store),
             store,
         });
-        #[cfg(feature = "js")]
-        crate::backend::js::entities::store::StoreSlot::bind(&mut inner);
         Self { inner }
     }
 

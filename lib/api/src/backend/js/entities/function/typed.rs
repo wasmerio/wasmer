@@ -13,6 +13,7 @@ use crate::{
     entities::function::call_wrapper::call_wrapped,
     js::{
         function::numeric,
+        lent,
         utils::convert::{AsJs, js_value_to_wasmer},
     },
 };
@@ -117,7 +118,8 @@ macro_rules! numeric_lane {
             // `numeric::Arguments`), other numbers as f64s.
             let receiver = &JsValue::UNDEFINED;
             if let Some(integers) = raw_integers(&$params) {
-                call_wrapped($store, $wrapper, |_| {
+                call_wrapped($store, $wrapper, |store| {
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
                     let _entered = super::enter_sync();
                     result = numeric::Arguments::call(integers, function, receiver, returns)?;
                     Ok(())
@@ -125,7 +127,8 @@ macro_rules! numeric_lane {
                 return Ok(unsafe { numeric_rets::<Rets>($store, result_ty, result) });
             }
             if let Some(numbers) = raw_numbers(&$params) {
-                call_wrapped($store, $wrapper, |_| {
+                call_wrapped($store, $wrapper, |store| {
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
                     let _entered = super::enter_sync();
                     result = numeric::Arguments::call(numbers, function, receiver, returns)?;
                     Ok(())
@@ -204,6 +207,7 @@ macro_rules! impl_native_traits {
                                 .map(|&(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
                         )
                     };
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
                     let _entered = super::enter_sync();
                     results = self
                         .func

@@ -88,6 +88,15 @@ fn a_host_function_is_only_from_the_store_it_was_made_in() -> Result<(), String>
     Ok(())
 }
 
+/// Whether `message` is the error of a host function that refused to run: on
+/// `js` a host function runs only with the store the call it runs in lends
+/// it, which is its own only in a call made with its own store, and so never
+/// once that store is dropped.
+#[cfg(feature = "js")]
+fn refused(message: &str) -> bool {
+    message.contains("its own store")
+}
+
 /// On `js`, a guest can be called with any store, and it then calls its
 /// imports whatever their store: a host function whose store was dropped
 /// must fail the call instead of using that store.
@@ -120,7 +129,7 @@ fn a_host_function_of_a_dropped_store_fails_the_call() {
                 Ok(results) => {
                     failures.push(format!("{kind} {ty} ran without its store: {results:?}"))
                 }
-                Err(error) if !error.message().contains("dropped") => {
+                Err(error) if !refused(&error.message()) => {
                     failures.push(format!("{kind} {ty}: {}", error.message()))
                 }
                 Err(_) => {}
@@ -153,7 +162,7 @@ mod while_dropped {
                     call.call(other.borrow_mut().as_mut().unwrap(), &[argument(ty)])
                         .map_err(|error| error.message())
                 });
-                if !matches!(&result, Err(message) if message.contains("dropped")) {
+                if !matches!(&result, Err(message) if refused(message)) {
                     RESULTS.with(|results| {
                         results
                             .borrow_mut()
@@ -226,26 +235,10 @@ fn a_host_function_exported_again_by_a_guest_fails_after_its_store_is_dropped() 
         .into_iter()
         .filter_map(
             |(kind, exported)| match exported.call(&mut other, &[Value::I32(7)]) {
-                Err(error) if error.message().contains("dropped") => None,
+                Err(error) if refused(&error.message()) => None,
                 result => Some(format!("{kind}: {:?}", result.map_err(|e| e.message()))),
             },
         )
         .collect();
     assert!(failures.is_empty(), "{failures:#?}");
-}
-
-/// On `js` a store is not `Send`: its host functions are JavaScript functions,
-/// which stay on the thread that made them and reach the store through its
-/// slot whenever they are called.
-#[cfg(feature = "js")]
-#[allow(dead_code)]
-fn a_store_is_not_send() {
-    trait AmbiguousIfSend<A> {
-        fn some_item() {}
-    }
-    impl<T: ?Sized> AmbiguousIfSend<()> for T {}
-    struct IsSend;
-    impl<T: ?Sized + Send> AmbiguousIfSend<IsSend> for T {}
-    // Ambiguous, and so does not compile, if `Store` is `Send`.
-    let _ = <Store as AmbiguousIfSend<_>>::some_item;
 }

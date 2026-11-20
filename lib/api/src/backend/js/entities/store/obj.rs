@@ -55,6 +55,12 @@ pub struct StoreObjects {
     externrefs: Vec<ExternRefData>,
 }
 
+impl Drop for StoreObjects {
+    fn drop(&mut self) {
+        crate::js::lent::forget(self.id);
+    }
+}
+
 impl StoreObjects {
     /// Returns the ID of this context.
     pub fn id(&self) -> StoreId {

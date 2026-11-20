@@ -70,8 +70,13 @@ enum StoreContextEntry {
         guard: LocalRwLockWriteGuard<Box<StoreInner>>,
         /// The store, taken from `guard` once, when the entry is made. Every
         /// borrow the entry hands out comes from this pointer, rather than
-        /// from a shared reference it would then write through.
+        /// from a shared reference it would then write through. A call from
+        /// a host function lends its own borrow here while it runs (see
+        /// [`StoreContext::install`]).
         ptr: *mut StoreInner,
+        /// Tells this entry from those installed for the same store when the
+        /// call resumes, whose `ptr` a call lent before is not restored into.
+        serial: u64,
     },
 }
 
@@ -79,12 +84,14 @@ impl StoreContextEntry {
     #[cfg(feature = "experimental-async")]
     fn new_async(mut guard: LocalRwLockWriteGuard<Box<StoreInner>>) -> Self {
         // A raw pointer to the box's contents, taken once: every borrow the
-        // entry hands out comes from it. Unlike those of a synchronous entry,
-        // which come from the caller's own borrow (see `install`), they are
-        // siblings of one another, and of the borrows taken through the entry
-        // made when the call resumes: none of them nests in another.
+        // entry hands out comes from it, but while a host function lends it
+        // its own (see `install`). Unlike those of a synchronous entry, they
+        // are siblings of one another, and of the borrows taken through the
+        // entry made when the call resumes: none of them nests in another.
         let ptr: *mut StoreInner = &raw mut **guard;
-        Self::Async { guard, ptr }
+        let serial = ASYNC_ENTRY_SERIAL.get();
+        ASYNC_ENTRY_SERIAL.set(serial.wrapping_add(1));
+        Self::Async { guard, ptr, serial }
     }
 
     fn as_ptr(&self) -> *mut StoreInner {
@@ -157,8 +164,9 @@ impl HiddenSlot {
 
 pub(crate) struct StorePtrWrapper {
     store_ptr: *mut StoreInner,
-    /// The store's id, kept so that giving the borrow back does not have to
-    /// read it through the pointer.
+    /// The store's id, so that giving the borrow back does not use
+    /// `store_ptr`, which may have been invalidated since: lent by a host
+    /// function whose call suspended (see [`StoreContext::install`]).
     id: StoreId,
     /// Whether the borrow is counted in an entry of the context stack, which
     /// dropping the wrapper gives it back to. A borrow taken from a store's
@@ -172,6 +180,8 @@ pub(crate) struct StoreAsyncGuardWrapper {
     /// The entry's pointer to the store, to borrow it through rather than
     /// through `guard`.
     pub(crate) store_ptr: *mut StoreInner,
+    /// The store's id: see [`StorePtrWrapper`].
+    id: StoreId,
 }
 
 pub(crate) struct StorePtrPauseGuard {
@@ -194,10 +204,15 @@ pub(crate) struct ForcedStoreInstallGuard {
 pub(crate) enum StoreInstallGuard {
     /// The guard pushed an entry of its own, which it pops when dropped.
     Pushed(StoreId),
-    /// The guard installed nothing: an async context already holds the
-    /// store — see [`StoreContext::install`].
+    /// The guard pushed nothing: an async context already holds the store
+    /// `id`, and the pointer of its entry `serial` was lent, and is restored
+    /// to `previous` — see [`StoreContext::install`].
     #[cfg(feature = "experimental-async")]
-    Shared(StoreId),
+    Lent {
+        id: StoreId,
+        serial: u64,
+        previous: *mut StoreInner,
+    },
 }
 
 thread_local! {
@@ -402,6 +417,12 @@ impl Drop for LendGuard {
             thread.slot_call().set(self.saved);
         }
     }
+}
+
+#[cfg(feature = "experimental-async")]
+thread_local! {
+    /// The `serial` of the next async entry made on this thread.
+    static ASYNC_ENTRY_SERIAL: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(feature = "unsafe-cothread")]
@@ -656,16 +677,21 @@ impl StoreContext {
     /// `borrow_provenance` tests, which fail under Miri if this re-uses the
     /// outer entry.
     ///
-    /// An async context is the exception, and installs nothing: it owns the
-    /// store through a write guard held in the entry itself, and every
-    /// re-acquisition re-derives from that guard rather than from a caller's
-    /// borrow (see `AsyncCallStoreMut`), so there is no borrow to nest under.
-    /// Shadowing it would also hide the guard from async host functions, which
-    /// reach it by inspecting the active entry. One beneath a `Cothread`
-    /// that was resumed since is shadowed all the same: the coroutine's calls
-    /// need an entry of their own, which it takes with it when it suspends,
-    /// and the call that holds the guard cannot be suspended from the
-    /// coroutine's stack.
+    /// An async context is the exception, and pushes nothing: its entry holds
+    /// the write guard, which async host functions reach by inspecting the
+    /// active entry, and through which the call suspends. A second entry
+    /// would hide it from them. Instead, the async entry's pointer is
+    /// replaced with `store_ptr` until the guard is dropped, which nests the
+    /// borrows taken through it in the caller's, as a second entry would: a
+    /// host function that calls its guest back goes on with its own store
+    /// afterwards. A call that suspends meanwhile gives the store up, and
+    /// resumes with a new entry, which keeps its own pointer. That leaves out
+    /// a host function that goes on with the borrow it held across a call that
+    /// suspended: whoever used the store meanwhile did not borrow it from that
+    /// borrow. One beneath a `Cothread` that was resumed since is shadowed all
+    /// the same: the coroutine's calls need an entry of their own, which it
+    /// takes with it when it suspends, and the call that holds the guard
+    /// cannot be suspended from the coroutine's stack.
     ///
     /// # Safety
     /// `store_ptr` must be derived from a mutable borrow of the store that
@@ -677,10 +703,12 @@ impl StoreContext {
         // runs on every entry into Wasm.
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
-            if let Some(top) = stack.last()
+            #[cfg(feature = "unsafe-cothread")]
+            let depth = stack.len();
+            if let Some(top) = stack.last_mut()
                 && top.id == store_id
             {
-                let active = unsafe { &*top.entry.get() };
+                let active = top.entry.get_mut();
                 // Nesting changes a pointer's provenance, never which store
                 // it addresses, so the same store must arrive at the same
                 // address.
@@ -691,14 +719,16 @@ impl StoreContext {
                 // Not one beneath a `Cothread` that was resumed since: see
                 // above.
                 #[cfg(feature = "unsafe-cothread")]
-                let above_cothread = stack.len() > COTHREAD_BASE.get();
+                let above_cothread = depth > COTHREAD_BASE.get();
                 #[cfg(not(feature = "unsafe-cothread"))]
                 let above_cothread = true;
                 #[cfg(feature = "experimental-async")]
-                if let StoreContextEntry::Async { .. } = active
-                    && above_cothread
-                {
-                    return StoreInstallGuard::Shared(store_id);
+                if above_cothread && let StoreContextEntry::Async { ptr, serial, .. } = active {
+                    return StoreInstallGuard::Lent {
+                        id: store_id,
+                        serial: *serial,
+                        previous: std::mem::replace(ptr, store_ptr),
+                    };
                 }
                 let _ = above_cothread;
             }
@@ -857,10 +887,11 @@ impl StoreContext {
             }
             top.borrow_count += 1;
             match unsafe { top.entry.get().as_mut().unwrap() } {
-                StoreContextEntry::Async { guard, ptr } => {
+                StoreContextEntry::Async { guard, ptr, .. } => {
                     GetStoreAsyncGuardResult::Ok(StoreAsyncGuardWrapper {
                         guard: guard as *mut _,
                         store_ptr: *ptr,
+                        id,
                     })
                 }
                 StoreContextEntry::Sync(ptr) => {
@@ -1254,7 +1285,7 @@ impl Drop for StoreAsyncGuardWrapper {
             });
             return;
         }
-        let id = unsafe { self.store_ptr.as_ref().unwrap().objects.id() };
+        let id = self.id;
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack
@@ -1282,7 +1313,7 @@ impl StoreInstallGuard {
         match self {
             Self::Pushed(_) => None,
             #[cfg(feature = "experimental-async")]
-            Self::Shared(id) => Some(unsafe { StoreContext::pause(*id) }),
+            Self::Lent { id, .. } => Some(unsafe { StoreContext::pause(*id) }),
         }
     }
 }
@@ -1292,7 +1323,25 @@ impl Drop for StoreInstallGuard {
         let store_id = match *self {
             Self::Pushed(store_id) => store_id,
             #[cfg(feature = "experimental-async")]
-            Self::Shared(_) => return,
+            Self::Lent {
+                serial, previous, ..
+            } => {
+                // The entry the call was lent to gets its own pointer back, if
+                // it is still there: one made when the call resumed keeps its
+                // own. Never panics, also while unwinding.
+                let _ = STORE_CONTEXT_STACK.try_with(|cell| {
+                    let Ok(mut stack) = cell.try_borrow_mut() else {
+                        return;
+                    };
+                    if let Some(top) = stack.last_mut()
+                        && let StoreContextEntry::Async { ptr, serial: s, .. } = top.entry.get_mut()
+                        && *s == serial
+                    {
+                        *ptr = previous;
+                    }
+                });
+                return;
+            }
         };
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
@@ -1966,7 +2015,7 @@ mod unwinding {
         let caught = catch_unwind(AssertUnwindSafe(|| {
             // --- its guest call
             let guest_call = unsafe { StoreContext::install(wrapper.as_mut().inner as *mut _) };
-            assert!(matches!(guest_call, StoreInstallGuard::Shared(_)));
+            assert!(matches!(guest_call, StoreInstallGuard::Lent { .. }));
             let _pause = unsafe { guest_call.pause() };
             assert_eq!(active_borrows(), 0);
             // --- a host function the guest reaches, which panics
@@ -1981,6 +2030,93 @@ mod unwinding {
         drop(wrapper);
         drop(install);
         assert!(StoreContext::is_empty());
+        assert!(store.into_store().is_ok());
+    }
+
+    /// A synchronous host function of a call in an async context calls its
+    /// guest back, and goes on with its store once that returns, as one of
+    /// a synchronous call does (see `borrow_provenance`): the borrows of the
+    /// host functions that guest call reaches are children of its own. Miri
+    /// checks the last write.
+    #[test]
+    fn a_nested_call_keeps_the_outer_borrow_usable() {
+        // Writes the store's objects back as they are: a write through
+        // `store`, which Tree Borrows needs to see a sibling's.
+        fn write(store: &mut StoreMut<'_>) {
+            let objects = store.objects_mut();
+            unsafe { std::ptr::write(objects, std::ptr::read(objects)) };
+        }
+
+        let store = Store::default().into_async();
+        let id = store.id;
+        let install = StoreContext::install_async(store.inner.try_write().unwrap());
+
+        // --- the host function, handed its store
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let mut outer = wrapper.as_mut();
+        write(&mut outer);
+        {
+            // --- its guest call
+            let _install = unsafe { StoreContext::install(outer.as_store_mut().inner as *mut _) };
+            let _pause = unsafe { StoreContext::pause(id) };
+            // --- a host function that guest call reaches
+            let mut inner = unsafe { StoreContext::get_current(id) };
+            write(&mut inner.as_mut());
+        }
+        // --- the host function goes on with its store
+        write(&mut outer);
+
+        drop(wrapper);
+        drop(install);
+        assert!(store.into_store().is_ok());
+    }
+
+    /// A guest call two host functions deep suspends: the entry is taken off,
+    /// the store is used by another task, and the call resumes with a new
+    /// entry. When the inner guest call returns, the new entry keeps its own
+    /// pointer, rather than getting back the one the outer guest call lent,
+    /// which the other task's use invalidated. Miri checks, under Stacked
+    /// Borrows, the write of a host function its guest calls next.
+    #[test]
+    fn a_call_that_suspended_leaves_the_new_entry_its_pointer() {
+        fn write(store: &mut StoreMut<'_>) {
+            let objects = store.objects_mut();
+            unsafe { std::ptr::write(objects, std::ptr::read(objects)) };
+        }
+        let store = Store::default().into_async();
+        let id = store.id;
+        let install = StoreContext::install_async(store.inner.try_write().unwrap());
+
+        // --- a host function, and its guest call
+        let mut outer = unsafe { StoreContext::get_current(id) };
+        let outer_call = unsafe { StoreContext::install(outer.as_mut().inner as *mut _) };
+        let outer_pause = unsafe { StoreContext::pause(id) };
+        // --- a host function of that guest call, and its own guest call
+        let mut inner = unsafe { StoreContext::get_current(id) };
+        let inner_call = unsafe { StoreContext::install(inner.as_mut().inner as *mut _) };
+        let inner_pause = unsafe { StoreContext::pause(id) };
+        // --- which suspends; another task uses the store, and it resumes
+        drop(install);
+        {
+            let mut other = store.inner.try_write().unwrap();
+            write(&mut StoreMut {
+                inner: &mut **other,
+            });
+        }
+        let install = StoreContext::install_async(store.inner.try_write().unwrap());
+        // --- the inner guest call returns, and so does its host function
+        drop(inner_pause);
+        drop(inner_call);
+        drop(inner);
+        // --- the outer guest call goes on, with another host function
+        let mut next = unsafe { StoreContext::get_current(id) };
+        write(&mut next.as_mut());
+        drop(next);
+        drop(outer_pause);
+        drop(outer_call);
+        drop(outer);
+
+        drop(install);
         assert!(store.into_store().is_ok());
     }
 

@@ -2,25 +2,20 @@ use crate::{AsEngineRef, Engine, EngineRef};
 
 pub(crate) mod handle;
 pub(crate) mod obj;
-pub(crate) mod slot;
+pub(crate) mod keep_alive;
 
 pub(crate) use handle::*;
 pub(crate) use obj::*;
-pub(crate) use slot::*;
+pub(crate) use keep_alive::*;
 
 #[derive(Debug)]
 pub(crate) struct Store {
     pub(crate) engine: Engine,
-    /// Where the host functions of the store find it.
-    pub(crate) slot: StoreSlot,
 }
 
 impl Store {
     pub(crate) fn new(engine: Engine) -> Self {
-        Self {
-            engine,
-            slot: StoreSlot::new(),
-        }
+        Self { engine }
     }
 
     pub(crate) fn engine(&self) -> &Engine {
@@ -32,11 +27,6 @@ impl Store {
     }
 }
 
-impl Drop for Store {
-    fn drop(&mut self) {
-        self.slot.clear();
-    }
-}
 
 impl AsEngineRef for Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
@@ -48,11 +38,7 @@ impl crate::BackendStore {
     /// Consume [`self`] into [`crate::backend::js::store::Store`].
     pub fn into_js(self) -> crate::backend::js::store::Store {
         match self {
-            Self::Js(s) => {
-                // Taken out of its store, which is dropped.
-                s.slot.clear();
-                s
-            }
+            Self::Js(s) => s,
             _ => panic!("Not a `js` store!"),
         }
     }

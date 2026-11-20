@@ -15,7 +15,10 @@
 //!   taken by the call, given up once the guest waits, and taken back before
 //!   the guest is woken with its results. The store is free while the guest
 //!   waits, and nothing is kept on the thread's store context stack, which is
-//!   last-in first-out when suspensions are not.
+//!   last-in first-out when suspensions are not. The host functions of the
+//!   guest's first slice run with the store [`Call::enter`] lends them, as a
+//!   synchronous call does; those of a slice that JavaScript resumed, which
+//!   no call lends anything, with the store the guest holds (see `lent`).
 //! * The host future of an async import belongs to the activation and is
 //!   polled with the caller's waker: first in the microtask that sees the
 //!   guest wait, then by the future of the call whenever that is woken.
@@ -57,7 +60,7 @@ use wasmer_types::{FunctionType, StoreId, TrapCode, Type};
 
 use crate::{
     AsStoreAsync, AsStoreRef, BackendTrap, RuntimeError, StoreAsync, StoreAsyncWriteLock,
-    Value,
+    StoreInner, Value,
     js::{
         error::Trap,
         function::{enter_async, entered_synchronously},
@@ -133,6 +136,9 @@ struct Activation {
     /// The call was polled from inside its own driving: whoever woke it is
     /// woken again, once that is over.
     redrive: Cell<bool>,
+    /// A host function runs with the store the activation holds, in a slice
+    /// of the guest that JavaScript resumed: see [`hold_running`].
+    held: Cell<bool>,
 }
 
 struct Activations {
@@ -585,6 +591,13 @@ impl Activation {
         drop(self.lock.take());
     }
 
+    /// The store, through the write lock the activation holds while its
+    /// guest runs.
+    fn store_ptr(&self) -> Option<*mut StoreInner> {
+        let mut lock = self.lock.borrow_mut();
+        Some(&raw mut **lock.as_mut()?.inner)
+    }
+
     /// The store's write lock, if nobody holds it.
     fn try_lock(&self) -> Option<StoreAsyncWriteLock> {
         let inner = self.store.borrow().as_ref()?.inner.try_write()?;
@@ -791,6 +804,36 @@ fn running(id: StoreId) -> Option<Rc<Activation>> {
     })
 }
 
+/// A host function's hold on the store a guest of `call_async` holds: see
+/// [`hold_running`].
+pub(crate) struct Held(Rc<Activation>);
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        self.0.held.set(false);
+    }
+}
+
+/// The store whose raw id is `id`, if a guest entered by `call_async` runs
+/// in it, as that guest holds it, and a hold on it: what a host function of
+/// the store runs with in a slice of the guest that JavaScript resumed, which
+/// no call lends it the store (see `lent`). An error if another host function
+/// holds it.
+pub(crate) fn hold_running(
+    id: usize,
+) -> Option<Result<(*mut StoreInner, Held), RuntimeError>> {
+    let activation = RUNNING.with(|running| {
+        let running = running.borrow();
+        let mut running = running.iter();
+        running.find(|activation| activation.store_id.as_raw().get() == id).cloned()
+    })?;
+    let store = activation.store_ptr()?;
+    if activation.held.replace(true) {
+        return Some(Err(crate::js::lent::held()));
+    }
+    Some(Ok((store, Held(activation))))
+}
+
 /// The store of `id`, if a guest entered by `call_async` is running in it.
 pub(crate) fn current_store(id: StoreId) -> Option<StoreAsync> {
     running(id)?.store.borrow().as_ref().map(StoreAsync::store)
@@ -931,7 +974,8 @@ impl Call {
     /// returns the promise it waits on as a guest would.
     ///
     /// The error of a trap, which unwinds a guest, is made first: the call
-    /// fails without entering anything if it cannot be.
+    /// fails without entering anything if it cannot be, or if calls nest too
+    /// deeply on the thread already (see `lent`).
     pub(crate) fn enter(
         store: &StoreAsync,
         lock: StoreAsyncWriteLock,
@@ -965,6 +1009,7 @@ impl Call {
                 accepted: Cell::new(false),
                 driving: Cell::new(false),
                 redrive: Cell::new(false),
+                held: Cell::new(false),
             });
             activations.slots[(token - FIRST_TOKEN) as usize] = Some(activation.clone());
             activation
@@ -973,8 +1018,19 @@ impl Call {
         // A promising function returns a promise, or throws before it enters
         // the guest. The reaction is attached here, before anything else can
         // run: a rejection nobody handles ends the process on some hosts.
-        let entered = match prepare_trap() {
-            Ok(()) => {
+        let store_ptr = activation.store_ptr().expect("the activation holds its store");
+        let lent = prepare_trap()
+            .map_err(|error| {
+                RuntimeError::new(format!(
+                    "the error of a trap, which unwinds a guest, cannot be made: {}",
+                    RuntimeError::from(error).message()
+                ))
+            })
+            .and_then(|()| crate::js::lent::lend_raw(store.id, store_ptr));
+        let entered = match lent {
+            // The first slice of the guest runs here, with the store lent to
+            // its host functions as the activation holds it.
+            Ok(_lent) => {
                 let _entered = enter_async();
                 if direct {
                     DIRECT.with(|slot| *slot.borrow_mut() = Some(activation.clone()));
@@ -984,10 +1040,7 @@ impl Call {
                 entered
             }
             Err(error) => {
-                *activation.error.borrow_mut() = Some(RuntimeError::new(format!(
-                    "the error of a trap, which unwinds a guest, cannot be made: {}",
-                    RuntimeError::from(error).message()
-                )));
+                *activation.error.borrow_mut() = Some(error);
                 Err(JsValue::UNDEFINED)
             }
         };

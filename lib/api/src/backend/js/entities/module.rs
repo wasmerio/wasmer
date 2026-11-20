@@ -319,12 +319,16 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        // The start function runs here: it is a guest entered synchronously.
+        // The start function runs here: it is a guest entered synchronously,
+        // whose host functions run with `store`.
+        let lent = crate::js::lent::lend(&mut store.as_store_mut())?;
         let instance = {
             let _entered = crate::js::function::enter_sync();
             WebAssembly::Instance::new(&self.local_module(), &imports_object)
         }
-        .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
+        .map_err(|e: JsValue| -> RuntimeError { e.into() });
+        drop(lent);
+        let instance = instance?;
         #[cfg(feature = "wasm-types-polyfill")]
         self.annotate_table_functions(store, imports, &instance);
         Ok(instance)
