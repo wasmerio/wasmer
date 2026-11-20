@@ -235,25 +235,18 @@ impl ThreadState {
 }
 
 // Targets whose thread-locals are heap blocks behind OS keys rather than
-// native thread-local storage (Android, OpenBSD, windows-gnu, and a few more):
-// the standard library frees each of them when the thread exits, whether or
-// not the value has a destructor. There `ThreadState` has one, which returns
-// the cached stack: `ThreadExit` may run after the block was freed (the
-// destructors of a thread's keys run in an order of the platform's choosing,
-// oldest first on Android), and would then find no stack to return. A target
-// listed here that has native thread-locals only pays for a destructor it does
-// not need; one that is missing leaks the cached stack of every thread that
-// exits. The list is repeated in the check below.
-#[cfg(any(
-    target_os = "android",
-    target_os = "openbsd",
-    target_os = "illumos",
-    target_os = "solaris",
-    target_os = "haiku",
-    target_os = "nto",
-    target_env = "ohos",
-    all(windows, target_env = "gnu"),
-))]
+// native thread-local storage, among those Wasmer builds for (windows-gnu, on
+// CI, and Android): the standard library frees each of them when the thread
+// exits, whether or not the value has a destructor. There `ThreadState` has
+// one, which returns the cached stacks: `ThreadExit` may run after the block
+// was freed (the destructors of a thread's keys run in an order of the
+// platform's choosing, oldest first on Android), and would then find no stack
+// to return. Rust has no stable `cfg` for native thread-locals
+// (`target_thread_local` is unstable), hence the list. Other such targets
+// (OpenBSD, illumos, ...) are not listed: there each exiting thread leaks its
+// cached stacks, which is all a missing entry does. The list is repeated in
+// the check below.
+#[cfg(any(target_os = "android", all(windows, target_env = "gnu")))]
 impl Drop for ThreadState {
     fn drop(&mut self) {
         for stack in self.take_idle_entries() {
@@ -268,16 +261,7 @@ impl Drop for ThreadState {
 // Everywhere else `ThreadState` must not need dropping: a field with a
 // destructor would make the `const` thread-local register one, and every
 // access check whether it ran.
-#[cfg(not(any(
-    target_os = "android",
-    target_os = "openbsd",
-    target_os = "illumos",
-    target_os = "solaris",
-    target_os = "haiku",
-    target_os = "nto",
-    target_env = "ohos",
-    all(windows, target_env = "gnu"),
-)))]
+#[cfg(not(any(target_os = "android", all(windows, target_env = "gnu"))))]
 const _: () = assert!(!std::mem::needs_drop::<ThreadState>());
 
 thread_local! {
