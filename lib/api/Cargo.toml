@@ -65,6 +65,9 @@ js-sys = { workspace = true, optional = true }
 wasmparser = { workspace = true, default-features = false, optional = true }
 rkyv.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+libc = { workspace = true, optional = true }
+
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
 windows-sys.workspace = true
@@ -141,7 +144,7 @@ experimental-async = ["dep:futures", "dep:corosensei"]
 unsafe-cothread = ["sys"]
 
 # Experimental host-triggered interruption support
-experimental-host-interrupt = ["wasmer-vm/experimental-host-interrupt"]
+experimental-host-interrupt = ["dep:libc"]
 
 # - Compilers.
 compiler = [

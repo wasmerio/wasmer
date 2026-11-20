@@ -37,6 +37,7 @@ where
 /// borrow across an invocation.
 pub struct WasmCall<'a> {
     call: &'a mut dyn ErasedCall,
+    interruptible: bool,
 }
 
 impl WasmCall<'_> {
@@ -44,7 +45,20 @@ impl WasmCall<'_> {
     ///
     /// Invoking again enters the function again, with the same arguments.
     pub fn invoke(&mut self) -> Result<(), RuntimeError> {
-        self.call.invoke()
+        self.call.invoke(self.interruptible)
+    }
+
+    #[cfg(all(
+        unix,
+        feature = "sys",
+        feature = "experimental-host-interrupt",
+        not(feature = "baremetal")
+    ))]
+    pub(crate) fn interruptible(&mut self) -> WasmCall<'_> {
+        WasmCall {
+            call: &mut *self.call,
+            interruptible: true,
+        }
     }
 }
 
@@ -67,7 +81,7 @@ impl AsStoreMut for WasmCall<'_> {
 // `AsStoreMut` is not dyn-compatible, so the caller's store and its invoke
 // closure are erased together behind this trait.
 trait ErasedCall {
-    fn invoke(&mut self) -> Result<(), RuntimeError>;
+    fn invoke(&mut self, interruptible: bool) -> Result<(), RuntimeError>;
     fn store_ref(&self) -> StoreRef<'_>;
     fn store_mut(&mut self) -> StoreMut<'_>;
     fn objects_mut(&mut self) -> &mut StoreObjects;
@@ -82,12 +96,12 @@ struct CallState<'a, S, F> {
 impl<S, F> ErasedCall for CallState<'_, S, F>
 where
     S: AsStoreMut,
-    F: FnMut(&mut S) -> Result<(), RuntimeError>,
+    F: FnMut(&mut S, bool) -> Result<(), RuntimeError>,
 {
-    fn invoke(&mut self) -> Result<(), RuntimeError> {
+    fn invoke(&mut self, interruptible: bool) -> Result<(), RuntimeError> {
         // Cleared first, so an entry that unwinds never counts as completed.
         self.completed = false;
-        let result = (self.invoke)(self.store);
+        let result = (self.invoke)(self.store, interruptible);
         self.completed = result.is_ok();
         result
     }
@@ -109,20 +123,32 @@ where
 ///
 /// Every backend call path goes through here, so a plain call stays a direct
 /// call and wrappers apply the same way on every backend.
+#[cfg(any(feature = "js", feature = "v8"))]
 pub(crate) fn call_wrapped<S: AsStoreMut>(
     store: &mut S,
     wrapper: Option<&mut dyn CallWrapper>,
     mut invoke: impl FnMut(&mut S) -> Result<(), RuntimeError>,
 ) -> Result<(), RuntimeError> {
+    call_wrapped_with_interrupt(store, wrapper, |store, _| invoke(store))
+}
+
+pub(crate) fn call_wrapped_with_interrupt<S: AsStoreMut>(
+    store: &mut S,
+    wrapper: Option<&mut dyn CallWrapper>,
+    mut invoke: impl FnMut(&mut S, bool) -> Result<(), RuntimeError>,
+) -> Result<(), RuntimeError> {
     let Some(wrapper) = wrapper else {
-        return invoke(store);
+        return invoke(store, false);
     };
     let mut state = CallState {
         store,
         invoke,
         completed: false,
     };
-    wrapper.wrap(&mut WasmCall { call: &mut state })?;
+    wrapper.wrap(&mut WasmCall {
+        call: &mut state,
+        interruptible: false,
+    })?;
     if state.completed {
         Ok(())
     } else {

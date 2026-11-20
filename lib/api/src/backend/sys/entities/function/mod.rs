@@ -16,7 +16,7 @@ use crate::{
     BackendFunction, CallWrapper, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction,
     RuntimeError, StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
-    entities::function::call_wrapper::call_wrapped,
+    entities::function::call_wrapper::call_wrapped_with_interrupt,
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     vm::{VMExtern, VMExternFunction},
@@ -27,14 +27,39 @@ use std::{
     pin::Pin, sync::Arc,
 };
 use wasmer_types::{NativeWasmType, RawValue, StoreId};
-#[cfg(feature = "experimental-host-interrupt")]
-use wasmer_vm::interrupt_registry;
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext,
     VMDynamicFunctionContext, VMExceptionRef, VMFuncRef, VMFunction, VMFunctionBody,
     VMFunctionContext, VMFunctionKind, VMTrampoline, on_host_stack, raise_lib_trap,
-    raise_user_trap, resume_panic, wasmer_call_trampoline,
+    raise_user_trap, resume_panic,
 };
+
+#[cfg(all(
+    unix,
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+))]
+use crate::interrupt::invoke_trampoline;
+
+#[cfg(not(all(
+    unix,
+    feature = "experimental-host-interrupt",
+    not(feature = "baremetal")
+)))]
+#[inline]
+unsafe fn invoke_trampoline(
+    trap_handler: Option<*const wasmer_vm::TrapHandlerFn<'static>>,
+    config: &wasmer_vm::VMConfig,
+    vmctx: VMFunctionContext,
+    trampoline: VMTrampoline,
+    callee: *const VMFunctionBody,
+    values: *mut u8,
+    _interrupt_store: Option<StoreId>,
+) -> Result<(), Trap> {
+    unsafe {
+        wasmer_vm::wasmer_call_trampoline(trap_handler, config, vmctx, trampoline, callee, values)
+    }
+}
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -460,6 +485,7 @@ impl Function {
         &self,
         store: &mut impl AsStoreMut,
         wrapper: Option<&mut dyn CallWrapper>,
+        interruptible_coroutine: bool,
         trampoline: VMTrampoline,
         params: &[Value],
         results: &mut [Value],
@@ -506,7 +532,14 @@ impl Function {
         }
 
         // Invoke the call
-        self.call_wasm_raw(store, wrapper, trampoline, values_vec, results)?;
+        self.call_wasm_raw(
+            store,
+            wrapper,
+            interruptible_coroutine,
+            trampoline,
+            values_vec,
+            results,
+        )?;
         Ok(())
     }
 
@@ -514,27 +547,20 @@ impl Function {
         &self,
         store: &mut impl AsStoreMut,
         wrapper: Option<&mut dyn CallWrapper>,
+        interruptible_coroutine: bool,
         trampoline: VMTrampoline,
         mut params: Vec<RawValue>,
         results: &mut [Value],
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
-        let result = {
+        {
             let store_id = store.objects_mut().id();
-
-            #[cfg(feature = "experimental-host-interrupt")]
-            let interrupt_guard = match interrupt_registry::install(store_id) {
-                Ok(x) => x,
-                Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
-                    return Err(Trap::lib(TrapCode::HostInterrupt).into());
-                }
-            };
 
             // The trampoline writes the results over the arguments, so a
             // wrapper that enters again gets them restored first.
             let original_params = wrapper.is_some().then(|| params.clone());
 
-            let r = call_wrapped(store, wrapper, |store| {
+            call_wrapped_with_interrupt(store, wrapper, |store, interruptible| {
                 if let Some(original_params) = &original_params {
                     params.copy_from_slice(original_params);
                 }
@@ -552,25 +578,19 @@ impl Function {
                     // Safety: This is the intended use-case for StoreContext::pause, as
                     // documented in the function's doc comments.
                     let _pause_guard = StoreContext::pause(store_id);
-                    wasmer_call_trampoline(
+                    invoke_trampoline(
                         signal_handler,
                         config,
                         vm_function.anyfunc.as_ptr().as_ref().vmctx,
                         trampoline,
                         vm_function.anyfunc.as_ptr().as_ref().func_ptr,
                         params.as_mut_ptr() as *mut u8,
+                        (interruptible || interruptible_coroutine).then_some(store_id),
                     )
                 }
                 .map_err(RuntimeError::from)
-            });
-
-            #[cfg(feature = "experimental-host-interrupt")]
-            drop(interrupt_guard);
-
-            r
-        };
-
-        result?;
+            })?;
+        }
 
         // Load the return values out of `values_vec`.
         let signature = self.ty(store);
@@ -601,6 +621,31 @@ impl Function {
         wrapper: Option<&mut dyn CallWrapper>,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        self.call_impl(store, wrapper, false, params)
+    }
+
+    // Async calls retain their existing interrupt registration while suspended.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn call_on_coroutine(
+        &self,
+        store: &mut impl AsStoreMut,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        self.call_impl(
+            store,
+            None,
+            cfg!(feature = "experimental-host-interrupt"),
+            params,
+        )
+    }
+
+    fn call_impl(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: Option<&mut dyn CallWrapper>,
+        interruptible_coroutine: bool,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
                 .get(store.objects_mut().as_sys())
@@ -610,7 +655,14 @@ impl Function {
                 .call_trampoline
         };
         let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm(store, wrapper, trampoline, params, &mut results)?;
+        self.call_wasm(
+            store,
+            wrapper,
+            interruptible_coroutine,
+            trampoline,
+            params,
+            &mut results,
+        )?;
         Ok(results.into_boxed_slice())
     }
 
@@ -642,7 +694,7 @@ impl Function {
                 .call_trampoline
         };
         let mut results = vec![Value::null(); self.result_arity(store)];
-        self.call_wasm_raw(store, None, trampoline, params, &mut results)?;
+        self.call_wasm_raw(store, None, false, trampoline, params, &mut results)?;
         Ok(results.into_boxed_slice())
     }
 
@@ -700,7 +752,7 @@ impl Function {
 // throwing exceptions won't work since libunwind requires
 // considerable stack space to do its magic, but everything else
 // should work.
-enum InvocationResult<T, E> {
+pub(crate) enum InvocationResult<T, E> {
     Success(T),
     Exception(crate::Exception),
     Trap(Box<E>),
@@ -865,30 +917,21 @@ where
         // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
         // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
         // See: https://github.com/wasmerio/wasmer/pull/5700
+        #[cfg(all(
+            unix,
+            feature = "experimental-host-interrupt",
+            not(feature = "baremetal")
+        ))]
+        let result =
+            unsafe { crate::interrupt::InterruptCallWrapper::finish_host_invocation(result) };
         match result {
-            Ok(InvocationResult::Success(())) => unsafe {
-                // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                // away from the WASM stack at any time.
-                // Safety: The pointer is only used for the duration of the call to
-                // `get_current_transient`.
-                let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
-                let mut store = store_wrapper.as_mut().unwrap();
-                #[cfg(feature = "experimental-host-interrupt")]
-                if interrupt_registry::is_interrupted(store.objects.id()) {
-                    raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                }
-            },
+            Ok(InvocationResult::Success(())) => {}
             Ok(InvocationResult::Exception(exception)) => unsafe {
                 // Note: can't acquire a proper ref-counted context ref here, since we can switch
                 // away from the WASM stack at any time.
-                // Safety: The pointer is only used for the duration of the call to `throw` and
-                // `is_interrupted`.
+                // Safety: The pointer is only used for the duration of the call to `throw`.
                 let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
                 let mut store = store_wrapper.as_mut().unwrap();
-                #[cfg(feature = "experimental-host-interrupt")]
-                if interrupt_registry::is_interrupted(store.objects.id()) {
-                    raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                }
                 wasmer_vm::libcalls::throw(
                     store.objects.as_sys(),
                     exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
@@ -992,6 +1035,8 @@ macro_rules! impl_host_function {
                 // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
+                #[cfg(all(unix, feature = "experimental-host-interrupt", not(feature = "baremetal")))]
+                let result = unsafe { crate::interrupt::InterruptCallWrapper::finish_host_invocation(result) };
                 match result {
                     Ok(InvocationResult::Success(result)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
@@ -1000,23 +1045,14 @@ macro_rules! impl_host_function {
                         // `into_c_struct` and `get_current_transient`.
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
                         return result.into_c_struct(store);
                     },
                     Ok(InvocationResult::Exception(exception)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
                         // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to `throw` and
-                        // `is_interrupted`.
+                        // Safety: The pointer is only used for the duration of the call to `throw`.
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
                         wasmer_vm::libcalls::throw(
                             store.objects.as_sys(),
                             exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
@@ -1096,6 +1132,8 @@ macro_rules! impl_host_function {
                 // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
+                #[cfg(all(unix, feature = "experimental-host-interrupt", not(feature = "baremetal")))]
+                let result = unsafe { crate::interrupt::InterruptCallWrapper::finish_host_invocation(result) };
                 match result {
                     Ok(InvocationResult::Success(result)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
@@ -1104,23 +1142,14 @@ macro_rules! impl_host_function {
                         // `into_c_struct` and `get_current_transient`.
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
                         return result.into_c_struct(store);
                     },
                     Ok(InvocationResult::Exception(exception)) => unsafe {
                         // Note: can't acquire a proper ref-counted context ref here, since we can switch
                         // away from the WASM stack at any time.
-                        // Safety: The pointer is only used for the duration of the call to `throw` and
-                        // `is_interrupted`.
+                        // Safety: The pointer is only used for the duration of the call to `throw`.
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
-                        #[cfg(feature = "experimental-host-interrupt")]
-                        if interrupt_registry::is_interrupted(store.objects.id()) {
-                            raise_lib_trap(Trap::lib(TrapCode::HostInterrupt))
-                        }
                         wasmer_vm::libcalls::throw(
                             store.objects.as_sys(),
                             exception.vm_exceptionref().unwrap_sys_ref().to_u32_exnref(),
