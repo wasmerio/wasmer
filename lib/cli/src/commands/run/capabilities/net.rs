@@ -281,6 +281,15 @@ impl VirtualNetworking for AskingNetworking {
         call!(self, bind_udp, addr, reuse_port, reuse_addr);
     }
 
+    async fn bind_udp_client(
+        &self,
+        addr: SocketAddr,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        call!(self, bind_udp_client, addr, reuse_port, reuse_addr);
+    }
+
     /// Creates a socket that can be used to send and receive ICMP packets
     /// from a paritcular IP address
     async fn bind_icmp(&self, addr: IpAddr) -> Result<Box<dyn VirtualIcmpSocket + Sync>> {

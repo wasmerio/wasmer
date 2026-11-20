@@ -211,6 +211,21 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
         Err(NetworkError::Unsupported)
     }
 
+    /// Binds a UDP socket to an ephemeral local port for use as a client: the
+    /// implicit bind performed when an unbound socket is connected or sends a
+    /// datagram. Unlike [`bind_udp`](Self::bind_udp) this does not ask to
+    /// accept traffic on `addr`, so an implementation enforcing a network
+    /// policy should not check it as a listen; the destination of each
+    /// datagram is checked when it is sent.
+    async fn bind_udp_client(
+        &self,
+        addr: SocketAddr,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        self.bind_udp(addr, reuse_port, reuse_addr).await
+    }
+
     /// Creates a socket that can be used to send and receive ICMP packets
     /// from a paritcular IP address
     async fn bind_icmp(&self, addr: IpAddr) -> Result<Box<dyn VirtualIcmpSocket + Sync>> {

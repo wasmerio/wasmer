@@ -954,3 +954,46 @@ async fn test_loopback_connected_socket_holds_local_port_reservation() {
         .await
         .unwrap();
 }
+
+#[cfg(feature = "host-net")]
+#[traced_test]
+#[tokio::test(flavor = "multi_thread")]
+async fn test_udp_client_bind_under_outbound_only_ruleset() {
+    use std::str::FromStr;
+
+    use crate::ruleset::Ruleset;
+
+    let receiver = std::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    receiver
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap();
+    let allowed = receiver.local_addr().unwrap();
+    let denied = SocketAddr::from((Ipv4Addr::LOCALHOST, allowed.port().wrapping_add(1)));
+
+    let ruleset =
+        Ruleset::from_str(&format!("ipv4:allow=127.0.0.1:{}/out", allowed.port())).unwrap();
+    let networking = LocalNetworking::with_ruleset(ruleset);
+    let wildcard = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0));
+
+    // An explicit bind asks to receive traffic, which the ruleset does not grant.
+    let err = networking
+        .bind_udp(wildcard, false, false)
+        .await
+        .expect_err("explicit bind_udp must be checked as inbound");
+    assert!(matches!(err, NetworkError::PermissionDenied), "{err:?}");
+
+    // The implicit client bind is not a listen, so it succeeds...
+    let mut socket = networking
+        .bind_udp_client(wildcard, false, false)
+        .await
+        .unwrap();
+
+    // ...while every destination is still checked as outbound.
+    assert_eq!(socket.try_send_to(b"ping", allowed).unwrap(), 4);
+    let mut buf = [0u8; 4];
+    let (len, _) = receiver.recv_from(&mut buf).unwrap();
+    assert_eq!(&buf[..len], b"ping");
+
+    let err = socket.try_send_to(b"ping", denied).unwrap_err();
+    assert!(matches!(err, NetworkError::PermissionDenied), "{err:?}");
+}
