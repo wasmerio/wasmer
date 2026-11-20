@@ -29,7 +29,7 @@ impl VMFunctionEnvironment {
 
     pub fn contents(self) -> Box<(dyn std::any::Any + Send + 'static)> {
         match_rt!(on self => s {
-            s.contents
+            s.into_contents()
         })
     }
 }

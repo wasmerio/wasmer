@@ -25,4 +25,9 @@ impl VMFunctionEnvironment {
     pub fn as_mut(&mut self) -> &mut (dyn Any + Send + 'static) {
         &mut *self.contents
     }
+
+    /// Returns the underlying value, consuming the environment.
+    pub fn into_contents(self) -> Box<dyn Any + Send + 'static> {
+        self.contents
+    }
 }

@@ -4,7 +4,7 @@ use super::{StoreObjects, inner::StoreInner};
 use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 #[cfg(feature = "experimental-async")]
 use crate::{AsStoreAsync, StoreAsync};
-use wasmer_types::{ExternType, OnCalledAction};
+use wasmer_types::ExternType;
 //use wasmer_vm::{StoreObjects, TrapHandlerFn};
 
 #[cfg(feature = "sys")]
@@ -108,17 +108,6 @@ impl StoreMut<'_> {
     /// }
     /// ```
     pub fn parked<R>(&mut self, f: impl FnOnce() -> R) -> R {
-        // An async entry owns its write guard and must remain visible to async
-        // host imports. Installation deliberately leaves that entry in place,
-        // so release this borrow's count instead of shadowing the guard.
-        let id = self.inner.objects.id();
-        if super::StoreContext::active_is_async(id) {
-            // SAFETY: `&mut self` keeps this borrow unreachable until `f` ends,
-            // just as it does for the installed synchronous entry below.
-            let ptr = &mut *self.inner as *mut StoreInner;
-            let _guard = unsafe { super::StoreContext::pause(id, Some(ptr)) };
-            return f();
-        }
         // This is the same thing `Function::call` does before entering Wasm:
         // install this borrow as the store executing on the thread, so that
         // code which reaches the store through the context — rather than
@@ -129,20 +118,22 @@ impl StoreMut<'_> {
         // SAFETY: `ptr` comes from `&mut *self.inner`, which `&mut self` keeps
         // alive and unreachable for every frame on this thread until `f`
         // returns and the guard is dropped.
-        let _guard = unsafe { super::StoreContext::install(ptr) };
+        let guard = unsafe { super::StoreContext::install(ptr) };
+        // An async context's entry is not shadowed by one of this borrow's
+        // own: it holds the write guard, which async host functions reach
+        // through it, so the install lent it this borrow's pointer instead.
+        // Its count still holds the borrow being parked, which is released
+        // while `f` runs, as it is while Wasm runs in a call: that is what
+        // lets code reached from `f` take the store. An entry the install
+        // pushed starts unborrowed, and there is nothing to release.
+        // SAFETY: as above, the parked borrow is unreachable until `f`
+        // returns.
+        let _pause = unsafe { guard.pause() };
+        // A call into a plain store further out, which has no entry of its
+        // own, hides the stack from `Store::with_current`: what this park
+        // lends is the entry just installed, so it is shown again.
+        let _lend = super::LendGuard::new();
         f()
-    }
-
-    // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-    /// Sets the unwind callback which will be invoked when the call finishes
-    pub fn on_called<F>(&mut self, callback: F)
-    where
-        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        self.inner.on_called.replace(Box::new(callback));
     }
 }
 

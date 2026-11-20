@@ -34,7 +34,7 @@ $ cargo fuzz run validate
 Another example with the `cranelift` fuzzer:
 
 ```sh
-$ cargo fuzz run cranelift
+$ cargo fuzz run --features=cranelift,sanitizer cranelift
 ```
 
 See the
@@ -74,7 +74,7 @@ work for this purpose because we use a custom configuration to our
 `DUMP_TESTCASE=path`. For example:
 
 ```sh
-$ DUMP_TESTCASE=/tmp/crash.wasm cargo fuzz run --features=singlepass singlepass fuzz/artifacts/singlepass/crash-0966412eab4f89c52ce5d681807c8030349470f6
+$ DUMP_TESTCASE=/tmp/crash.wasm cargo fuzz run --features=singlepass,sanitizer singlepass fuzz/artifacts/singlepass/crash-0966412eab4f89c52ce5d681807c8030349470f6
 ```
 
 [`cargo-fuzz`]: https://github.com/rust-fuzz/cargo-fuzz

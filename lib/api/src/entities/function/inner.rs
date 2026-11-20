@@ -5,8 +5,9 @@ use wasmer_types::{FunctionType, RawValue};
 #[cfg(feature = "experimental-async")]
 use crate::{AsStoreAsync, AsyncFunctionEnvMut, entities::function::async_host::AsyncHostFunction};
 use crate::{
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut,
-    HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, CallWrapper, ExportError, Exportable, Extern, FunctionEnv,
+    FunctionEnvMut, HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv,
+    WithoutEnv,
     error::RuntimeError,
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternFunction, VMFuncRef},
@@ -442,6 +443,19 @@ impl BackendFunction {
         })
     }
 
+    /// Calls the function through `wrapper`. See [`crate::Function::call_wrapped`].
+    #[inline]
+    pub fn call_wrapped(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: &mut dyn CallWrapper,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        match_rt!(on self => f {
+            f.call_wrapped(store, Some(wrapper), params)
+        })
+    }
+
     #[doc(hidden)]
     #[allow(missing_docs)]
     #[inline]
@@ -653,6 +667,31 @@ impl BackendFunction {
         match_rt!(on self => f {
             f.is_from_store(store)
         })
+    }
+
+    /// See [`crate::Function::set_calls_on_native_stack`].
+    pub fn set_calls_on_native_stack(&self, store: &mut impl AsStoreMut, always: bool) {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(f) => f.set_calls_on_native_stack(store, always),
+            #[allow(unreachable_patterns)]
+            _ => {
+                let _ = (store, always);
+            }
+        }
+    }
+
+    /// See [`crate::Function::calls_on_native_stack`].
+    pub fn calls_on_native_stack(&self, store: &impl AsStoreRef) -> bool {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(f) => f.calls_on_native_stack(store),
+            #[allow(unreachable_patterns)]
+            _ => {
+                let _ = store;
+                false
+            }
+        }
     }
 
     #[inline]

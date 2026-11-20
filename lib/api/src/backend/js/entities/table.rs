@@ -92,7 +92,8 @@ impl Table {
                 let func = value.dyn_into::<js_sys::Function>().ok()?;
                 let ty = VMFunction::type_from_js(&func)
                     .unwrap_or_else(|| FunctionType::new(vec![], vec![]));
-                let vm_function = VMFunction::new(func, ty);
+                // A table holds WebAssembly functions only.
+                let vm_function = VMFunction::new(func, ty).without_receiver();
                 let function = crate::Function::from_vm_extern(
                     store,
                     crate::vm::VMExternFunction::Js(vm_function),

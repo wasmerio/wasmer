@@ -78,6 +78,15 @@ gen_tests! {
                         crate::Compiler::Singlepass
                     ).with_experimental_artifact().with_dynamic_memory())
                 }
+                #[test_log::test]
+                #[cold]
+                #[cfg(feature = "singlepass")]
+                #[cfg(target_arch = "x86_64")]
+                fn singlepass_sse42() {
+                    foo(crate::Config::new(
+                        crate::Compiler::Singlepass
+                    ).with_sse42())
+                }
             }
 
             #[cfg(feature = "cranelift")]

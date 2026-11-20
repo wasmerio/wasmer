@@ -33,6 +33,12 @@ impl StoreAsync {
                     guard.guard.as_ref().unwrap()
                 }),
             }),
+            // A guest on a JSPI stack has no entry on the context stack, which
+            // cannot follow suspensions: its store is the one its call holds
+            // the write lock of.
+            #[cfg(feature = "js")]
+            _ => crate::backend::js::jspi::current_store(id),
+            #[cfg(not(feature = "js"))]
             _ => None,
         }
     }
@@ -49,7 +55,13 @@ impl StoreAsync {
     /// if this is the only clone of it and is unlocked.
     pub fn into_store(self) -> Result<Store, Self> {
         match self.inner.consume() {
-            Ok(unwrapped) => Ok(Store { inner: unwrapped }),
+            Ok(mut unwrapped) => {
+                #[cfg(feature = "sys")]
+                unwrapped
+                    .store
+                    .set_context_mode(crate::context_mode::ASYNC, false);
+                Ok(Store { inner: unwrapped })
+            }
             Err(lock) => Err(Self {
                 id: self.id,
                 inner: lock,

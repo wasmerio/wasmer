@@ -34,7 +34,7 @@ pub use obj::*;
 
 use crate::{AsEngineRef, BackendEngine, Engine, EngineRef};
 #[cfg(feature = "unsafe-cothread")]
-pub use context::CoroutineStoreGuard;
+pub use context::Cothread;
 pub(crate) use context::*;
 pub(crate) use inner::*;
 use wasmer_types::StoreId;
@@ -76,13 +76,11 @@ impl Store {
             }
         };
 
-        Self {
-            inner: Box::new(StoreInner {
-                objects: StoreObjects::from_store_ref(&store),
-                on_called: None,
-                store,
-            }),
-        }
+        let inner = Box::new(StoreInner {
+            objects: StoreObjects::from_store_ref(&store),
+            store,
+        });
+        Self { inner }
     }
 
     #[cfg(feature = "sys")]
@@ -153,22 +151,6 @@ impl Store {
         Some(f(&mut store.as_mut()))
     }
 
-    /// Installs this store's context for the duration of a coroutine resume.
-    /// The guard removes the context when dropped; hold it for exactly the
-    /// duration of the resume() call.
-    ///
-    /// # Panics
-    /// Panics if the store is anywhere on the current thread's context stack
-    /// (active or suspended).
-    ///
-    /// # Safety
-    /// Exactly one `StorePtrWrapper` derived from this store must be alive on
-    /// the suspended coroutine's stack for the duration of the guard.
-    #[cfg(feature = "unsafe-cothread")]
-    pub unsafe fn coroutine_store_guard(&mut self) -> CoroutineStoreGuard<'_> {
-        unsafe { CoroutineStoreGuard::new(self.inner.as_mut()) }
-    }
-
     /// Builds an [`Interrupter`] for this store. Calling [`Interrupter::interrupt`]
     /// will cause running WASM code to terminate immediately with a
     /// [`HostInterrupt`](crate::backend::sys::vm::TrapCode::HostInterrupt) trap.
@@ -198,7 +180,11 @@ impl Store {
     #[cfg(feature = "experimental-async")]
     /// Transforms this store into a [`StoreAsync`] which can be used
     /// to invoke [`Function::call_async`](crate::Function::call_async).
-    pub fn into_async(self) -> StoreAsync {
+    pub fn into_async(mut self) -> StoreAsync {
+        // Its calls go through the thread's context stack from now on, which
+        // follows the coroutines of `call_async` as they suspend and resume.
+        #[cfg(feature = "sys")]
+        self.inner.store.set_context_mode(context_mode::ASYNC, true);
         StoreAsync {
             id: self.id(),
             inner: LocalRwLock::new(self.inner),

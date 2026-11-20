@@ -10,6 +10,9 @@ pub use host::*;
 pub(crate) mod env;
 pub use env::*;
 
+pub(crate) mod call_wrapper;
+pub use call_wrapper::{CallWrapper, WasmCall};
+
 #[cfg(feature = "experimental-async")]
 pub(crate) mod async_host;
 #[cfg(feature = "experimental-async")]
@@ -300,6 +303,19 @@ impl Function {
     /// 2. If the function is defined in the host (in a native way), it will
     ///    call the trampoline.
     ///
+    /// On the JavaScript backend, a guest's function can be called with any
+    /// store, but the host functions it calls run only with their own, lent
+    /// by the call: one of another store fails the call without running. So
+    /// does one that JavaScript reaches by calling a guest's export as a
+    /// function, outside any call or from a host function: a host function
+    /// calls guests with this method instead.
+    ///
+    /// Calls nested in host functions on one thread fail with a stack
+    /// overflow once they are 100 deep, so that the engine's exception for
+    /// running out of stack does not unwind Rust frames without running them.
+    /// This is a mitigation: a guest with frames of a few KB can run the
+    /// engine out of stack before that.
+    ///
     /// # Examples
     ///
     /// ```
@@ -331,12 +347,96 @@ impl Function {
         self.0.call(store, params)
     }
 
+    /// Calls the function through a [`CallWrapper`], which decides when and
+    /// how many times the function is entered.
+    ///
+    /// ```
+    /// # use wasmer::{imports, wat2wasm, Instance, Module, Store, Value, WasmCall};
+    /// # let mut store = Store::default();
+    /// # let wasm_bytes = wat2wasm(br#"(module (func (export "one") (result i32) i32.const 1))"#).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    /// let one = instance.exports.get_function("one").unwrap();
+    ///
+    /// let mut entries = 0;
+    /// let mut count_entries = |call: &mut WasmCall<'_>| {
+    ///     entries += 1;
+    ///     call.invoke()
+    /// };
+    /// let results = one.call_wrapped(&mut store, &mut count_entries, &[]).unwrap();
+    /// assert_eq!(results.to_vec(), vec![Value::I32(1)]);
+    /// assert_eq!(entries, 1);
+    /// ```
+    pub fn call_wrapped(
+        &self,
+        store: &mut impl AsStoreMut,
+        wrapper: &mut dyn CallWrapper,
+        params: &[Value],
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        self.0.call_wrapped(store, wrapper, params)
+    }
+
     /// Calls the function asynchronously.
     ///
     /// The returned future drives execution of the WebAssembly function on a
     /// coroutine stack. Host functions created with [`Function::new_async`] may
     /// suspend execution by awaiting futures, and their completion will resume
     /// the Wasm instance according to the JSPI proposal.
+    ///
+    /// On the `sys` backend that coroutine has a fixed stack of 1 MiB. The
+    /// host functions the guest calls run on it; one that needs more stack
+    /// runs into the stack's guard page, and the process is killed. The
+    /// guest's own frames are on a stack of their own, whose size
+    /// `wasmer_vm::set_stack_size` sets. The future of an async host function
+    /// is polled by the future of the call, on the executor's stack.
+    ///
+    /// On `sys`, dropping the call while its guest waits in an async host
+    /// function unwinds the coroutine with a panic: guest frames are
+    /// discarded, and host frames run their destructors, whoever holds the
+    /// store then. Those destructors must not use the store, through a
+    /// `FunctionEnvMut` they keep for instance, and a host function that
+    /// catches the panics of a guest it calls must resume those it does not
+    /// know. A call dropped while its thread exits, from a thread local, is
+    /// forgotten instead, with its stack.
+    ///
+    /// On the `js` backend the engine suspends the guest's stack (JSPI). A
+    /// function that is neither a WebAssembly function nor an async host
+    /// function, a synchronous host function or JavaScript an embedder gave,
+    /// is called as [`Function::call`] calls it, and an async host function
+    /// called directly returns the values its future returned, as they are.
+    /// The first call on a thread compiles a small WebAssembly module, whose
+    /// trap unwinds a guest that must not run again: on a host that refuses
+    /// to compile it, the call fails before it enters anything. The
+    /// call holds the store's write lock while its guest runs, and gives it
+    /// up while the guest waits in an async host function. Dropping the call
+    /// while its guest waits unwinds the guest, which runs no more code, and
+    /// gives the store back. The call keeps the store for as long as the
+    /// engine may still resume the guest where Wasmer does not see it, also
+    /// once the call is dropped, since nothing can stop the engine then:
+    ///
+    /// * while the guest is suspended in a `WebAssembly.Suspending` function
+    ///   that Wasmer did not make;
+    /// * while the promise the guest waits on waits for a thenable: an
+    ///   `externref` result of an async host function whose `then` reads
+    ///   differently the second time, as a `Proxy` can make it, which the
+    ///   promise takes for a thenable (any other thenable result fails the
+    ///   import);
+    /// * on JavaScriptCore, while a thenable the guest returned is pending:
+    ///   the engine resolves the call's promise with it, and the call ends
+    ///   with what it settles with.
+    ///
+    /// A thenable that never settles keeps the store for good: it cannot be
+    /// taken back with `StoreAsync::into_store`.
+    ///
+    /// A guest entered while another guest of the same store runs, by a
+    /// synchronous call, a host function, or a JavaScript function given with
+    /// `Function::from_jsvalue`, cannot be suspended: an async host function
+    /// it calls fails with `TrapCode::YieldOutsideAsyncContext`. JavaScript
+    /// that Wasmer never saw, an import of a module instantiated without it,
+    /// must not call a guest's export while a guest of the same store runs:
+    /// on engines that run an async import before they refuse to suspend its
+    /// guest (Node.js 24, and JavaScriptCore beneath a JavaScript frame),
+    /// Wasmer cannot tell the refused import from one that waits.
     #[must_use = "This function spawns a future that must be awaited to produce results"]
     #[cfg(feature = "experimental-async")]
     pub fn call_async(
@@ -464,6 +564,43 @@ impl Function {
     /// Checks whether this `Function` can be used with the given store.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.0.is_from_store(store)
+    }
+
+    /// Makes every call from Wasm to this host function run on the native
+    /// stack, or, with `false`, lets it run on the Wasm stack again.
+    ///
+    /// On the `sys` backend a synchronous host function called from Wasm
+    /// runs on the Wasm stack it was called from when enough of that stack is
+    /// left (the host-call reserve), which saves switching stacks. A host
+    /// function that may need more stack than the reserve, or that should run
+    /// on the thread's own stack every time, is set to run there. The setting
+    /// applies from the next call on, including calls through instances that
+    /// already import the function. `wasmer::sys::vm::set_host_calls_on_native_stack`
+    /// does the same for every host function.
+    ///
+    /// Asynchronous host functions always run on the native stack, and other
+    /// backends always run host functions on their own stack: there, and for
+    /// a function defined in Wasm, this does nothing.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, Store};
+    /// # let mut store = Store::default();
+    /// #
+    /// let heavy = Function::new_typed(&mut store, |x: i32| x + 1);
+    /// heavy.set_calls_on_native_stack(&mut store, true);
+    /// ```
+    pub fn set_calls_on_native_stack(&self, store: &mut impl AsStoreMut, always: bool) {
+        self.0.set_calls_on_native_stack(store, always)
+    }
+
+    /// Whether every call from Wasm to this host function runs on the native
+    /// stack: when it was set to with [`Self::set_calls_on_native_stack`], and
+    /// for an asynchronous host function. Always `false` on backends that
+    /// have no Wasm stacks of their own, and for a function defined in Wasm.
+    pub fn calls_on_native_stack(&self, store: &impl AsStoreRef) -> bool {
+        self.0.calls_on_native_stack(store)
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

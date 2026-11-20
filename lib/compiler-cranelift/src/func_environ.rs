@@ -1145,18 +1145,14 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         let sig_index = self.module.tags[tag_index];
         let func_type = &self.module.signatures[sig_index];
         let mut offset = 0u32;
-        let mut max_align = 1u32;
         let mut fields = SmallVec::<[ExceptionFieldLayout; 4]>::new();
 
         for wasm_ty in func_type.params() {
             let ir_ty = self.map_wasmer_type_to_ir(*wasm_ty)?;
-            let field_size = ir_ty.bytes();
-            let align = field_size.max(1);
-            max_align = max_align.max(align);
-            offset = offset.next_multiple_of(align);
+            // The VM stores each payload value in a separate RawValue slot.
             fields.push(ExceptionFieldLayout { offset, ty: ir_ty });
             offset = offset
-                .checked_add(field_size)
+                .checked_add(size_of::<wasmer_types::RawValue>() as u32)
                 .ok_or_else(|| WasmError::Unsupported("exception payload too large".to_string()))?;
         }
 
@@ -2113,14 +2109,40 @@ impl FuncEnvironment<'_> {
         index: MemoryIndex,
         _heap: Heap,
     ) -> WasmResult<ir::Value> {
-        let (func_sig, index_arg, func_idx) = self.get_memory_size_func(pos.func, index);
-        let memory_index = pos.ins().iconst(I32, index_arg as i64);
-        let (vmctx, func_addr) =
-            self.translate_load_builtin_function_address(&mut pos, func_idx)?;
-        let call_inst = pos
+        if self.module.memories[index].shared {
+            let (func_sig, index_arg, func_idx) = self.get_memory_size_func(pos.func, index);
+            let memory_index = pos.ins().iconst(I32, index_arg as i64);
+            let (vmctx, func_addr) =
+                self.translate_load_builtin_function_address(&mut pos, func_idx)?;
+            let call_inst = pos
+                .ins()
+                .call_indirect(func_sig, func_addr, &[vmctx, memory_index]);
+            return Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap());
+        }
+
+        let pointer_type = self.pointer_type();
+        let vmctx = self.vmctx(pos.func);
+        let vmctx = materialize_global_value(&mut pos, pointer_type, vmctx);
+        let (definition, offset) = if let Some(local) = self.module.local_memory_index(index) {
+            (
+                vmctx,
+                vmctx_offset(self.offsets.vmctx_vmmemory_definition_current_length(local))?,
+            )
+        } else {
+            let offset = vmctx_offset(self.offsets.vmctx_vmmemory_import_definition(index))?;
+            let flags = MemFlagsData::trusted().with_readonly();
+            let definition = pos.ins().load(pointer_type, flags, vmctx, offset);
+            (
+                definition,
+                i32::from(self.offsets.vmmemory_definition_current_length()),
+            )
+        };
+        let flags = MemFlagsData::trusted();
+        let bytes = pos.ins().load(pointer_type, flags, definition, offset);
+        let pages = pos
             .ins()
-            .call_indirect(func_sig, func_addr, &[vmctx, memory_index]);
-        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
+            .udiv_imm_u(bytes, wasmer_types::WASM_PAGE_SIZE as i64);
+        Ok(pos.ins().ireduce(I32, pages))
     }
 
     #[allow(clippy::too_many_arguments)]

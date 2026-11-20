@@ -19,8 +19,11 @@ pub use trap::{Trap, UnwindReason};
 #[cfg(feature = "baremetal")]
 pub use traphandlers::install_unwinder;
 pub use traphandlers::{
-    MAX_STACK_SIZE, TrapHandlerFn, VMConfig, catch_traps, drain_stack_pool, get_stack_size,
-    on_host_stack, raise_lib_trap, raise_user_trap, set_stack_size,
+    ActivationState, CurrentThread, DEFAULT_HOST_CALL_RESERVE, HostCallInPlace, MAX_STACK_SIZE,
+    TrapHandlerFn, VMConfig, catch_traps, drain_stack_pool, get_host_call_reserve, get_stack_size,
+    host_call_in_place, host_call_in_place_on, host_calls_on_native_stack, on_host_stack,
+    raise_lib_trap, raise_user_trap, set_host_call_reserve, set_host_calls_on_native_stack,
+    set_stack_size,
 };
 pub use traphandlers::{init_traps, resume_panic};
 pub use wasmer_types::TrapCode;
@@ -30,6 +33,7 @@ pub use wasmer_types::TrapCode;
 /// # Safety
 ///
 /// All pointer arguments must be valid for the duration of the call.
+#[inline]
 pub unsafe fn wasmer_call_trampoline(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     config: &VMConfig,
@@ -39,7 +43,34 @@ pub unsafe fn wasmer_call_trampoline(
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     unsafe {
-        catch_traps(trap_handler, config, move || {
+        wasmer_call_trampoline_on(
+            CurrentThread::get(),
+            trap_handler,
+            config,
+            vmctx,
+            trampoline,
+            callee,
+            values_vec,
+        )
+    }
+}
+
+/// [`wasmer_call_trampoline`] on `thread`, which must be the calling thread's.
+///
+/// # Safety
+///
+/// All pointer arguments must be valid for the duration of the call.
+pub unsafe fn wasmer_call_trampoline_on(
+    thread: CurrentThread,
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
+    vmctx: VMFunctionContext,
+    trampoline: VMTrampoline,
+    callee: *const VMFunctionBody,
+    values_vec: *mut u8,
+) -> Result<(), Trap> {
+    unsafe {
+        traphandlers::catch_traps_on(thread, trap_handler, config, move || {
             // pointer types are ABI-compatible; transmute to unsafe fn to preserve unsafety
             std::mem::transmute::<
                 unsafe extern "C" fn(

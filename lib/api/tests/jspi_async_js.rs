@@ -6,6 +6,9 @@ use wasm_bindgen_futures::JsFuture;
 use wasm_bindgen_test::wasm_bindgen_test;
 use wasmer::{Function, Instance, Module, Store, TypedFunction, imports};
 
+mod common;
+use common::Exit;
+
 #[wasm_bindgen_test]
 async fn typed_async_host_and_guest_calls_use_jspi() {
     let mut store = Store::default();
@@ -105,7 +108,10 @@ async fn cancelled_guest_call_does_not_resume_host_code_after_store_release() {
             .into_store()
             .expect("suspended imports must not retain the store"),
     );
-    release.send(()).unwrap();
+    // The call owns the host future and dropped it with itself, so nobody
+    // may be left to receive this: sending is only how a future that had
+    // outlived its call would be resumed.
+    let _ = release.send(());
     for _ in 0..10 {
         JsFuture::from(Promise::resolve(&JsValue::UNDEFINED))
             .await
@@ -117,18 +123,6 @@ async fn cancelled_guest_call_does_not_resume_host_code_after_store_release() {
     );
     assert!(dropped.get(), "cancelled host future was not released");
 }
-
-/// An exit, as WASIX reports one: an error of the embedder's own type.
-#[derive(Debug)]
-struct Exit(i32);
-
-impl std::fmt::Display for Exit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "exited with {}", self.0)
-    }
-}
-
-impl std::error::Error for Exit {}
 
 /// Calls a guest whose import is an async host function that fails with
 /// `Exit(code)`, after awaiting a JS promise or at once. (The guest suspends

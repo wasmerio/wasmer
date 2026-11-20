@@ -3,7 +3,7 @@ use std::{
     ffi::CStr,
     sync::{
         Arc, LazyLock,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 
@@ -25,7 +25,10 @@ struct StoreInterruptState {
     /// thread identifier.
     pthread: usize,
     /// Whether this store was interrupted.
-    interrupted: bool,
+    interrupted: Arc<AtomicBool>,
+    /// How many Wasm entries have this state installed, counting those of
+    /// suspended activations, which are not in the thread's `active_stores`.
+    installations: usize,
     /// See comments in [`ThreadInterruptState`].
     thread_current_signal_target_store: Arc<AtomicUsize>,
 }
@@ -35,7 +38,7 @@ struct StoreInterruptState {
 struct ThreadInterruptState {
     /// We need to maintain a stack of active stores per thread, hence the vec.
     /// This should not be touched by the interrupt handler.
-    active_stores: Vec<StoreId>,
+    active_stores: Vec<(StoreId, Arc<AtomicBool>)>,
 
     /// Always stores the top entry from `active_stores`. Needed since a vec is not
     /// safe to access from signal handlers.
@@ -81,7 +84,7 @@ thread_local! {
 /// may be called more than once, and correctly maintains a stack of
 /// stores for which the state is installed.
 pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError> {
-    let store_state = STORE_INTERRUPT_STATE.entry(store_id).or_insert_with(|| {
+    let mut store_state = STORE_INTERRUPT_STATE.entry(store_id).or_insert_with(|| {
         let thread_current_signal_target_store = THREAD_INTERRUPT_STATE.with(|t| {
             // Safety: See comments on THREAD_INTERRUPT_STATE.
             unsafe { t.get().as_mut().unwrap() }
@@ -97,19 +100,23 @@ pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError>
 
         StoreInterruptState {
             pthread,
-            interrupted: false,
+            interrupted: Arc::new(AtomicBool::new(false)),
+            installations: 0,
             thread_current_signal_target_store,
         }
     });
 
-    if store_state.interrupted {
+    if store_state.interrupted.load(Ordering::Acquire) {
         return Err(InstallError::AlreadyInterrupted);
     }
+    store_state.installations += 1;
 
     THREAD_INTERRUPT_STATE.with(|t| {
         // Safety: See comments on THREAD_INTERRUPT_STATE.
         let borrow = unsafe { t.get().as_mut().unwrap() };
-        borrow.active_stores.push(store_id);
+        borrow
+            .active_stores
+            .push((store_id, store_state.interrupted.clone()));
         borrow
             .current_active_store
             .store(store_id.as_raw().get(), Ordering::Release);
@@ -119,32 +126,94 @@ pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError>
 }
 
 pub(super) fn uninstall(store_id: StoreId) {
-    let Entry::Occupied(store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) else {
+    let Entry::Occupied(mut store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) else {
         panic!("Internal error: interrupt state not installed for store");
     };
 
-    let has_more_installations = THREAD_INTERRUPT_STATE.with(|t| {
+    THREAD_INTERRUPT_STATE.with(|t| {
         // Safety: See comments on THREAD_INTERRUPT_STATE.
         let borrow = unsafe { t.get().as_mut().unwrap() };
-        match borrow.active_stores.pop_if(|x| *x == store_id) {
-            Some(_) => {
-                borrow.current_active_store.store(
-                    borrow.active_stores.last().map_or(0, |x| x.as_raw().get()),
-                    Ordering::Release,
-                );
-                borrow.active_stores.contains(&store_id)
-            }
+        match borrow.active_stores.pop_if(|(id, _)| *id == store_id) {
+            Some(_) => borrow.publish_active_store(),
             None => panic!("InterruptInstallGuard dropped out of order"),
         }
     });
 
-    // If this store is still active at some other point within the
-    // thread, we should keep its state around. Otherwise, it should
-    // be deleted from the global interrupt state. Note that this will
-    // also reset the `interrupted` flag, allowing the store to be used
-    // for further function calls.
-    if !has_more_installations {
+    // If this store is still active at some other point (further down this
+    // thread's stack, or in a suspended activation), we should keep its
+    // state around. Otherwise, it should be deleted from the global
+    // interrupt state. Note that this will also reset the `interrupted`
+    // flag, allowing the store to be used for further function calls.
+    let store_state = store_state_entry.get_mut();
+    store_state.installations -= 1;
+    if store_state.installations == 0 {
         store_state_entry.remove();
+    }
+}
+
+impl ThreadInterruptState {
+    fn publish_active_store(&mut self) {
+        self.current_active_store.store(
+            self.active_stores
+                .last()
+                .map_or(0, |(id, _)| id.as_raw().get()),
+            Ordering::Release,
+        );
+    }
+}
+
+/// Whether the thread's interrupt state is still there: it is not once the
+/// thread's locals are being destroyed.
+pub(crate) fn thread_is_usable() -> bool {
+    THREAD_INTERRUPT_STATE.try_with(|_| ()).is_ok()
+}
+
+/// The stores one activation has entered, innermost last. See
+/// [`crate::ActivationState`], which swaps it with the thread's at every
+/// switch so that the signal handler compares an interrupt's target against
+/// the store that is actually running.
+pub(crate) struct ActiveStores(Vec<(StoreId, Arc<AtomicBool>)>);
+
+impl ActiveStores {
+    pub(crate) const fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Whether this activation entered `store_id` and it was interrupted.
+    pub(crate) fn is_interrupted(&self, store_id: StoreId) -> bool {
+        self.0
+            .iter()
+            .rev()
+            .find(|(id, _)| *id == store_id)
+            .is_some_and(|(_, interrupted)| interrupted.load(Ordering::Acquire))
+    }
+
+    /// The activation's calls are gone without returning: each gives up the
+    /// installation it holds, as `uninstall` does for a call that returns,
+    /// without the thread they ran on. A store none holds any more is
+    /// removed, with its `interrupted` flag and the thread it was aimed at.
+    pub(crate) fn abandon(&mut self) {
+        for (store_id, _) in self.0.drain(..) {
+            if let Entry::Occupied(mut state) = STORE_INTERRUPT_STATE.entry(store_id) {
+                state.get_mut().installations -= 1;
+                if state.get().installations == 0 {
+                    state.remove();
+                }
+            }
+        }
+    }
+
+    pub(crate) fn swap(&mut self) {
+        THREAD_INTERRUPT_STATE.with(|t| {
+            // Safety: See comments on THREAD_INTERRUPT_STATE.
+            let borrow = unsafe { t.get().as_mut().unwrap() };
+            std::mem::swap(&mut borrow.active_stores, &mut self.0);
+            borrow.publish_active_store();
+        });
     }
 }
 
@@ -177,7 +246,7 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
         return Err(InterruptError::OtherInterruptInProgress);
     }
 
-    store_state.interrupted = true;
+    store_state.interrupted.store(true, Ordering::Release);
 
     unsafe {
         #[allow(trivial_numeric_casts)]
@@ -225,10 +294,20 @@ pub(crate) fn on_interrupted() -> bool {
     })
 }
 
-/// Returns true if the store with the given ID has already been interrupted.
+/// Returns true if the store with the given ID was entered by the activation
+/// this thread is running and has already been interrupted. The stores of a
+/// suspended activation are not on the thread; see
+/// [`crate::ActivationState::is_interrupted`].
+#[inline]
 pub fn is_interrupted(store_id: StoreId) -> bool {
-    let Entry::Occupied(store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) else {
-        return false;
-    };
-    store_state_entry.get().interrupted
+    THREAD_INTERRUPT_STATE.with(|t| {
+        // Safety: See comments on THREAD_INTERRUPT_STATE.
+        let state = unsafe { t.get().as_ref().unwrap() };
+        state
+            .active_stores
+            .iter()
+            .rev()
+            .find(|(id, _)| *id == store_id)
+            .is_some_and(|(_, interrupted)| interrupted.load(Ordering::Acquire))
+    })
 }

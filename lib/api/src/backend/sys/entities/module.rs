@@ -10,7 +10,7 @@ use wasmer_types::{
 };
 #[cfg(feature = "experimental-host-interrupt")]
 use wasmer_vm::interrupt_registry;
-use wasmer_vm::{Trap, TrapCode};
+use wasmer_vm::{Trap, TrapCode, VMConfig};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendModule, IntoBytes, StoreContext,
@@ -171,7 +171,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &[crate::Extern],
-    ) -> Result<VMInstance, InstantiationError> {
+    ) -> Result<StoreHandle<wasmer_vm::VMInstance>, InstantiationError> {
         if !self.artifact.allocated() {
             // Return an error mentioning that the artifact is compiled for a different
             // platform.
@@ -185,11 +185,12 @@ impl Module {
         }
         let signal_handler = store.as_store_ref().signal_handler();
         let mut store_mut = store.as_store_mut();
-        let store_ptr = store_mut.inner as *mut _;
         let (engine, objects) = store_mut.engine_and_objects_mut();
-        let config = engine.tunables().vmconfig();
+        let config = VMConfig {
+            wasm_stack_size: engine.tunables().vmconfig().wasm_stack_size,
+        };
         unsafe {
-            let mut instance_handle = self.artifact.instantiate(
+            let instance_handle = self.artifact.instantiate(
                 engine.tunables(),
                 &imports
                     .iter()
@@ -197,8 +198,9 @@ impl Module {
                     .collect::<Vec<_>>(),
                 objects.as_sys_mut(),
             )?;
-
             let store_id = objects.id();
+            // Before the store takes the instance: one refused here has put
+            // nothing anywhere, and is dropped.
             #[cfg(feature = "experimental-host-interrupt")]
             let interrupt_guard = match interrupt_registry::install(store_id) {
                 Ok(x) => x,
@@ -209,28 +211,45 @@ impl Module {
                 }
             };
 
-            let store_install_guard = StoreContext::install(store_ptr);
+            // The store owns the instance from here on, also if finishing it
+            // fails or unwinds: its elements may put its functions into tables
+            // of the store, and an unwind, through a host panic or the
+            // cancellation of a `call_async` that the start function suspended,
+            // may not use the store. It is finished through a copy of its
+            // handle that is never dropped: the store frees the instance, with
+            // the store.
+            let handle = StoreHandle::new(objects.as_sys_mut(), instance_handle);
+            let mut instance =
+                std::mem::ManuallyDrop::new(std::ptr::read(handle.get(objects.as_sys())));
+
+            // The pointer the start function's imports borrow the store
+            // through is taken only now that the borrows of the objects
+            // above have ended: a pointer taken before them would not
+            // survive their uses.
+            let store_ptr = store_mut.inner as *mut _;
+            let store_install_guard = StoreContext::enter(store_ptr);
 
             // After the instance handle is created, we need to initialize
-            // the data, call the start function and so. However, if any
-            // of this steps traps, we still need to keep the instance alive
-            // as some of the Instance elements may have placed in other
-            // instance tables.
-            if let Err(err) =
+            // the data, call the start function and so. If any of these steps
+            // traps, the instance stays with the store.
+            //
+            // The store is paused while the start function runs, as for any
+            // other entry into Wasm: an async import it calls can then
+            // suspend the call of a host function that instantiates.
+            let finished = {
+                // A store entered through its slot has no counted borrow to
+                // pause: see `StoreEntryGuard::pause`.
+                let _pause_guard = store_install_guard.pause();
                 self.artifact
-                    .finish_instantiation(config, signal_handler, &mut instance_handle)
-            {
-                // Keep the partially initialized instance alive: its funcrefs may already
-                // have been written into imported tables.
-                let _ = StoreHandle::new(objects.as_sys_mut(), instance_handle);
-                return Err(err.into());
-            }
+                    .finish_instantiation(&config, signal_handler, &mut instance)
+            };
+            finished?;
 
             drop(store_install_guard);
             #[cfg(feature = "experimental-host-interrupt")]
             drop(interrupt_guard);
 
-            Ok(VMInstance::Sys(instance_handle))
+            Ok(handle)
         }
     }
 

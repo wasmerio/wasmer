@@ -46,9 +46,123 @@ pub fn get_stack_size() -> usize {
 /// No-op — no signal handlers to install.
 pub fn init_traps() {}
 
+/// The thread-local state of one activation; see the signal-based backend.
+/// There is no trap handler and no separate Wasm stack here, so only the
+/// interrupt registry's active stores follow the activation.
+pub struct ActivationState {
+    #[cfg(feature = "experimental-host-interrupt")]
+    active_stores: crate::interrupt_registry::ActiveStores,
+    /// The state belongs to one thread, as on the signal-based backend.
+    _not_send: PhantomData<*mut ()>,
+}
+
+impl Default for ActivationState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ActivationState {
+    /// The state of an activation that has not entered Wasm.
+    pub const fn new() -> Self {
+        Self {
+            #[cfg(feature = "experimental-host-interrupt")]
+            active_stores: crate::interrupt_registry::ActiveStores::new(),
+            _not_send: PhantomData,
+        }
+    }
+
+    /// Exchanges this state with the calling thread's.
+    ///
+    /// # Safety
+    ///
+    /// Same contract as the signal-based backend's: calls come in pairs on
+    /// one thread, immediately before switching to the stack that owns this
+    /// state and immediately after control comes back from it.
+    pub unsafe fn swap(&mut self) {
+        #[cfg(feature = "experimental-host-interrupt")]
+        self.active_stores.swap();
+    }
+
+    /// Whether this activation, while it is not running, has entered
+    /// `store_id` and the store was interrupted.
+    #[cfg(feature = "experimental-host-interrupt")]
+    pub fn is_interrupted(&self, store_id: wasmer_types::StoreId) -> bool {
+        self.active_stores.is_interrupted(store_id)
+    }
+
+    /// Whether nothing is installed.
+    pub fn is_empty(&self) -> bool {
+        #[cfg(feature = "experimental-host-interrupt")]
+        if !self.active_stores.is_empty() {
+            return false;
+        }
+        true
+    }
+
+    /// Whether the calling thread still has what swapping a state in needs
+    /// of it; see the signal-based backend. Only the interrupt registry keeps
+    /// thread locals here.
+    pub fn thread_is_usable() -> bool {
+        #[cfg(feature = "experimental-host-interrupt")]
+        return crate::interrupt_registry::thread_is_usable();
+        #[cfg(not(feature = "experimental-host-interrupt"))]
+        true
+    }
+
+    /// Forgets the state of an activation whose stack is forgotten rather
+    /// than unwound; see the signal-based backend.
+    pub fn abandon(&mut self) {
+        #[cfg(feature = "experimental-host-interrupt")]
+        self.active_stores.abandon();
+    }
+}
+
 /// Runs `f` in-place (there is only one stack).
 pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     f()
+}
+
+/// Ignored in baremetal mode, where there is only one stack. Kept for API
+/// compatibility.
+pub const DEFAULT_HOST_CALL_RESERVE: usize = 256 * 1024;
+
+/// Ignored in baremetal mode. Kept for API compatibility.
+pub fn set_host_call_reserve(_bytes: usize) {}
+
+/// Always [`DEFAULT_HOST_CALL_RESERVE`] in baremetal mode.
+pub fn get_host_call_reserve() -> usize {
+    DEFAULT_HOST_CALL_RESERVE
+}
+
+/// Ignored in baremetal mode, where host functions run on the only stack.
+/// Kept for API compatibility.
+pub fn set_host_calls_on_native_stack(_always: bool) {}
+
+/// Always `true` in baremetal mode: host functions run on the only stack.
+pub fn host_calls_on_native_stack() -> bool {
+    true
+}
+
+/// A host function called from Wasm that runs in place; see the signal-based
+/// backend. Here every host function does.
+#[must_use = "the host call ends when this is dropped"]
+pub struct HostCallInPlace {
+    _not_send: PhantomData<*mut ()>,
+}
+
+/// Always starts the call in place: there is only one stack.
+#[inline(always)]
+pub fn host_call_in_place() -> Option<HostCallInPlace> {
+    Some(HostCallInPlace {
+        _not_send: PhantomData,
+    })
+}
+
+/// Always starts the call in place: there is only one stack.
+#[inline(always)]
+pub fn host_call_in_place_on(_thread: CurrentThread) -> Option<HostCallInPlace> {
+    host_call_in_place()
 }
 
 /// Just run the `closure` and return its result wrapped in `Ok()`. Nothing is
@@ -67,6 +181,88 @@ where
     F: FnOnce() -> R + 'static,
 {
     Ok(closure())
+}
+
+/// [`catch_traps`] on `thread`.
+///
+/// # Safety
+///
+/// See [`catch_traps`].
+pub(crate) unsafe fn catch_traps_on<F, R: 'static>(
+    _thread: CurrentThread,
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
+    closure: F,
+) -> Result<R, Trap>
+where
+    F: FnOnce() -> R + 'static,
+{
+    unsafe { catch_traps(trap_handler, config, closure) }
+}
+
+/// The flags of [`CurrentThread`].
+struct ThreadFlags {
+    slot_call: Cell<bool>,
+    cothread: Cell<bool>,
+}
+
+thread_local! {
+    static THREAD_FLAGS: ThreadFlags = const {
+        ThreadFlags {
+            slot_call: Cell::new(false),
+            cothread: Cell::new(false),
+        }
+    };
+}
+
+/// The calling thread's state for entering Wasm; see the signal-based
+/// backend. Here it only holds [`Self::slot_call`] and [`Self::cothread`].
+#[derive(Clone, Copy)]
+pub struct CurrentThread {
+    flags: std::ptr::NonNull<ThreadFlags>,
+}
+
+impl CurrentThread {
+    /// The calling thread's.
+    pub fn get() -> Self {
+        Self {
+            flags: THREAD_FLAGS.with(|flags| std::ptr::NonNull::from(flags)),
+        }
+    }
+
+    /// [`Self::get`] out of line; see the signal-based backend.
+    #[cold]
+    #[inline(never)]
+    pub fn get_out_of_line() -> Self {
+        Self::get()
+    }
+
+    /// The calling thread's, or `None` once its thread-locals were freed.
+    pub fn try_get() -> Option<Self> {
+        THREAD_FLAGS
+            .try_with(|flags| Self {
+                flags: std::ptr::NonNull::from(flags),
+            })
+            .ok()
+    }
+
+    fn flags(&self) -> &ThreadFlags {
+        // SAFETY: a thread-local of this thread without a destructor, and a
+        // `CurrentThread` stays on its thread.
+        unsafe { self.flags.as_ref() }
+    }
+
+    /// Whether the innermost call into a store running on this thread went
+    /// through the store's slot; see the signal-based backend.
+    pub fn slot_call(&self) -> &Cell<bool> {
+        &self.flags().slot_call
+    }
+
+    /// Whether the thread runs a coroutine that the embedder switches
+    /// itself; see the signal-based backend.
+    pub fn cothread(&self) -> &Cell<bool> {
+        &self.flags().cothread
+    }
 }
 
 /// Registered unwinder, if any.

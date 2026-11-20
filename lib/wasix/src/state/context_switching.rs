@@ -18,6 +18,7 @@ use std::{
 use thiserror::Error;
 use tracing::trace;
 use wasmer::{RuntimeError, Store};
+use wasmer_asyncify::AsyncifyFunction;
 use wasmer_wasix_types::wasi::ExitCode;
 
 /// The context-switching environment represents all state for WASIX context-switching
@@ -40,8 +41,9 @@ struct ContextSwitchingEnvironmentInner {
     next_available_context_id: AtomicU64,
     /// Spawns contexts on the worker-local executor supplied by the task manager.
     spawner: LocalTaskSpawner,
-    /// Entry-point tasks can await inert JSPI promises after store teardown.
-    /// Dropping their unblockers alone cannot complete those outer futures.
+    /// Entry-point tasks can still be waiting on a suspended guest at
+    /// teardown. Dropping their unblockers alone cannot complete those outer
+    /// futures, so teardown aborts them.
     context_tasks: RwLock<BTreeMap<u64, ContextTask>>,
 }
 
@@ -166,7 +168,7 @@ impl ContextSwitchingEnvironment {
             .threading
             .enable_asynchronous_threading
         {
-            let result = entrypoint.call(&mut store, &params);
+            let result = entrypoint.call_asyncify(&mut store, &ctx.env, &params);
             return (store, result);
         }
 
@@ -188,7 +190,7 @@ impl ContextSwitchingEnvironment {
         let supports_async =
             supports_async && !(store.engine().is_js() && ctx.data(&store).will_use_asyncify());
         if !supports_async {
-            let result = entrypoint.call(&mut store, &params);
+            let result = entrypoint.call_asyncify(&mut store, &ctx.env, &params);
             return (store, result);
         }
 
@@ -201,7 +203,9 @@ impl ContextSwitchingEnvironment {
         assert!(previous.is_none());
 
         let store_async = store.into_async();
-        let result = entrypoint.call_async(&store_async, params).await;
+        let result = entrypoint
+            .call_async_asyncify(&store_async, &ctx.env, params)
+            .await;
 
         let result = match &result {
             Err(e) => match e.downcast_ref::<ContextEntrypointReturned>() {
@@ -521,9 +525,10 @@ impl ContextSwitchingEnvironment {
         };
         let spawn_result = self.inner.spawner.spawn(async move {
             let _task = task;
-            // Teardown must release the Rust call even when a cancelled JSPI
-            // continuation deliberately never resolves or rejects. Dropping
-            // the call does not resume its abandoned JavaScript guest stack.
+            // Teardown must release the Rust call while its guest is
+            // suspended. On the JavaScript backend, dropping the call wakes
+            // the abandoned guest stack with a trap, which unwinds it without
+            // running guest code.
             let _ = Abortable::new(context_future, registration).await;
         });
 

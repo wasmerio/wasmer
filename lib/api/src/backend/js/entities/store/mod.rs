@@ -2,9 +2,11 @@ use crate::{AsEngineRef, Engine, EngineRef};
 
 pub(crate) mod handle;
 pub(crate) mod obj;
+pub(crate) mod keep_alive;
 
 pub(crate) use handle::*;
 pub(crate) use obj::*;
+pub(crate) use keep_alive::*;
 
 #[derive(Debug)]
 pub(crate) struct Store {
@@ -24,6 +26,7 @@ impl Store {
         &mut self.engine
     }
 }
+
 
 impl AsEngineRef for Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
@@ -62,11 +65,6 @@ impl crate::BackendStore {
 }
 
 impl crate::Store {
-    /// Consume [`self`] into [`crate::backend::js::store::Store`].
-    pub(crate) fn into_js(self) -> crate::backend::js::store::Store {
-        self.inner.store.into_js()
-    }
-
     /// Convert a reference to [`self`] into a reference [`crate::backend::js::store::Store`].
     pub(crate) fn as_js(&self) -> &crate::backend::js::store::Store {
         self.inner.store.as_js()

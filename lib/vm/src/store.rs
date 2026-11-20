@@ -1,10 +1,68 @@
 use crate::{
-    VMExceptionObj, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory,
-    VMTable, VMTag,
+    CurrentThread, VMExceptionObj, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal,
+    VMInstance, VMMemory, VMTable, VMTag,
 };
 use core::slice::Iter;
-use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
+use std::{
+    cell::{Cell, UnsafeCell},
+    fmt,
+    marker::PhantomData,
+    num::NonZeroUsize,
+    ptr::NonNull,
+};
 use wasmer_types::StoreId;
+
+/// What a call into a store leaves for the host functions among its objects
+/// while it runs (see [`StoreObjects::slot`]).
+pub struct StoreSlot {
+    store: Cell<*mut u8>,
+    thread: Cell<Option<CurrentThread>>,
+}
+
+impl StoreSlot {
+    /// The store of the innermost call into it, null outside of any: the
+    /// embedder writes it before the call enters Wasm and puts the previous
+    /// value back when the call returns.
+    #[inline]
+    pub fn store(&self) -> &Cell<*mut u8> {
+        &self.store
+    }
+
+    /// The thread that call runs on, which the embedder writes and puts back
+    /// with the store. A host function the call reaches is on that thread, and
+    /// can take it from here instead of looking it up (see
+    /// [`host_call_in_place_on`](crate::host_call_in_place_on)).
+    #[inline]
+    pub fn thread(&self) -> &Cell<Option<CurrentThread>> {
+        &self.thread
+    }
+}
+
+/// The allocation behind [`StoreObjects::slot`].
+struct StoreSlotBox(NonNull<StoreSlot>);
+
+impl Default for StoreSlotBox {
+    fn default() -> Self {
+        let slot: &mut StoreSlot = Box::leak(Box::new(StoreSlot {
+            store: Cell::new(std::ptr::null_mut()),
+            thread: Cell::new(None),
+        }));
+        Self(NonNull::from(slot))
+    }
+}
+
+impl Drop for StoreSlotBox {
+    fn drop(&mut self) {
+        // SAFETY: leaked from a box by `default`, and freed only here.
+        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+    }
+}
+
+impl fmt::Debug for StoreSlotBox {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("StoreSlot").field(&self.0).finish()
+    }
+}
 
 /// Trait to represent an object managed by a context. This is implemented on
 /// the VM types managed by the context.
@@ -56,6 +114,8 @@ pub struct StoreObjects {
     exceptions: Vec<VMExceptionObj>,
     tags: Vec<VMTag>,
     function_environments: Vec<VMFunctionEnvironment>,
+    /// Last, so that it outlives every object above.
+    slot: StoreSlotBox,
 }
 
 impl StoreObjects {
@@ -84,7 +144,22 @@ impl StoreObjects {
             function_environments,
             exceptions,
             tags,
+            slot: StoreSlotBox::default(),
         }
+    }
+
+    /// A [`StoreSlot`] in a heap allocation of its own, owned by these
+    /// objects and freed with them, after every object in them.
+    ///
+    /// The embedder uses it to hand its store, and the thread a call into the
+    /// store runs on, to the host functions among the objects while the call
+    /// runs. It belongs to the objects rather than to the store around them,
+    /// so that it goes wherever the objects go, together with the host
+    /// functions that keep a pointer to it. Being a separate allocation, it is
+    /// not covered by borrows of the objects.
+    #[inline]
+    pub fn slot(&self) -> NonNull<StoreSlot> {
+        self.slot.0
     }
 
     /// Returns the ID of this context.
@@ -182,6 +257,18 @@ impl<T: StoreObject> PartialEq for StoreHandle<T> {
 
 impl<T: StoreObject> Eq for StoreHandle<T> {}
 
+/// The panic of a [`StoreHandle`] used with another store's objects. Out of
+/// line, and given the ids by value: an `assert_eq!` in place would take their
+/// addresses, which keeps whatever holds the handle in memory on every lookup.
+#[cold]
+#[inline(never)]
+#[track_caller]
+fn wrong_context(handle: StoreId, ctx: StoreId) -> ! {
+    panic!(
+        "object used with the wrong context: the handle is of {handle:?}, the objects are {ctx:?}"
+    )
+}
+
 impl<T: StoreObject> StoreHandle<T> {
     /// Moves the given object into a context and returns a handle to it.
     pub fn new(ctx: &mut StoreObjects, val: T) -> Self {
@@ -192,14 +279,20 @@ impl<T: StoreObject> StoreHandle<T> {
     }
 
     /// Returns a reference to the object that this handle points to.
+    #[inline]
     pub fn get<'a>(&self, ctx: &'a StoreObjects) -> &'a T {
-        assert_eq!(self.id, ctx.id, "object used with the wrong context");
+        if self.id != ctx.id {
+            wrong_context(self.id, ctx.id);
+        }
         self.internal.get(ctx)
     }
 
     /// Returns a mutable reference to the object that this handle points to.
+    #[inline]
     pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects) -> &'a mut T {
-        assert_eq!(self.id, ctx.id, "object used with the wrong context");
+        if self.id != ctx.id {
+            wrong_context(self.id, ctx.id);
+        }
         self.internal.get_mut(ctx)
     }
 
@@ -338,5 +431,42 @@ where
                 write!(f, ")")
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn objects() -> StoreObjects {
+        StoreObjects::new(
+            StoreId::default(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        )
+    }
+
+    #[test]
+    #[should_panic(expected = "object used with the wrong context")]
+    fn a_handle_used_with_other_objects_panics() {
+        let mut ours = objects();
+        let theirs = objects();
+        let handle = StoreHandle::new(&mut ours, VMFunctionEnvironment::new(1u8));
+        handle.get(&theirs);
+    }
+
+    #[test]
+    fn a_slot_starts_empty() {
+        let objects = objects();
+        let slot = unsafe { objects.slot().as_ref() };
+        assert!(slot.store().get().is_null());
+        assert!(slot.thread().get().is_none());
     }
 }

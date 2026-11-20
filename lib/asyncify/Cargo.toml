@@ -1,0 +1,40 @@
+[package]
+name = "wasmer-asyncify"
+description = "Drive asyncify-instrumented WebAssembly modules with Wasmer"
+categories = ["wasm"]
+keywords = ["webassembly", "wasm", "asyncify"]
+readme = "README.md"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+wasmer = { path = "../api", version = "=7.5.0", default-features = false }
+
+[dev-dependencies]
+anyhow.workspace = true
+
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
+wasmer = { path = "../api", version = "=7.5.0", default-features = false, features = [
+  "sys",
+  "cranelift",
+  "wat",
+] }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+wasmer = { path = "../api", version = "=7.5.0", default-features = false, features = [
+  "sys",
+  "v8",
+  "wat",
+] }
+
+[features]
+experimental-async = ["wasmer/experimental-async"]
+
+[package.metadata.docs.rs]
+features = ["wasmer/sys", "wasmer/compiler", "wasmer/cranelift"]
+rustc-args = ["--cfg", "docsrs"]

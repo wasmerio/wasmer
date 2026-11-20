@@ -697,4 +697,136 @@ pub mod reference_types {
 
         Ok(())
     }
+
+    #[engine_test]
+    #[cfg_attr(
+        feature = "v8-default",
+        ignore = "function and extern refs are not supported by the default v8 backend"
+    )]
+    fn function_call_with_reference_arguments_and_results() -> Result<()> {
+        let mut store = Store::default();
+        let wat = r#"(module
+    (type $ret_i32_ty (func (result i32)))
+    (table $table 1 funcref)
+    (func (export "swap") (param $f funcref) (param $e externref) (param $x i32)
+          (result externref funcref i32)
+          (local.get $e)
+          (local.get $f)
+          (local.get $x))
+    (func (export "call_ref") (param $f funcref) (result i32)
+          (table.set $table (i32.const 0) (local.get $f))
+          (call_indirect $table (type $ret_i32_ty) (i32.const 0)))
+)"#;
+        let module = Module::new(&store, wat)?;
+        let instance = Instance::new(&mut store, &module, &imports! {})?;
+        let swap: &Function = instance.exports.get_function("swap")?;
+        let call_ref: &Function = instance.exports.get_function("call_ref")?;
+
+        let callee = Function::new_typed(&mut store, || -> i32 { 77 });
+        let extern_ref = ExternRef::new(&mut store, 5usize);
+        let results = swap.call(
+            &mut store,
+            &[
+                Value::FuncRef(Some(callee)),
+                Value::ExternRef(Some(extern_ref)),
+                Value::I32(3),
+            ],
+        )?;
+        assert_eq!(results.len(), 3);
+        let returned_extern = results[0].unwrap_externref().as_ref().unwrap();
+        assert_eq!(returned_extern.downcast::<usize>(&store), Some(&5));
+        let returned_func = results[1].unwrap_funcref().clone();
+        assert!(returned_func.is_some());
+        assert_eq!(results[2], Value::I32(3));
+        let called = call_ref.call(&mut store, &[Value::FuncRef(returned_func)])?;
+        assert_eq!(&*called, &[Value::I32(77)]);
+
+        let results = swap.call(
+            &mut store,
+            &[Value::FuncRef(None), Value::ExternRef(None), Value::I32(4)],
+        )?;
+        assert!(results[0].unwrap_externref().is_none());
+        assert!(results[1].unwrap_funcref().is_none());
+        assert_eq!(results[2], Value::I32(4));
+
+        // A reference argument of the wrong type is still refused.
+        let error = swap
+            .call(
+                &mut store,
+                &[
+                    Value::ExternRef(None),
+                    Value::ExternRef(None),
+                    Value::I32(4),
+                ],
+            )
+            .unwrap_err();
+        assert!(
+            error.message().contains("did not match signature"),
+            "{error}"
+        );
+
+        Ok(())
+    }
+
+    #[engine_test]
+    #[cfg_attr(
+        feature = "v8-default",
+        ignore = "function refs are not supported by the default v8 backend"
+    )]
+    fn function_call_survives_an_import_creating_functions() -> Result<()> {
+        // The import adds functions to the store while the call runs, which
+        // grows (and moves) the store's function list: the call must not keep
+        // a borrow of the callee's entry in it.
+        let mut store = Store::default();
+        let wat = r#"(module
+    (import "env" "grow" (func $grow (param funcref i32) (result funcref)))
+    (type $ret_i32_ty (func (result i32)))
+    (table $table 1 funcref)
+    (func (export "run") (param $f funcref) (param $n i32) (result funcref i32 externref)
+          (call $grow (local.get $f) (local.get $n))
+          (local.get $n)
+          (ref.null extern))
+    (func (export "call_ref") (param $f funcref) (result i32)
+          (table.set $table (i32.const 0) (local.get $f))
+          (call_indirect $table (type $ret_i32_ty) (i32.const 0)))
+)"#;
+        let module = Module::new(&store, wat)?;
+        let env = FunctionEnv::new(&mut store, ());
+        let grow = Function::new_with_env(
+            &mut store,
+            &env,
+            FunctionType::new([Type::FuncRef, Type::I32], [Type::FuncRef]),
+            |mut env: FunctionEnvMut<()>, values: &[Value]| -> Result<Vec<Value>, RuntimeError> {
+                let n = values[1].unwrap_i32();
+                for i in 0..n {
+                    Function::new_typed(&mut env, move || -> i32 { i });
+                }
+                Ok(vec![values[0].clone()])
+            },
+        );
+        let instance = Instance::new(
+            &mut store,
+            &module,
+            &imports! { "env" => { "grow" => grow } },
+        )?;
+        let run: &Function = instance.exports.get_function("run")?;
+        let call_ref: &Function = instance.exports.get_function("call_ref")?;
+
+        let callee = Function::new_typed(&mut store, || -> i32 { 91 });
+        for n in [1, 1000, 5000] {
+            let results = run.call(
+                &mut store,
+                &[Value::FuncRef(Some(callee.clone())), Value::I32(n)],
+            )?;
+            assert_eq!(results.len(), 3);
+            assert_eq!(results[1], Value::I32(n));
+            assert!(results[2].unwrap_externref().is_none());
+            let returned = results[0].unwrap_funcref().clone();
+            assert!(returned.is_some());
+            let called = call_ref.call(&mut store, &[Value::FuncRef(returned)])?;
+            assert_eq!(&*called, &[Value::I32(91)]);
+        }
+
+        Ok(())
+    }
 }

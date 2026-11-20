@@ -57,10 +57,6 @@ macos+aarch64    traps::call_signature_mismatch
 llvm       traps::start_trap_pretty
 cranelift+aarch64+macos    traps::start_trap_pretty
 
-# LLVM currently doesn't implement stack probing on AArch64, RISC-V.
-# https://github.com/wasmerio/wasmer/issues/2808
-llvm+aarch64      spec::skip_stack_guard_page
-llvm+riscv64      spec::skip_stack_guard_page
 llvm+loongarch64  spec::skip_stack_guard_page
 # Codegen("trampoline generation produced relocations")
 
@@ -134,9 +130,6 @@ aarch64+linux spec::align
 aarch64+linux spec::memory_trap
 
 spec::instance
-
-# TODO: #5816
-cranelift+riscv64 spec::skip_stack_guard_page
 
 # #5943 - multi-value tests
 singlepass        multi_value_imports

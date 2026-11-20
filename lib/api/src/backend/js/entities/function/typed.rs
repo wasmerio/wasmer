@@ -8,9 +8,14 @@
 //! let add_one_native: TypedFunction<i32, i32> = add_one.typed().unwrap();
 //! ```
 use crate::{
-    AsStoreMut, FromToNativeWasmType, NativeWasmType, NativeWasmTypeInto, RuntimeError,
-    TypedFunction, Value, WasmTypeList,
-    js::utils::convert::{AsJs, js_value_to_wasmer},
+    AsStoreMut, CallWrapper, FromToNativeWasmType, NativeWasmType, NativeWasmTypeInto,
+    RuntimeError, TypedFunction, Value, WasmTypeList,
+    entities::function::call_wrapper::call_wrapped,
+    js::{
+        function::numeric,
+        lent,
+        utils::convert::{AsJs, js_value_to_wasmer},
+    },
 };
 #[cfg(feature = "experimental-async")]
 use crate::{AsStoreAsync, StoreAsync};
@@ -19,7 +24,120 @@ use js_sys::Array;
 use std::future::Future;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
-use wasmer_types::RawValue;
+use wasmer_types::{RawValue, Type};
+
+/// The raw arguments of a call as the numbers JavaScript knows them by.
+/// `None` if one is of a type whose values are not numbers there. The types
+/// are constants of the call's signature, so this folds away.
+#[inline]
+fn raw_numbers<const N: usize>(params: &[(Type, RawValue); N]) -> Option<[f64; N]> {
+    let mut numbers = [0.0; N];
+    for (number, (ty, raw)) in numbers.iter_mut().zip(params) {
+        *number = match ty {
+            Type::I32 => unsafe { raw.i32 as f64 },
+            Type::F32 => unsafe { raw.f32 as f64 },
+            Type::F64 => unsafe { raw.f64 },
+            _ => return None,
+        };
+    }
+    Some(numbers)
+}
+
+/// The raw arguments of a call as i32s, if they are all i32s. The types are
+/// constants of the call's signature, so this folds away.
+#[inline]
+fn raw_integers<const N: usize>(params: &[(Type, RawValue); N]) -> Option<[i32; N]> {
+    let mut integers = [0; N];
+    for (integer, (ty, raw)) in integers.iter_mut().zip(params) {
+        *integer = match ty {
+            Type::I32 => unsafe { raw.i32 },
+            _ => return None,
+        };
+    }
+    Some(integers)
+}
+
+/// The type of the one result of a function on the numeric lane, if it has
+/// one. `None` for results that keep a function off the lane.
+#[inline]
+fn numeric_result(results: &[Type]) -> Option<Option<Type>> {
+    match results {
+        [] => Some(None),
+        [ty @ (Type::I32 | Type::F32 | Type::F64)] => Some(Some(*ty)),
+        _ => None,
+    }
+}
+
+/// The number the engine returned for a result of type `ty`, as a raw value.
+#[inline]
+fn number_to_raw(ty: Type, number: f64) -> RawValue {
+    match ty {
+        Type::I32 => RawValue { i32: number as i32 },
+        Type::F32 => RawValue { f32: number as f32 },
+        _ => RawValue { f64: number },
+    }
+}
+
+/// The results of a call on the numeric lane that returned `result`.
+///
+/// # Safety
+///
+/// `result_ty` is the type of the one result of `Rets`, or `None` if it has
+/// none.
+#[inline]
+unsafe fn numeric_rets<Rets: WasmTypeList>(
+    store: &mut impl AsStoreMut,
+    result_ty: Option<Type>,
+    result: f64,
+) -> Rets {
+    let mut rets_list_array = Rets::empty_array();
+    if let Some(ty) = result_ty {
+        rets_list_array.as_mut()[0] = number_to_raw(ty, result);
+    }
+    unsafe { Rets::from_array(store, rets_list_array) }
+}
+
+/// The numeric lane of a typed call of the parameters `$x`: returns from the
+/// call if it takes the lane. The number of parameters is known here, so the
+/// call goes straight to the glue of that many, with no array of eight
+/// numbers in between. Functions of more parameters than the lane takes do
+/// not have one.
+macro_rules! numeric_lane {
+    (
+        $self:ident, $store:ident, $wrapper:ident, $params:ident;
+        $a1:ident, $a2:ident, $a3:ident, $a4:ident, $a5:ident, $a6:ident, $a7:ident, $a8:ident,
+        $( $more:ident ),+
+    ) => {};
+    ($self:ident, $store:ident, $wrapper:ident, $params:ident; $( $x:ident ),*) => {
+        if let Some(result_ty) = numeric_result(Rets::wasm_types()) {
+            let function = &$self.func.as_js().handle.function;
+            let returns = result_ty.is_some();
+            let mut result = 0.0;
+            // Called with the receiver of the general path below, and its
+            // result read the same way. i32s pass as i32s (see
+            // `numeric::Arguments`), other numbers as f64s.
+            let receiver = &JsValue::UNDEFINED;
+            if let Some(integers) = raw_integers(&$params) {
+                call_wrapped($store, $wrapper, |store| {
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
+                    let _entered = super::enter_sync();
+                    result = numeric::Arguments::call(integers, function, receiver, returns)?;
+                    Ok(())
+                })?;
+                return Ok(unsafe { numeric_rets::<Rets>($store, result_ty, result) });
+            }
+            if let Some(numbers) = raw_numbers(&$params) {
+                call_wrapped($store, $wrapper, |store| {
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
+                    let _entered = super::enter_sync();
+                    result = numeric::Arguments::call(numbers, function, receiver, returns)?;
+                    Ok(())
+                })?;
+                return Ok(unsafe { numeric_rets::<Rets>($store, result_ty, result) });
+            }
+        }
+    };
+}
 
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
@@ -59,45 +177,46 @@ macro_rules! impl_native_traits {
             }
 
             /// Call the typed func and return results.
+            #[inline]
             #[allow(clippy::too_many_arguments)]
-            pub fn call_js(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
+            pub fn call_js(&self, store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
+            $( $x: FromToNativeWasmType,  )*
+            {
+                self.call_wrapped_js(store, None, $( $x, )*)
+            }
+
+            /// Call the typed func through `wrapper` and return results.
+            #[inline]
+            #[allow(clippy::too_many_arguments)]
+            pub(crate) fn call_wrapped_js(&self, mut store: &mut impl AsStoreMut, wrapper: Option<&mut dyn CallWrapper>, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
             $( $x: FromToNativeWasmType,  )*
             {
                 #[allow(unused_unsafe)]
-                let params_list: Vec<_> = unsafe {
-                    vec![ $( (<$x::Native as NativeWasmType>::WASM_TYPE, $x.to_native().into_raw(store) ) ),* ]
+                let params_list: [(Type, RawValue); _] = unsafe {
+                    [ $( (<$x::Native as NativeWasmType>::WASM_TYPE, $x.to_native().into_raw(store) ) ),* ]
                 };
-                let results = {
-                    let mut r;
-                    // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-                    loop {
-                        let args_array = unsafe {
-                            Array::from_iter(
-                                params_list
-                                    .clone()
-                                    .into_iter()
-                                    .map(|(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
-                            )
-                        };
-                        r = self
-                            .func
-                            .as_js()
-                            .handle
-                            .function
-                            .apply(&JsValue::UNDEFINED, &args_array);
-                        let store_mut = store.as_store_mut();
-                        if let Some(callback) = store_mut.inner.on_called.take() {
-                            match callback(store_mut) {
-                                Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
-                                Ok(wasmer_types::OnCalledAction::Finish) => { break; }
-                                Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
-                                Err(trap) => { return Err(RuntimeError::user(trap)) },
-                            }
-                        }
-                        break;
-                    }
-                    r?
-                };
+                // Nothing but numbers: they are passed as they are, without
+                // an array of arguments in between.
+                numeric_lane!(self, store, wrapper, params_list; $( $x ),*);
+                let mut results = JsValue::UNDEFINED;
+                call_wrapped(store, wrapper, |store| {
+                    let args_array = unsafe {
+                        Array::from_iter(
+                            params_list
+                                .iter()
+                                .map(|&(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
+                        )
+                    };
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
+                    let _entered = super::enter_sync();
+                    results = self
+                        .func
+                        .as_js()
+                        .handle
+                        .function
+                        .apply(&JsValue::UNDEFINED, &args_array)?;
+                    Ok(())
+                })?;
                 let mut rets_list_array = Rets::empty_array();
                 let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
                 match Rets::size() {
@@ -184,9 +303,35 @@ fn convert_results<Rets: WasmTypeList>(
         .zip(func_ty.results())
         .zip(results)
     {
-        debug_assert_eq!(value.ty(), *ty);
+        // `Rets::from_array` reads each raw value as the field of its type.
+        if value.ty() != *ty {
+            return Err(RuntimeError::new(format!(
+                "a result of type {} where the signature has {ty}",
+                value.ty()
+            )));
+        }
         *slot = value.as_raw(store);
     }
 
     Ok(unsafe { Rets::from_array(store, rets_list_array) })
+}
+
+
+/// The results of a typed call are read as the raw values of their types:
+/// values of another type are refused, not read as such.
+#[cfg(all(test, feature = "experimental-async"))]
+mod tests {
+    use super::*;
+    use crate::{Store, Value};
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn results_of_another_type_are_refused() {
+        let mut store = Store::default();
+        let ty = wasmer_types::FunctionType::new([], [Type::I64]);
+        let error = convert_results::<i64>(&mut store, ty.clone(), &[Value::I32(7)]).unwrap_err();
+        assert!(error.message().contains("I64"), "{error}");
+        let result = convert_results::<i64>(&mut store, ty, &[Value::I64(7)]).unwrap();
+        assert_eq!(result, 7);
+    }
 }

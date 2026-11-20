@@ -1,13 +1,13 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
-#[cfg(feature = "experimental-async")]
-use crate::{
-    AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock, WeakStoreAsync,
-};
 use crate::{
     StoreContext, StoreMut,
     js::{store::StoreHandle, vm::VMFunctionEnvironment},
     store::{AsStoreMut, AsStoreRef, StoreRef},
+};
+#[cfg(feature = "experimental-async")]
+use crate::{
+    AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock,
 };
 #[cfg(feature = "experimental-async")]
 use wasmer_types::StoreId;
@@ -162,7 +162,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     pub fn as_async_mut(&self) -> Option<AsyncFunctionEnvMut<T>> {
         let store = StoreAsync::from_context(self.store_mut.as_store_ref().objects().id())?;
         Some(AsyncFunctionEnvMut {
-            store: store.downgrade(),
+            store,
             func_env: self.func_env.clone(),
         })
     }
@@ -228,7 +228,7 @@ impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
 
 #[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvMut<T> {
-    pub(crate) store: WeakStoreAsync,
+    pub(crate) store: StoreAsync,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
@@ -248,7 +248,10 @@ pub struct AsyncFunctionEnvHandleMut<T> {
 impl<T> Clone for AsyncFunctionEnvMut<T> {
     fn clone(&self) -> Self {
         Self {
-            store: self.store.clone(),
+            store: StoreAsync {
+                id: self.store.id,
+                inner: self.store.inner.clone(),
+            },
             func_env: self.func_env.clone(),
         }
     }
@@ -260,10 +263,7 @@ where
     T: Send + Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Some(store) = self.store.upgrade() else {
-            return write!(f, "AsyncFunctionEnvMut {{ <STORE DROPPED> }}");
-        };
-        match store.inner.try_read() {
+        match self.store.inner.try_read() {
             Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
             None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
         }
@@ -273,35 +273,26 @@ where
 #[cfg(feature = "experimental-async")]
 impl<T: 'static> AsyncFunctionEnvMut<T> {
     pub(crate) fn store_id(&self) -> StoreId {
-        self.store.id()
+        self.store.id
     }
 
     pub async fn read(&self) -> AsyncFunctionEnvHandle<T> {
-        let store = self
-            .store
-            .upgrade()
-            .expect("async function store was dropped");
         AsyncFunctionEnvHandle {
-            read_lock: store.read_lock().await,
+            read_lock: self.store.read_lock().await,
             func_env: self.func_env.clone(),
         }
     }
 
     pub async fn write(&self) -> AsyncFunctionEnvHandleMut<T> {
-        let store = self
-            .store
-            .upgrade()
-            .expect("async function store was dropped");
         AsyncFunctionEnvHandleMut {
-            write_lock: store.write_lock().await,
+            write_lock: self.store.write_lock().await,
             func_env: self.func_env.clone(),
         }
     }
 
     pub fn try_write(&self) -> Option<AsyncFunctionEnvHandleMut<T>> {
-        let store = self.store.upgrade()?;
         Some(AsyncFunctionEnvHandleMut {
-            write_lock: StoreAsyncWriteLock::try_acquire(&store)?,
+            write_lock: StoreAsyncWriteLock::try_acquire(&self.store)?,
             func_env: self.func_env.clone(),
         })
     }
@@ -320,6 +311,12 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         }))
     }
 
+    /// Runs `f` with the store, once its write lock is had: what the typed
+    /// host functions convert their results with.
+    pub(crate) async fn with_store_mut<R>(&self, f: impl FnOnce(&mut StoreMut<'_>) -> R) -> R {
+        f(&mut self.store.write_lock().await.as_store_mut())
+    }
+
     pub fn as_ref(&self) -> FunctionEnv<T> {
         self.func_env.clone()
     }
@@ -329,9 +326,10 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
-        self.store
-            .upgrade()
-            .expect("async function store was dropped")
+        StoreAsync {
+            id: self.store.id,
+            inner: self.store.inner.clone(),
+        }
     }
 }
 

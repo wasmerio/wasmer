@@ -74,30 +74,9 @@ pub extern "C" fn wasmer_vm_f32_trunc(x: f32) -> f32 {
 }
 
 /// Implementation of f32.nearest
-#[allow(clippy::float_arithmetic, clippy::float_cmp)]
 #[unsafe(no_mangle)]
 pub extern "C" fn wasmer_vm_f32_nearest(x: f32) -> f32 {
-    // Rust doesn't have a nearest function, so do it manually.
-    if x == 0.0 {
-        // Preserve the sign of zero.
-        x
-    } else {
-        // Nearest is either ceil or floor depending on which is nearest or even.
-        let u = x.ceil();
-        let d = x.floor();
-        let um = (x - u).abs();
-        let dm = (x - d).abs();
-        if um < dm
-            || (um == dm && {
-                let h = u / 2.;
-                h.floor() == h
-            })
-        {
-            u
-        } else {
-            d
-        }
-    }
+    x.round_ties_even()
 }
 
 /// Implementation of f32.sqrt
@@ -131,30 +110,9 @@ pub extern "C" fn wasmer_vm_f64_trunc(x: f64) -> f64 {
 }
 
 /// Implementation of f64.nearest
-#[allow(clippy::float_arithmetic, clippy::float_cmp)]
 #[unsafe(no_mangle)]
 pub extern "C" fn wasmer_vm_f64_nearest(x: f64) -> f64 {
-    // Rust doesn't have a nearest function, so do it manually.
-    if x == 0.0 {
-        // Preserve the sign of zero.
-        x
-    } else {
-        // Nearest is either ceil or floor depending on which is nearest or even.
-        let u = x.ceil();
-        let d = x.floor();
-        let um = (x - u).abs();
-        let dm = (x - d).abs();
-        if um < dm
-            || (um == dm && {
-                let h = u / 2.;
-                h.floor() == h
-            })
-        {
-            u
-        } else {
-            d
-        }
-    }
+    x.round_ties_even()
 }
 
 /// Implementation of memory.grow for locally-defined 32-bit memories.

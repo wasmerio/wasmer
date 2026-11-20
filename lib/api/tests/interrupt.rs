@@ -166,6 +166,10 @@ fn interrupted_store_cant_be_entered_again() -> Result<()> {
 
     drop(interrupt_guard);
 
+    // The refused entry must not count as an installation: once the last
+    // real one is gone, the store can be entered again.
+    drop(wasmer_vm::interrupt_registry::install(store_id)?);
+
     Ok(())
 }
 

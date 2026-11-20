@@ -82,13 +82,14 @@ use os::task::control_plane::ControlPlaneError;
 use thiserror::Error;
 // re-exports needed for OS
 pub use wasmer;
+pub use wasmer_asyncify;
 pub use wasmer_wasix_types;
 
 #[cfg(feature = "memory64")]
 #[allow(unused_imports, reason = "used by namespace! expansions")]
 use wasmer::Memory64;
 use wasmer::{
-    AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError, MemorySize,
+    AsStoreMut, Exports, Extern, FunctionEnv, Imports, Memory32, MemoryAccessError, MemorySize,
     RuntimeError, imports, namespace,
 };
 
@@ -399,12 +400,28 @@ pub fn generate_import_object_from_env(
     imports
 }
 
+/// Makes every syscall in `exports` run on the native stack.
+///
+/// A host function called from Wasm may run on the Wasm stack it was called
+/// from, when enough of it is left. Syscalls do not: on their way they may
+/// handle signals, back off and sleep, block on the runtime, or load and
+/// compile modules, which can take more stack than the Wasm stack keeps for
+/// host calls, and they take far longer than switching stacks.
+fn on_native_stack(store: &mut impl AsStoreMut, exports: Exports) -> Exports {
+    for (_, export) in exports.iter() {
+        if let Extern::Function(function) = export {
+            function.set_calls_on_native_stack(store, true);
+        }
+    }
+    exports
+}
+
 fn wasi_exports_generic(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     use syscalls::*;
     let namespace = namespace! {
         "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn::<Memory32>),
     };
-    namespace
+    on_native_stack(store, namespace)
 }
 
 fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
@@ -457,7 +474,7 @@ fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, env: &FunctionEnv<Wasi
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
         "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn::<Memory32>),
     };
-    namespace
+    on_native_stack(store, namespace)
 }
 
 fn wasi_snapshot_preview1_exports(
@@ -514,7 +531,7 @@ fn wasi_snapshot_preview1_exports(
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
         "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn::<Memory32>),
     };
-    namespace
+    on_native_stack(store, namespace)
 }
 
 fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
@@ -663,7 +680,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
         "resolve" => Function::new_typed_with_env(&mut store, env, resolve::<Memory32>),
     };
-    namespace
+    on_native_stack(store, namespace)
 }
 
 #[cfg(feature = "memory64")]
@@ -813,7 +830,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
         "resolve" => Function::new_typed_with_env(&mut store, env, resolve::<Memory64>),
     };
-    namespace
+    on_native_stack(store, namespace)
 }
 
 // TODO: split function into two variants, one for JS and one for sys.

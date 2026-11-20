@@ -159,7 +159,7 @@ jobs:
       - name: Install NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -175,6 +175,16 @@ jobs:
         # - name: make test-js-core
         #   run: |
         #     make test-js-core
+      # Node 24 has JSPI behind a flag, and runs a suspending import before it
+      # refuses to suspend one, where later versions refuse first. The JSPI
+      # tests have to pass on both.
+      - name: Install NodeJS 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: make test-js-jspi on NodeJS 24
+        run: |
+          make test-js-jspi
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.build == 'linux-x64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.metadata.os }}
@@ -494,17 +504,12 @@ jobs:
           rustup target add x86_64-pc-windows-gnu
       - name: Install Windows 10 SDK with xwin
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          mkdir -p /tmp/xwin
           mkdir -p /tmp/xwindownload
           mkdir -p /tmp/xwincache
-          git -c credential.helper='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f' \
-            clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
-          cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
-          /tmp/xwin/target/release/xwin \
+          cargo install xwin --locked
+          xwin \
             --accept-license \
             --cache-dir /tmp/xwincache \
             --timeout 180s \

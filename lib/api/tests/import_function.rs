@@ -5,6 +5,9 @@ use wasm_bindgen_test::*;
 use anyhow::Result;
 use wasmer::*;
 
+mod common;
+use common::Exit;
+
 #[engine_test]
 #[cfg_attr(
     all(target_os = "windows", feature = "v8"),
@@ -158,22 +161,9 @@ fn back_and_forth_with_imports() -> Result<()> {
     Ok(())
 }
 
-/// An exit, as WASIX reports one: an error of the embedder's own type.
-#[derive(Debug)]
-struct Exit(i32);
-
-impl std::fmt::Display for Exit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "exited with {}", self.0)
-    }
-}
-
-impl std::error::Error for Exit {}
-
 // A typed host function, and dynamic ones with no, one and two results (each
 // its own path in the JS backend), each failing with `Exit`: the caller gets
 // that error back, and can downcast it.
-#[cfg(any(feature = "sys", feature = "js"))]
 #[engine_test]
 fn host_functions_fail_with_their_own_error() -> Result<()> {
     let mut store = Store::default();
