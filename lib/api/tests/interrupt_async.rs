@@ -16,7 +16,7 @@ use std::{
 use anyhow::Result;
 use futures::task::noop_waker;
 use wasmer::{Function, Instance, Module, Store, imports};
-use wasmer_vm::TrapCode;
+use wasmer_vm::{TrapCode, interrupt_registry};
 
 const WAT: &str = r#"
     (module
@@ -24,7 +24,26 @@ const WAT: &str = r#"
       (func (export "async")
         call $f
       )
+      (func (export "plain") (result i32)
+        i32.const 1
+      )
     )"#;
+
+/// A store whose export `async` waits for good, and its export `plain`.
+/// Untyped: the future of a typed call drops the untyped call it awaits as
+/// soon as that returns, and a caller keeps an untyped one as long as it likes.
+fn waiting_guest() -> Result<(Store, Function, Function)> {
+    let wasm = wat::parse_str(WAT)?;
+    let mut store = Store::default();
+    let module = Module::new(&store, &wasm)?;
+    let f = Function::new_typed_async(&mut store, async || {
+        std::future::pending::<()>().await;
+    });
+    let instance = Instance::new(&mut store, &module, &imports! { "env" => { "f" => f } })?;
+    let waits = instance.exports.get_function("async")?.clone();
+    let plain = instance.exports.get_function("plain")?.clone();
+    Ok((store, waits, plain))
+}
 
 #[test]
 fn async_function_can_be_interrupted() -> Result<()> {
@@ -146,5 +165,32 @@ fn all_futures_from_store_are_interrupted() -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+/// A call forgotten while it is suspended keeps its store's interrupt state,
+/// aimed at its thread. Once the thread is gone, an interrupt does not signal
+/// it: the store is not running anywhere.
+#[test]
+fn a_forgotten_call_on_an_exited_thread_is_not_signalled() -> Result<()> {
+    let id = thread::spawn(|| -> Result<_> {
+        let (store, waits, _) = waiting_guest()?;
+        let id = store.id();
+        let store = store.into_async();
+        let mut call = Box::pin(waits.call_async(&store, vec![]));
+        assert!(
+            call.as_mut()
+                .poll(&mut Context::from_waker(&noop_waker()))
+                .is_pending()
+        );
+        std::mem::forget(call);
+        Ok(id)
+    })
+    .join()
+    .unwrap()?;
+    assert!(matches!(
+        interrupt_registry::interrupt(id),
+        Err(interrupt_registry::InterruptError::StoreNotRunning)
+    ));
     Ok(())
 }
