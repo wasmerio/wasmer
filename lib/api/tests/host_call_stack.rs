@@ -351,3 +351,31 @@ fn a_call_back_into_wasm_starts_from_the_native_stack() -> Result<(), Box<dyn st
     assert_eq!(outer.call(&mut store)?, 0b111);
     Ok(())
 }
+
+/// A host function's setting is read and changed without running Wasm, so
+/// that Miri can check it (`cargo +nightly miri test -p wasmer --test
+/// host_call_stack -- the_stack_setting`): the setting lives inside the
+/// function's state, which its `VMFunction` owns and moves with it.
+#[test]
+fn the_stack_setting_of_a_host_function() {
+    let engine: wasmer::Engine = wasmer::sys::EngineBuilder::headless().engine().into();
+    let mut store = Store::new(engine);
+    let env = FunctionEnv::new(&mut store, ());
+    let typed = Function::new_typed(&mut store, |x: i32| x + 1);
+    let with_env = Function::new_typed_with_env(&mut store, &env, |_: FunctionEnvMut<()>| 1);
+    let dynamic = Function::new(
+        &mut store,
+        FunctionType::new([], [Type::I32]),
+        |_: &[Value]| Ok(vec![Value::I32(1)]),
+    );
+    for function in [&typed, &with_env, &dynamic] {
+        assert!(!function.calls_on_native_stack(&store));
+        function.set_calls_on_native_stack(&mut store, true);
+        assert!(function.calls_on_native_stack(&store));
+        // Making more functions moves the list the others are in.
+        Function::new_typed(&mut store, || ());
+        assert!(function.calls_on_native_stack(&store));
+        function.set_calls_on_native_stack(&mut store, false);
+        assert!(!function.calls_on_native_stack(&store));
+    }
+}

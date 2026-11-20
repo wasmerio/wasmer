@@ -35,7 +35,7 @@ use std::{
     future::Future,
     marker::PhantomData,
     pin::Pin,
-    ptr::NonNull,
+    ptr::{self, NonNull},
     sync::{
         Arc,
         atomic::{AtomicPtr, Ordering},
@@ -1119,8 +1119,10 @@ impl HostSlot {
 /// where in it the slot is that [`crate::Function::set_calls_on_native_stack`]
 /// sets the bit of.
 struct HostFunctionData {
-    /// Inside `_state`, which keeps it in place.
-    slot: NonNull<HostSlot>,
+    /// Where the slot is in `_state`, in bytes from its start. An offset
+    /// rather than a pointer: moving the box asserts that it is the only way
+    /// to its contents, which would invalidate a pointer taken before.
+    slot_offset: usize,
     /// Whether a call may run on the Wasm stack at all: false for
     /// asynchronous functions, whose slot says they always run on the native
     /// stack, and keeps saying so.
@@ -1130,17 +1132,20 @@ struct HostFunctionData {
 
 impl HostFunctionData {
     fn boxed<S: 'static>(state: Box<S>, slot: fn(&S) -> &HostSlot, in_place: bool) -> Box<dyn Any> {
+        let slot_offset = ptr::from_ref(slot(&state)).addr() - ptr::from_ref::<S>(&state).addr();
         Box::new(Self {
-            slot: NonNull::from(slot(&state)),
+            slot_offset,
             in_place,
             _state: state,
         })
     }
 
     fn slot(&self) -> &HostSlot {
-        // SAFETY: the slot is inside `_state`, whose allocation lives as long
-        // as `self` and does not move.
-        unsafe { self.slot.as_ref() }
+        let state = ptr::from_ref::<dyn Any>(&*self._state).cast::<u8>();
+        // SAFETY: `boxed` measured where the slot is in the state, which is
+        // still of the type it was measured in, and the reference is derived
+        // from a borrow of the state that it does not outlive.
+        unsafe { &*state.add(self.slot_offset).cast::<HostSlot>() }
     }
 }
 
