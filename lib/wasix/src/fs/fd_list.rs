@@ -323,6 +323,7 @@ mod tests {
                     stat: RwLock::new(Default::default()),
                 }),
                 open_handles: Arc::new(AtomicI32::new(0)),
+                epoll_watchers: Default::default(),
             },
             is_stdio: false,
             inner: FdInner {

@@ -79,10 +79,17 @@ pub(crate) fn epoll_ctl_internal(
                     let Some(event) = event_ctl else {
                         return Ok(Err(Errno::Inval));
                     };
-                    let (epoll_fd, sub_state) = match state.prepare_add(fd, event) {
-                        Ok(v) => v,
+                    // The object `fd` names, resolved before the entry exists, so
+                    // that the entry can record which object it watches.
+                    let watched = match env.state.fs.get_fd(fd) {
+                        Ok(entry) => entry.inode,
                         Err(err) => return Ok(Err(err)),
                     };
+                    let (epoll_fd, sub_state) =
+                        match state.prepare_add(fd, event, watched.identity()) {
+                            Ok(v) => v,
+                            Err(err) => return Ok(Err(err)),
+                        };
 
                     match register_epoll_handler(
                         &env.state,
@@ -93,6 +100,17 @@ pub(crate) fn epoll_ctl_internal(
                         Ok(fd_guard) => {
                             if let Some(fd_guard) = fd_guard {
                                 sub_state.add_join(fd_guard);
+                            }
+                            // From here a close of the object's last descriptor
+                            // finds and removes this entry.
+                            watched.watch_epoll(state, fd);
+                            // A close that already happened, while this call was
+                            // between resolving `fd` and recording the entry, could
+                            // not: remove it here instead. Linux holds a reference
+                            // across `epoll_ctl`, so there the close comes after it
+                            // and removes the entry; the result is the same.
+                            if watched.handle_count() == 0 {
+                                state.prune_closed(fd, &watched.identity());
                             }
                             Ok(())
                         }
