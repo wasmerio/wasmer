@@ -37,6 +37,10 @@ impl FileSystem for PassthruFileSystem {
         self.fs.create_dir(path)
     }
 
+    fn sync_dir(&self, path: &Path) -> Result<()> {
+        self.fs.sync_dir(path)
+    }
+
     fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
         self.fs.create_symlink(source, target)
     }

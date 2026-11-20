@@ -387,6 +387,12 @@ where
         self.permission_error_or_not_found(path)
     }
 
+    fn sync_dir(&self, path: &Path) -> Result<(), FsError> {
+        // Only the writable layer can hold pending entry changes; the
+        // secondaries are read-only lower layers with nothing to flush.
+        self.primary.sync_dir(path)
+    }
+
     fn create_symlink(&self, source: &Path, target: &Path) -> Result<(), FsError> {
         if ops::is_white_out(target).is_some() {
             return Err(FsError::InvalidInput);
@@ -1470,6 +1476,42 @@ mod tests {
         // Files on the primary should always shadow the secondary
         let content = ops::read_to_string(&fs, "/primary/read.txt").await.unwrap();
         assert_ne!(content, "This is shadowed");
+    }
+
+    /// The runtime stacks wrappers over the mounted filesystem - `WasiFs` puts an
+    /// `OverlayFileSystem` of `ArcFileSystem`s over the root, and a traced or
+    /// passthru layer can sit anywhere in between - so each of them has to
+    /// forward `sync_dir`. A wrapper that forgets is invisible from the outside:
+    /// it inherits the trait's no-op default and reports a flush that never
+    /// happened. Which is why this asserts the negative case, not the positive.
+    #[cfg(feature = "host-fs")]
+    #[tokio::test]
+    async fn sync_dir_forwards_through_the_wrapper_stack() {
+        use crate::{PassthruFileSystem, TraceFileSystem, host_fs};
+
+        let temp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(temp.path().join("data")).unwrap();
+        let host = host_fs::FileSystem::new(tokio::runtime::Handle::current(), temp.path())
+            .expect("host filesystem over the temp dir");
+
+        let primary: Arc<dyn FileSystem + Send + Sync> = Arc::new(TraceFileSystem::new(
+            PassthruFileSystem::new(Box::new(host)),
+        ));
+        let secondary: Arc<dyn FileSystem + Send + Sync> = Arc::new(MemFS::default());
+        let fs = OverlayFileSystem::new(
+            crate::ArcFileSystem::new(primary),
+            [crate::ArcFileSystem::new(secondary)],
+        );
+
+        fs.sync_dir(Path::new("/data"))
+            .expect("the stack reaches the host directory");
+
+        std::fs::remove_dir(temp.path().join("data")).unwrap();
+        assert_eq!(
+            fs.sync_dir(Path::new("/data")).err(),
+            Some(FsError::EntryNotFound),
+            "a flush that never reached the host would report success here"
+        );
     }
 
     #[tokio::test]
