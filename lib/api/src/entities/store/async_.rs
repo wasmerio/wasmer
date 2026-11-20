@@ -103,6 +103,16 @@ pub trait AsStoreAsync {
     fn write_lock(&self) -> impl Future<Output = StoreAsyncWriteLock> {
         StoreAsyncWriteLock::acquire(self.store_ref())
     }
+
+    /// Attempts to acquire a write lock without waiting.
+    ///
+    /// Returns `None` while any reader or writer holds the store, without
+    /// registering a waiter. The returned guard keeps the store alive.
+    fn try_write_lock(&self) -> Option<StoreAsyncWriteLock> {
+        Some(StoreAsyncWriteLock {
+            inner: self.store_ref().inner.try_write()?,
+        })
+    }
 }
 
 impl AsStoreAsync for StoreAsync {
