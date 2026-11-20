@@ -165,6 +165,12 @@ pub fn host_call_in_place_on(_thread: CurrentThread) -> Option<HostCallInPlace> 
     host_call_in_place()
 }
 
+/// Runs `f` where it stands: there is only one stack.
+#[inline(always)]
+pub fn on_host_stack_from_in_place<F: FnOnce() -> T, T>(f: F) -> T {
+    f()
+}
+
 /// Just run the `closure` and return its result wrapped in `Ok()`. Nothing is
 /// caught in `baremetal` mode.
 ///

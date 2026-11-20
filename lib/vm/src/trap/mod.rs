@@ -22,6 +22,8 @@ pub use traphandlers::{
     ActivationState, CurrentThread, DEFAULT_HOST_CALL_RESERVE, HostCallInPlace, MAX_STACK_SIZE,
     TrapHandlerFn, VMConfig, catch_traps, drain_stack_pool, get_host_call_reserve, get_stack_size,
     host_call_in_place, host_call_in_place_on, host_calls_on_native_stack, on_host_stack,
+    on_host_stack_on, set_wasm_on_thread_stack, wasm_on_thread_stack,
+    on_host_stack_from_in_place,
     raise_lib_trap, raise_user_trap, set_host_call_reserve, set_host_calls_on_native_stack,
     set_stack_size,
 };

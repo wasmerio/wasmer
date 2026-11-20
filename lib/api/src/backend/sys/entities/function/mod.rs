@@ -962,14 +962,16 @@ where
         };
         let result = if IN_PLACE {
             let (slot, on_native_stack) = this.ctx.slot.get();
-            if on_native_stack {
-                return unsafe { Self::func_wrapper::<false>(this, values_vec) };
-            }
             // A call into a plain store left its thread in the slot, which
             // saves looking the thread up.
             let thread = slot
                 .thread()
                 .unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+            // PROTOTYPE (fast-wasmer): not for a guest on the thread's own
+            // stack, which has no other stack (see below).
+            if on_native_stack && !thread.on_thread_stack() {
+                return unsafe { Self::func_wrapper::<false>(this, values_vec) };
+            }
             match wasmer_vm::host_call_in_place_on(thread) {
                 Some(in_place) => {
                     let result = call();
@@ -979,7 +981,21 @@ where
                 None => return unsafe { Self::func_wrapper::<false>(this, values_vec) },
             }
         } else {
-            on_host_stack(call)
+            let thread = this
+                .ctx
+                .slot
+                .slot()
+                .thread()
+                .unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+            // PROTOTYPE (fast-wasmer): a guest on the thread's own stack has
+            // no other stack, and its host functions run in place whatever
+            // they are set to. An asynchronous function never gets here from
+            // such a guest with a coroutine to suspend: `call_async` runs its
+            // guests on coroutine stacks.
+            if thread.on_thread_stack() {
+                return unsafe { Self::func_wrapper::<true>(this, values_vec) };
+            }
+            wasmer_vm::on_host_stack_on(thread, call)
         };
 
         // IMPORTANT: DO NOT ALLOCATE ON THE STACK: this runs on the Wasm stack,
@@ -1201,13 +1217,15 @@ macro_rules! impl_host_function {
                     }))
                 };
                 let result = if IN_PLACE {
-                    let (slot, on_native_stack) = env.slot.get();
-                    if on_native_stack {
-                        return unsafe { func_wrapper::<false, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) };
-                    }
                     // A call into a plain store left its thread in the slot,
                     // which saves looking the thread up.
+                    let (slot, on_native_stack) = env.slot.get();
                     let thread = slot.thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+                    // rvw2: a function set to the native stack runs in place
+                    // only for a guest on the thread's own stack.
+                    if on_native_stack && !thread.on_thread_stack() {
+                        return unsafe { func_wrapper::<false, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) };
+                    }
                     match wasmer_vm::host_call_in_place_on(thread) {
                         Some(in_place) => {
                             let result = call();
@@ -1217,7 +1235,16 @@ macro_rules! impl_host_function {
                         None => return unsafe { func_wrapper::<false, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) },
                     }
                 } else {
-                    on_host_stack(call)
+                    // The thread from the slot here as well: the switch needs
+                    // the thread's state, and nothing else of the thread.
+                    let thread = env.slot.slot().thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+                    // PROTOTYPE (fast-wasmer): a guest on the thread's own
+                    // stack has no other stack, and its host functions run
+                    // in place whatever they are set to.
+                    if thread.on_thread_stack() {
+                        return unsafe { func_wrapper::<true, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) };
+                    }
+                    wasmer_vm::on_host_stack_on(thread, call)
                 };
 
                 // IMPORTANT: DO NOT ALLOCATE ON THE STACK: this runs on the Wasm
@@ -1256,6 +1283,25 @@ macro_rules! impl_host_function {
                         raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
                     },
                     Err(panic) => unsafe { resume_panic(panic) },
+                }
+            }
+
+            /// What Wasm calls: picks the instance of the wrapper by the
+            /// setting of `Function::set_calls_on_native_stack`, with a jump
+            /// and no frame of its own, so a function that always runs on the
+            /// native stack does not set up the frame of the other instance.
+            #[allow(dead_code)]
+            unsafe extern "C-unwind" fn dispatch<$( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+            {
+                if env.slot.get().1 {
+                    unsafe { func_wrapper::<false, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) }
+                } else {
+                    unsafe { func_wrapper::<true, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) }
                 }
             }
 
@@ -1328,13 +1374,15 @@ macro_rules! impl_host_function {
                     }))
                 };
                 let result = if IN_PLACE {
-                    let (slot, on_native_stack) = env.slot.get();
-                    if on_native_stack {
-                        return unsafe { func_wrapper::<false, T, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) };
-                    }
                     // A call into a plain store left its thread in the slot,
                     // which saves looking the thread up.
+                    let (slot, on_native_stack) = env.slot.get();
                     let thread = slot.thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+                    // rvw2: a function set to the native stack runs in place
+                    // only for a guest on the thread's own stack.
+                    if on_native_stack && !thread.on_thread_stack() {
+                        return unsafe { func_wrapper::<false, T, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) };
+                    }
                     match wasmer_vm::host_call_in_place_on(thread) {
                         Some(in_place) => {
                             let result = call();
@@ -1344,7 +1392,16 @@ macro_rules! impl_host_function {
                         None => return unsafe { func_wrapper::<false, T, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) },
                     }
                 } else {
-                    on_host_stack(call)
+                    // The thread from the slot here as well: the switch needs
+                    // the thread's state, and nothing else of the thread.
+                    let thread = env.slot.slot().thread().unwrap_or_else(wasmer_vm::CurrentThread::get_out_of_line);
+                    // PROTOTYPE (fast-wasmer): a guest on the thread's own
+                    // stack has no other stack, and its host functions run
+                    // in place whatever they are set to.
+                    if thread.on_thread_stack() {
+                        return unsafe { func_wrapper::<true, T, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) };
+                    }
+                    wasmer_vm::on_host_stack_on(thread, call)
                 };
 
                 // IMPORTANT: DO NOT ALLOCATE ON THE STACK: this runs on the Wasm
@@ -1385,6 +1442,25 @@ macro_rules! impl_host_function {
                     Err(panic) => unsafe { resume_panic(panic) },
                 }
             }
+            /// What Wasm calls: picks the instance of the wrapper by the
+            /// setting of `Function::set_calls_on_native_stack`, with a jump
+            /// and no frame of its own, so a function that always runs on the
+            /// native stack does not set up the frame of the other instance.
+            #[allow(dead_code)]
+            unsafe extern "C-unwind" fn dispatch<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
+            {
+                if env.slot.get().1 {
+                    unsafe { func_wrapper::<false, T, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) }
+                } else {
+                    unsafe { func_wrapper::<true, T, $( $x, )* Rets, RetsAsResult, Func>(env, $( $x ),*) }
+                }
+            }
+
             func_wrapper::< true, T, $( $x, )* Rets, RetsAsResult, Func > as _
         }
 
