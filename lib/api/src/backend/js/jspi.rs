@@ -136,6 +136,9 @@ struct Activation {
     /// The call was polled from inside its own driving: whoever woke it is
     /// woken again, once that is over.
     redrive: Cell<bool>,
+    /// A host function runs with the store the activation holds, in a slice
+    /// of the guest that JavaScript resumed: see [`hold_running`].
+    held: Cell<bool>,
 }
 
 struct Activations {
@@ -801,17 +804,34 @@ fn running(id: StoreId) -> Option<Rc<Activation>> {
     })
 }
 
+/// A host function's hold on the store a guest of `call_async` holds: see
+/// [`hold_running`].
+pub(crate) struct Held(Rc<Activation>);
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        self.0.held.set(false);
+    }
+}
+
 /// The store whose raw id is `id`, if a guest entered by `call_async` runs
-/// in it, as that guest holds it: what a host function of the store runs
-/// with in a slice of the guest that JavaScript resumed, which no call lends
-/// it the store (see `lent`).
-pub(crate) fn running_store(id: usize) -> Option<*mut StoreInner> {
+/// in it, as that guest holds it, and a hold on it: what a host function of
+/// the store runs with in a slice of the guest that JavaScript resumed, which
+/// no call lends it the store (see `lent`). An error if another host function
+/// holds it.
+pub(crate) fn hold_running(
+    id: usize,
+) -> Option<Result<(*mut StoreInner, Held), RuntimeError>> {
     let activation = RUNNING.with(|running| {
         let running = running.borrow();
         let mut running = running.iter();
         running.find(|activation| activation.store_id.as_raw().get() == id).cloned()
     })?;
-    activation.store_ptr()
+    let store = activation.store_ptr()?;
+    if activation.held.replace(true) {
+        return Some(Err(crate::js::lent::held()));
+    }
+    Some(Ok((store, Held(activation))))
 }
 
 /// The store of `id`, if a guest entered by `call_async` is running in it.
@@ -989,6 +1009,7 @@ impl Call {
                 accepted: Cell::new(false),
                 driving: Cell::new(false),
                 redrive: Cell::new(false),
+                held: Cell::new(false),
             });
             activations.slots[(token - FIRST_TOKEN) as usize] = Some(activation.clone());
             activation

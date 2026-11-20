@@ -384,7 +384,8 @@ impl Function {
         let function_type = ty.into();
         let func_ty = function_type.clone();
         // The host function runs with its store as the call it runs in lends
-        // it, which it finds by the store's id (see `lent`).
+        // it, which it finds by the store's id, and holds it until it returns
+        // (see `lent`).
         let store_id = store.as_store_ref().objects().id().as_raw().get();
         let raw_env = env.clone();
         if numeric::is_numeric(&function_type) {
@@ -392,7 +393,7 @@ impl Function {
             // no array of arguments in between.
             let arity = function_type.params().len();
             let function = numeric::closure(arity, move |numbers| {
-                let store = lent::store(store_id).map_err(trap_value)?;
+                let (store, _hold) = lent::hold(store_id).map_err(trap_value)?;
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let arguments = numeric::values(function_type.params(), numbers);
@@ -409,7 +410,7 @@ impl Function {
         }
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                let store = lent::store(store_id).map_err(trap_value)?;
+                let (store, _hold) = lent::hold(store_id).map_err(trap_value)?;
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let wasm_arguments = function_type
@@ -427,7 +428,7 @@ impl Function {
                 as Box<dyn Fn(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                let store = lent::store(store_id).map_err(trap_value)?;
+                let (store, _hold) = lent::hold(store_id).map_err(trap_value)?;
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let wasm_arguments = function_type
@@ -445,7 +446,7 @@ impl Function {
                 as Box<dyn Fn(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                let store = lent::store(store_id).map_err(trap_value)?;
+                let (store, _hold) = lent::hold(store_id).map_err(trap_value)?;
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let wasm_arguments = function_type
@@ -1176,8 +1177,8 @@ macro_rules! impl_host_function {
             {
                 // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                 let func: &Func = unsafe { &*(&() as *const () as *const Func) };
-                let store = match crate::backend::js::lent::store(store_id) {
-                    Ok(store) => store,
+                let (store, hold) = match crate::backend::js::lent::hold(store_id) {
+                    Ok(held) => held,
                     Err(error) => crate::backend::js::error::raise(Box::new(error)),
                 };
                 let mut store = unsafe { StoreMut::from_raw(store) };
@@ -1194,11 +1195,13 @@ macro_rules! impl_host_function {
                 // Before anything is thrown below: a throw skips destructors.
                 drop(entered);
 
+                let result = result.map(|result| {
+                    result.map(|result| unsafe { result.into_c_struct(&mut store) })
+                });
+                drop(hold);
+
                 match result {
-                    Ok(Ok(result)) => {
-                        let c_struct = unsafe { result.into_c_struct(&mut store) };
-                        return c_struct;
-                    },
+                    Ok(Ok(c_struct)) => c_struct,
                     Ok(Err(trap)) => crate::backend::js::error::raise(Box::new(trap)),
                     Err(panic) => raise_host_function_panic(panic),
                 }
@@ -1225,8 +1228,8 @@ macro_rules! impl_host_function {
                 T: Send + 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                let store_ptr = match crate::backend::js::lent::store(store_id) {
-                    Ok(store) => store,
+                let (store_ptr, hold) = match crate::backend::js::lent::hold(store_id) {
+                    Ok(held) => held,
                     Err(error) => crate::backend::js::error::raise(Box::new(error)),
                 };
                 let mut store = unsafe { StoreMut::from_raw(store_ptr) };
@@ -1256,11 +1259,13 @@ macro_rules! impl_host_function {
                 // Before anything is thrown below: a throw skips destructors.
                 drop(entered);
 
+                let result = result.map(|result| {
+                    result.map(|result| unsafe { result.into_c_struct(&mut store) })
+                });
+                drop(hold);
+
                 match result {
-                    Ok(Ok(result)) => {
-                        let c_struct = unsafe { result.into_c_struct(&mut store) };
-                        return c_struct;
-                    },
+                    Ok(Ok(c_struct)) => c_struct,
                     #[allow(deprecated)]
                     #[cfg(feature = "std")]
                     Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),
