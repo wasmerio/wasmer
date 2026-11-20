@@ -7,15 +7,18 @@
 // TODO: tests for recursive function calls across different stores
 
 use std::{
+    cell::RefCell,
+    future::Future,
+    pin::Pin,
     sync::{Arc, Barrier, Mutex, atomic::AtomicU32},
-    task::{Context, Poll},
+    task::{Context, Poll, Wake, Waker},
     thread,
     time::Duration,
 };
 
 use anyhow::Result;
 use futures::task::noop_waker;
-use wasmer::{Function, Instance, Module, Store, imports};
+use wasmer::{Function, Instance, Module, RuntimeError, Store, Value, imports};
 use wasmer_vm::{TrapCode, interrupt_registry};
 
 const WAT: &str = r#"
@@ -165,6 +168,76 @@ fn all_futures_from_store_are_interrupted() -> Result<()> {
         );
     }
 
+    Ok(())
+}
+
+/// An interrupted call ends at once, with its coroutine: the store is not
+/// left interrupted by calls that returned their error but were not dropped,
+/// and a new call on it runs.
+#[test]
+fn an_interrupted_call_does_not_keep_its_store_interrupted() -> Result<()> {
+    let (store, waits, plain) = waiting_guest()?;
+    let interrupter = store.interrupter();
+    let store = store.into_async();
+    let waker = noop_waker();
+    let mut cx = Context::from_waker(&waker);
+
+    let mut call = Box::pin(waits.call_async(&store, vec![]));
+    assert!(call.as_mut().poll(&mut cx).is_pending());
+    interrupter.interrupt();
+    let Poll::Ready(Err(error)) = call.as_mut().poll(&mut cx) else {
+        panic!("the call was not interrupted");
+    };
+    assert_eq!(error.to_trap(), Some(TrapCode::HostInterrupt));
+
+    // `call` is kept: it finished, and holds nothing.
+    let mut next = Box::pin(plain.call_async(&store, vec![]));
+    let Poll::Ready(result) = next.as_mut().poll(&mut cx) else {
+        panic!("the next call did not finish");
+    };
+    assert_eq!(result?.to_vec(), vec![Value::I32(1)]);
+    drop(call);
+    Ok(())
+}
+
+type CallFuture = Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>>>>;
+
+thread_local! {
+    /// The call `PollsAtOnce` polls.
+    static POLLED_AT_ONCE: RefCell<Option<CallFuture>> = const { RefCell::new(None) };
+}
+
+/// A waker that polls its call as soon as it is woken.
+struct PollsAtOnce;
+
+impl Wake for PollsAtOnce {
+    fn wake(self: Arc<Self>) {
+        let waker = Waker::from(self);
+        POLLED_AT_ONCE.with_borrow_mut(|call| {
+            if let Some(call) = call {
+                let _ = call.as_mut().poll(&mut Context::from_waker(&waker));
+            }
+        });
+    }
+}
+
+/// The interrupt wakes a call whose waker polls it at once: the poll can
+/// take the interrupt's bookkeeping again.
+#[test]
+fn an_interrupt_wakes_a_waker_that_polls_at_once() -> Result<()> {
+    let (store, waits, _) = waiting_guest()?;
+    let interrupter = store.interrupter();
+    let store = store.into_async();
+    let waker = Waker::from(Arc::new(PollsAtOnce));
+    let mut call: CallFuture = Box::pin(waits.call_async(&store, vec![]));
+    assert!(
+        call.as_mut()
+            .poll(&mut Context::from_waker(&waker))
+            .is_pending()
+    );
+    POLLED_AT_ONCE.set(Some(call));
+    interrupter.interrupt();
+    drop(POLLED_AT_ONCE.take());
     Ok(())
 }
 

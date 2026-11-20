@@ -850,11 +850,12 @@ fn a_call_polled_from_inside_its_own_store_is_refused() {
 }
 
 /// A host function running on the coroutine of a call instantiates a module
-/// whose start function waits on an async import. The start function
-/// suspends the call, as the host function's own calls into Wasm would, and
-/// the instance is created once the import is ready.
+/// whose start function calls an async import. The host function holds a
+/// borrow of the store across the start function, which therefore cannot
+/// suspend the call: an import that is ready goes through, and one that has
+/// to wait fails, and with it the instantiation.
 #[test]
-fn a_start_function_that_waits_suspends_the_call_that_instantiates() {
+fn a_start_function_run_by_a_host_function_cannot_suspend() {
     const START: &str = r#"
     (module
       (import "h" "wait" (func $wait))
@@ -882,18 +883,23 @@ fn a_start_function_that_waits_suspends_the_call_that_instantiates() {
             let created = created.clone();
             move |mut env: wasmer::FunctionEnvMut<()>, _: &[Value]| {
                 let imports = imports! { "h" => { "wait" => wait.clone() } };
-                let instance = Instance::new(&mut env, &module, &imports)
-                    .map_err(|e| RuntimeError::new(e.to_string()))?;
+                let instance = match Instance::new(&mut env, &module, &imports) {
+                    Ok(instance) => instance,
+                    Err(wasmer::InstantiationError::Start(error)) => return Err(error),
+                    Err(error) => return Err(RuntimeError::new(error.to_string())),
+                };
                 *created.lock().unwrap() = Some(instance);
                 Ok(vec![])
             }
         });
     let store = store.into_async();
 
-    let mut call: CallFuture = Box::pin(instantiate.call_async(&store, vec![]));
-    expect_pending("instantiation", &mut call);
+    let mut failed: CallFuture = Box::pin(instantiate.call_async(&store, vec![]));
+    expect_trap("waiting", &mut failed, TrapCode::YieldOutsideAsyncContext);
+    drop(failed);
     assert!(created.lock().unwrap().is_none());
     gate.set(true);
+    let mut call: CallFuture = Box::pin(instantiate.call_async(&store, vec![]));
     assert!(matches!(poll_once(&mut call), Poll::Ready(Ok(_))));
     drop(call);
     let Ok(mut store) = store.into_store() else {
@@ -908,13 +914,13 @@ fn a_start_function_that_waits_suspends_the_call_that_instantiates() {
     assert_eq!(started.get(&mut store).unwrap_i32(), 1);
 }
 
-/// The same call, cancelled while the start function waits. The instance's
-/// elements already put one of its functions into a table of the store, so
-/// the instance outlives the cancellation: the function still works once
-/// other instances have been made, which would take the memory of one that
-/// was freed.
+/// The same call, whose start function fails as it would wait. The
+/// instance's elements already put one of its functions into a table of the
+/// store, so the instance outlives the failure: the function still works
+/// once other instances have been made, which would take the memory of one
+/// that was freed.
 #[test]
-fn a_start_function_cancelled_while_it_waits_leaves_its_functions_working() {
+fn a_start_function_that_fails_as_it_waits_leaves_its_functions_working() {
     const START: &str = r#"
     (module
       (import "h" "wait" (func $wait))
@@ -957,7 +963,7 @@ fn a_start_function_cancelled_while_it_waits_leaves_its_functions_working() {
     let store = store.into_async();
 
     let mut call: CallFuture = Box::pin(instantiate.call_async(&store, vec![]));
-    expect_pending("instantiation", &mut call);
+    assert!(matches!(poll_once(&mut call), Poll::Ready(Err(_))));
     drop(call);
     let Ok(mut store) = store.into_store() else {
         panic!("the store is still shared");
@@ -1136,9 +1142,12 @@ mod caught_panics {
         Box::pin(f.call_async(store, args))
     }
 
+    /// A guest a host function calls cannot be suspended, so the future of
+    /// an async host function it calls is polled inside the import, as on a
+    /// synchronous call: its panic is caught by the host function beneath.
     #[test]
     fn on_a_call_async_coroutine() {
-        for (i, nested) in NESTED[..3].iter().enumerate() {
+        for (i, nested) in NESTED[..4].iter().enumerate() {
             let guest = Guest::new();
             let catch = guest.export("catch");
             let store = guest.store.into_async();
@@ -1149,16 +1158,16 @@ mod caught_panics {
         }
     }
 
-    /// The future of an async host function is polled by the future of the
-    /// call, so its panic reaches whoever polls the call rather than the host
-    /// function beneath. The call is unwound when it is dropped, and the store
-    /// goes on being usable.
+    /// The future of an async host function a guest of `call_async` calls is
+    /// polled by the future of the call, so its panic reaches whoever polls
+    /// the call. The call is unwound when it is dropped, and the store goes
+    /// on being usable.
     #[test]
     fn a_host_future_panics_in_the_poller() {
         let guest = Guest::new();
-        let catch = guest.export("catch");
+        let (catch, async_future) = (guest.export("catch"), guest.export("async_future"));
         let store = guest.store.into_async();
-        let mut panicking = call(&store, &catch, &[3]);
+        let mut panicking = call(&store, &async_future, &[]);
         expect_host_panic(&mut panicking);
         drop(panicking);
         expect_value("after the panic", &mut call(&store, &catch, &[0]), 1);
@@ -1182,16 +1191,28 @@ mod caught_panics {
         }
     }
 
-    /// A call that is suspended under a host function holding a paused
-    /// borrow, and is dropped by another call on the same store, is unwound
-    /// without changing the borrows of the call that drops it.
+    /// A guest that a host function calls cannot be suspended: an async
+    /// import it waits in fails, and the host function goes on with its
+    /// store.
+    #[test]
+    fn a_guest_a_host_function_calls_does_not_suspend() {
+        let guest = Guest::new();
+        let catch = guest.export("catch");
+        let store = guest.store.into_async();
+        // `catch` returns -1: the nested call failed rather than panicked.
+        expect_value("nested wait", &mut call(&store, &catch, &[4]), -1);
+        assert!(store.into_store().is_ok());
+    }
+
+    /// A suspended call, dropped by another call on the same store, is
+    /// unwound without changing the borrows of the call that drops it.
     #[test]
     fn a_dropped_call_leaves_the_borrows_of_the_call_that_drops_it() {
         let guest = Guest::new();
-        let (catch, drop_call) = (guest.export("catch"), guest.export("drop_call"));
+        let (wait, drop_call) = (guest.export("wait"), guest.export("drop_call"));
         let to_drop = guest.to_drop.clone();
         let store = guest.store.into_async();
-        let mut suspended = call(&store, &catch, &[4]);
+        let mut suspended = call(&store, &wait, &[]);
         expect_pending("suspended", &mut suspended);
         *to_drop.borrow_mut() = Some(suspended);
         match poll_once(&mut call(&store, &drop_call, &[])) {
@@ -1210,10 +1231,10 @@ mod caught_panics {
     #[test]
     fn a_dropped_call_leaves_the_borrows_of_a_call_on_another_store() {
         let (a, b) = (Guest::new(), Guest::new());
-        let catch_a = a.export("catch");
+        let wait_a = a.export("wait");
         let catch_b = b.export("catch");
         let (store_a, store_b) = (a.store.into_async(), b.store.into_async());
-        let mut suspended = call(&store_a, &catch_a, &[4]);
+        let mut suspended = call(&store_a, &wait_a, &[]);
         expect_pending("suspended", &mut suspended);
         TO_DROP_SYNC.set(Some(suspended));
         // `catch` returns -1: `drop_sync` did not panic.
