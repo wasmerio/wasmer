@@ -272,3 +272,21 @@ fn a_host_function_can_run_on_the_native_stack() -> Result<(), Box<dyn std::erro
     assert!(!exported.calls_on_native_stack(&store));
     Ok(())
 }
+
+/// An asynchronous host function always runs on the native stack, where
+/// its future may suspend the coroutine the call came from: setting it to
+/// run on the Wasm stack changes nothing.
+#[cfg(feature = "experimental-async")]
+#[test]
+fn an_async_host_function_always_runs_on_the_native_stack() {
+    let engine: wasmer::Engine = wasmer::sys::EngineBuilder::headless().engine().into();
+    let mut store = Store::new(engine);
+    let function = Function::new_async(
+        &mut store,
+        FunctionType::new([], [Type::I32]),
+        |_: &[Value]| async { Ok(vec![Value::I32(1)]) },
+    );
+    assert!(function.calls_on_native_stack(&store));
+    function.set_calls_on_native_stack(&mut store, false);
+    assert!(function.calls_on_native_stack(&store));
+}

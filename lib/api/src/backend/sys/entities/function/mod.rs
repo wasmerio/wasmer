@@ -117,7 +117,6 @@ impl Function {
                 store_id,
                 slot: HostSlot::new(slot),
                 func_ty: function_type.clone(),
-                in_place: true,
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -143,12 +142,11 @@ impl Function {
             call_trampoline,
         };
 
-        let in_place = host_data.ctx.in_place;
         let vm_function = VMFunction {
             anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
             kind: VMFunctionKind::Dynamic,
             signature: function_type,
-            host_data: HostFunctionData::boxed(host_data, |data| &data.ctx.slot, in_place),
+            host_data: HostFunctionData::boxed(host_data, |data| &data.ctx.slot, true),
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
@@ -259,10 +257,10 @@ impl Function {
             ctx: DynamicFunction {
                 func: wrapper,
                 store_id,
-                slot: HostSlot::new(slot),
+                // Its future may suspend the coroutine the call came from:
+                // it always runs on the native stack.
+                slot: HostSlot::new(slot).on_native_stack(),
                 func_ty: function_type.clone(),
-                // Its future may suspend the coroutine the call came from.
-                in_place: false,
             },
         });
         host_data.address = host_data.ctx.func_body_ptr();
@@ -285,12 +283,11 @@ impl Function {
             call_trampoline,
         };
 
-        let in_place = host_data.ctx.in_place;
         let vm_function = VMFunction {
             anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
             kind: VMFunctionKind::Dynamic,
             signature: function_type,
-            host_data: HostFunctionData::boxed(host_data, |data| &data.ctx.slot, in_place),
+            host_data: HostFunctionData::boxed(host_data, |data| &data.ctx.slot, false),
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
@@ -719,7 +716,9 @@ impl Function {
     /// See [`crate::Function::set_calls_on_native_stack`].
     pub(crate) fn set_calls_on_native_stack(&self, store: &mut impl AsStoreMut, always: bool) {
         let objects = store.objects_mut().as_sys_mut();
-        if let Some(data) = self.handle.get(objects).host_data.downcast_ref::<HostFunctionData>() {
+        if let Some(data) = self.handle.get(objects).host_data.downcast_ref::<HostFunctionData>()
+            && data.in_place
+        {
             data.slot().set_on_native_stack(always);
         }
     }
@@ -731,7 +730,7 @@ impl Function {
         function
             .host_data
             .downcast_ref::<HostFunctionData>()
-            .is_some_and(|data| !data.in_place || data.slot().get().1)
+            .is_some_and(|data| data.slot().get().1)
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
@@ -886,9 +885,6 @@ pub(crate) struct DynamicFunction<F> {
     slot: HostSlot,
     /// The function's type, which its results are checked against.
     func_ty: FunctionType,
-    /// Whether a call from Wasm may run in place, on the Wasm stack (see
-    /// `wasmer_vm::host_call_in_place`): false for asynchronous functions.
-    in_place: bool,
 }
 
 impl<F> DynamicFunction<F>
@@ -898,10 +894,12 @@ where
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature.
     //
-    // With `IN_PLACE`, a call runs on the Wasm stack it came from when enough
-    // of it is left, and otherwise goes to the other instance, which switches
-    // to the host stack. That instance stays out of line, and with it the
-    // registers the switch makes every caller save.
+    // Wasm calls the instance with `IN_PLACE`: a call runs on the Wasm stack
+    // it came from when enough of it is left and the function is not set to
+    // run on the native stack (asynchronous ones always are), and otherwise
+    // goes to the other instance, which switches to the host stack. That
+    // instance stays out of line, and with it the registers the switch makes
+    // every caller save.
     #[inline(never)]
     unsafe extern "C-unwind" fn func_wrapper<const IN_PLACE: bool>(
         this: &mut VMDynamicFunctionContext<Self>,
@@ -1021,11 +1019,7 @@ where
     }
 
     fn func_body_ptr(&self) -> VMFunctionCallback {
-        if self.in_place {
-            Self::func_wrapper::<true> as VMFunctionCallback
-        } else {
-            Self::func_wrapper::<false> as VMFunctionCallback
-        }
+        Self::func_wrapper::<true> as VMFunctionCallback
     }
 
     fn call_trampoline_address(&self) -> VMTrampoline {
@@ -1041,11 +1035,7 @@ where
         // by the engine linker.
         unsafe {
             let dynamic_function = &mut *(vmctx as *mut VMDynamicFunctionContext<Self>);
-            if dynamic_function.ctx.in_place {
-                Self::func_wrapper::<true>(dynamic_function, args);
-            } else {
-                Self::func_wrapper::<false>(dynamic_function, args);
-            }
+            Self::func_wrapper::<true>(dynamic_function, args);
         }
     }
 }
@@ -1078,6 +1068,12 @@ impl HostSlot {
             assert!(std::mem::align_of::<wasmer_vm::StoreSlot>() > Self::ON_NATIVE_STACK);
         }
         Self(AtomicPtr::new(slot.as_ptr().as_ptr()))
+    }
+
+    /// The same slot, with every call set to run on the native stack.
+    fn on_native_stack(self) -> Self {
+        self.set_on_native_stack(true);
+        self
     }
 
     /// The slot, and whether every call runs on the native stack.
@@ -1118,7 +1114,8 @@ struct HostFunctionData {
     /// Inside `_state`, which keeps it in place.
     slot: NonNull<HostSlot>,
     /// Whether a call may run on the Wasm stack at all: false for
-    /// asynchronous functions, which always run on the native stack.
+    /// asynchronous functions, whose slot says they always run on the native
+    /// stack, and keeps saying so.
     in_place: bool,
     _state: Box<dyn Any>,
 }
