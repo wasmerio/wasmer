@@ -2129,7 +2129,14 @@ pub fn gen_import_call_trampoline_riscv(
                     continue;
                 }
             };
-            a.emit_ld(Size::S64, false, targ, prev_loc)?;
+            // An `f32` is loaded on its own (`flw`), which NaN-boxes it in its
+            // 64-bit register as the ABI requires: one that is not NaN-boxed
+            // reads as the canonical NaN once the callee uses it as an `f32`.
+            let size = match (ty, targ) {
+                (Type::F32, Location::SIMD(_)) => Size::S32,
+                _ => Size::S64,
+            };
+            a.emit_ld(size, false, targ, prev_loc)?;
             output_reporter.check(a.offset().0)?;
         }
 
