@@ -9,9 +9,9 @@
 //!
 //! A synchronous host function runs on the Wasm stack it was called from
 //! when at least the host-call reserve is left on it, and on the native stack
-//! otherwise, or always when host calls are set to run there. Getting this
-//! wrong overflows the Wasm stack inside host code, which kills the process,
-//! so these tests have a test binary of their own.
+//! otherwise, or always when it is set to run there. Getting this wrong
+//! overflows the Wasm stack inside host code, which kills the process, so
+//! these tests have a test binary of their own.
 
 use std::{
     hint::black_box,
@@ -24,25 +24,13 @@ use std::{
 
 use wasmer::{
     Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module, RuntimeError, Store,
-    Type, TypedFunction, Value, imports,
-    sys::vm::{
-        DEFAULT_HOST_CALL_RESERVE, get_host_call_reserve, host_calls_on_native_stack,
-        set_host_calls_on_native_stack,
-    },
+    Type, TypedFunction, Value, imports, sys::vm::HOST_CALL_RESERVE,
 };
 use wasmer_types::TrapCode;
 
-/// The host-call settings are process-wide: one test at a time.
-static SETTINGS: Mutex<()> = Mutex::new(());
-
-/// Puts back the host-call setting a test changes.
-struct RestoreNativeStack(bool);
-
-impl Drop for RestoreNativeStack {
-    fn drop(&mut self) {
-        set_host_calls_on_native_stack(self.0);
-    }
-}
+/// The tests that look where host functions run share `CALLER_FRAME`: one at
+/// a time.
+static CALLER: Mutex<()> = Mutex::new(());
 
 /// Uses a stack frame of 192 KiB: less than the default reserve, but more
 /// than the Wasm stack has left near its end. The frame is not written, but
@@ -72,10 +60,7 @@ const RECURSE_WITH_HOST_CALLS: &str = r#"
 #[test]
 fn host_calls_switch_stacks_when_the_wasm_stack_runs_low() -> Result<(), Box<dyn std::error::Error>>
 {
-    let _lock = SETTINGS.lock().unwrap_or_else(|e| e.into_inner());
-    let _restore = RestoreNativeStack(host_calls_on_native_stack());
-    set_host_calls_on_native_stack(false);
-    assert!(get_host_call_reserve() >= DEFAULT_HOST_CALL_RESERVE);
+    const { assert!(HOST_CALL_RESERVE > 192 * 1024) };
 
     let mut store = Store::default();
     let module = Module::new(&store, RECURSE_WITH_HOST_CALLS)?;
@@ -131,8 +116,9 @@ struct Env {
 }
 
 /// Runs typed, environment, dynamic and re-entrant host calls, and one that
-/// fails, and checks their results.
-fn run_host_calls() -> Result<(), Box<dyn std::error::Error>> {
+/// fails, and checks their results; with `on_native_stack`, every host
+/// function is set to run on the native stack.
+fn run_host_calls(on_native_stack: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut store = Store::default();
     let module = Module::new(&store, CALLS)?;
     let env = FunctionEnv::new(
@@ -161,6 +147,11 @@ fn run_host_calls() -> Result<(), Box<dyn std::error::Error>> {
     let fail = Function::new_typed(&mut store, || -> Result<(), RuntimeError> {
         Err(RuntimeError::new("failed on purpose"))
     });
+    if on_native_stack {
+        for function in [&typed, &with_env, &dynamic, &reenter, &fail] {
+            function.set_calls_on_native_stack(&mut store, true);
+        }
+    }
     let imports = imports! {
         "host" => {
             "typed" => typed,
@@ -187,20 +178,13 @@ fn run_host_calls() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn host_calls_run_on_the_wasm_stack() -> Result<(), Box<dyn std::error::Error>> {
-    let _lock = SETTINGS.lock().unwrap_or_else(|e| e.into_inner());
-    let _restore = RestoreNativeStack(host_calls_on_native_stack());
-    set_host_calls_on_native_stack(false);
-    run_host_calls()
+    run_host_calls(false)
 }
 
 /// The same calls, with every host call switching to the native stack.
 #[test]
 fn host_calls_on_the_native_stack() -> Result<(), Box<dyn std::error::Error>> {
-    let _lock = SETTINGS.lock().unwrap_or_else(|e| e.into_inner());
-    let _restore = RestoreNativeStack(host_calls_on_native_stack());
-    set_host_calls_on_native_stack(true);
-    assert!(host_calls_on_native_stack());
-    run_host_calls()
+    run_host_calls(true)
 }
 
 /// The address of a local of the test that last called into Wasm.
@@ -222,9 +206,7 @@ fn on_native_stack() -> bool {
 /// once the setting is taken back.
 #[test]
 fn a_host_function_can_run_on_the_native_stack() -> Result<(), Box<dyn std::error::Error>> {
-    let _lock = SETTINGS.lock().unwrap_or_else(|e| e.into_inner());
-    let _restore = RestoreNativeStack(host_calls_on_native_stack());
-    set_host_calls_on_native_stack(false);
+    let _lock = CALLER.lock().unwrap_or_else(|e| e.into_inner());
 
     let mut store = Store::default();
     let module = Module::new(

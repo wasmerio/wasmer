@@ -571,12 +571,11 @@ impl Function {
     ///
     /// On the `sys` backend a synchronous host function called from Wasm
     /// runs on the Wasm stack it was called from when enough of that stack is
-    /// left (the host-call reserve), which saves switching stacks. A host
-    /// function that may need more stack than the reserve, or that should run
-    /// on the thread's own stack every time, is set to run there. The setting
-    /// applies from the next call on, including calls through instances that
-    /// already import the function. `wasmer::sys::vm::set_host_calls_on_native_stack`
-    /// does the same for every host function.
+    /// left (`wasmer::sys::vm::HOST_CALL_RESERVE`), which saves switching
+    /// stacks. A host function that may need more stack than the reserve, or
+    /// that should run on the thread's own stack every time, is set to run
+    /// there. The setting applies from the next call on, including calls
+    /// through instances that already import the function.
     ///
     /// Asynchronous host functions always run on the native stack, and other
     /// backends always run host functions on their own stack: there, and for

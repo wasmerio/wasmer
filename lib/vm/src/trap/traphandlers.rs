@@ -25,7 +25,7 @@ use std::mem::MaybeUninit;
 use std::mem::{self, ManuallyDrop};
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering, compiler_fence};
-use std::sync::{LazyLock, Mutex, Once};
+use std::sync::{LazyLock, Once};
 use wasmer_types::TrapCode;
 
 /// Convenience extension for [`Stack`] that exposes the total mapped size.
@@ -86,68 +86,21 @@ pub fn get_stack_size() -> usize {
     DEFAULT_STACK_SIZE.load(Ordering::Relaxed)
 }
 
-/// The default host-call reserve (see [`set_host_call_reserve`]): 256 KiB.
-pub const DEFAULT_HOST_CALL_RESERVE: usize = ByteSize::kib(256).as_u64() as usize;
-
-/// The reserve [`host_call_in_place`] checks: the configured one, or
-/// `usize::MAX` while host calls always run on the native stack.
-static HOST_CALL_RESERVE: AtomicUsize = AtomicUsize::new(DEFAULT_HOST_CALL_RESERVE);
-
-/// The reserve set with [`set_host_call_reserve`], and whether host calls
-/// always run on the native stack ([`set_host_calls_on_native_stack`]).
-static HOST_CALL_CONFIG: Mutex<(usize, bool)> = Mutex::new((DEFAULT_HOST_CALL_RESERVE, false));
-
-/// Sets how much of the Wasm stack must be left for a synchronous host
-/// function called from Wasm to run on it, in bytes, process-wide (default
-/// [`DEFAULT_HOST_CALL_RESERVE`]).
+/// How much of the Wasm stack must be left for a synchronous host function
+/// called from Wasm to run on it, in bytes: 256 KiB.
 ///
 /// A host function called from Wasm runs on the Wasm stack it was called
 /// from when at least this much of that stack is left, which saves switching
 /// back to the native stack and back again. With less left it runs on the
-/// native stack, as when [`set_host_calls_on_native_stack`] is on. The
-/// reserve is all the stack a host function is sure to have: one that may
-/// need more must not be called from Wasm with a smaller reserve, or must be
-/// run with host calls on the native stack. A host function that overflows
-/// the Wasm stack aborts the process, as overflowing the native stack does.
+/// native stack. The reserve is all the stack a host function is sure to have
+/// there: one that may need more must be made to run on the native stack
+/// (`Function::set_calls_on_native_stack` in the API). A host function that
+/// overflows the Wasm stack aborts the process, as overflowing the native
+/// stack does.
 ///
 /// The space is measured from the lowest address of the Wasm stack, above
-/// its guard page. Takes effect for the host calls that start afterwards.
-pub fn set_host_call_reserve(bytes: usize) {
-    let mut config = HOST_CALL_CONFIG.lock().unwrap_or_else(|e| e.into_inner());
-    config.0 = bytes;
-    if !config.1 {
-        HOST_CALL_RESERVE.store(bytes, Ordering::Relaxed);
-    }
-}
-
-/// Returns the reserve set with [`set_host_call_reserve`], in bytes.
-pub fn get_host_call_reserve() -> usize {
-    HOST_CALL_CONFIG.lock().unwrap_or_else(|e| e.into_inner()).0
-}
-
-/// Makes every host function called from Wasm run on the native stack
-/// (`true`), process-wide, or lets synchronous ones run on the Wasm stack
-/// when at least the host-call reserve is left there (`false`, the default;
-/// see [`set_host_call_reserve`]).
-///
-/// On the native stack, a host call switches from the Wasm stack to the stack
-/// of the thread that called into Wasm and back, which costs a few
-/// nanoseconds per call; in exchange, host code always runs on that stack,
-/// whatever the guest's stack depth, as it did in earlier versions.
-/// Asynchronous host functions always run on the native stack. Takes effect
-/// for the host calls that start afterwards.
-pub fn set_host_calls_on_native_stack(always: bool) {
-    let mut config = HOST_CALL_CONFIG.lock().unwrap_or_else(|e| e.into_inner());
-    config.1 = always;
-    let reserve = if always { usize::MAX } else { config.0 };
-    HOST_CALL_RESERVE.store(reserve, Ordering::Relaxed);
-}
-
-/// Returns whether every host function called from Wasm runs on the native
-/// stack (see [`set_host_calls_on_native_stack`]).
-pub fn host_calls_on_native_stack() -> bool {
-    HOST_CALL_CONFIG.lock().unwrap_or_else(|e| e.into_inner()).1
-}
+/// its guard page.
+pub const HOST_CALL_RESERVE: usize = ByteSize::kib(256).as_u64() as usize;
 
 /// Pool of pre-allocated coroutine stacks to avoid repeated mmap syscalls.
 /// Acts as the cross-thread overflow store; per-thread reuse is served by
@@ -1862,10 +1815,9 @@ impl Drop for HostCallInPlace {
 }
 
 /// Starts a call of a synchronous host function from Wasm where it stands, on
-/// the Wasm stack, if at least the host-call reserve is left on that stack
-/// (see [`set_host_call_reserve`]); returns `None` otherwise, or always if
-/// host calls run on the native stack ([`set_host_calls_on_native_stack`]),
-/// and the host function must then run through [`on_host_stack`].
+/// the Wasm stack, if at least [`HOST_CALL_RESERVE`] is left on that stack;
+/// returns `None` otherwise, and the host function must then run through
+/// [`on_host_stack`].
 ///
 /// Like `on_host_stack`, it takes the Wasm stack for as long as the returned
 /// guard lives: the host code runs as host code, which unwinding from inside
@@ -1902,7 +1854,7 @@ pub fn host_call_in_place_on(thread: CurrentThread) -> Option<HostCallInPlace> {
         // run as host code there, where the signal handler leaves its fault
         // alone and the process dies; switching stacks faults as the guest.
         let left = stack_pointer().saturating_sub(limit);
-        if left < HOST_CALL_RESERVE.load(Ordering::Relaxed) {
+        if left < HOST_CALL_RESERVE {
             return None;
         }
         state_ref.wasm_stack.set(None);
@@ -3014,22 +2966,6 @@ mod tests {
     // Host calls in place
     // -----------------------------------------------------------------
 
-    /// Puts back the host-call settings a test changes.
-    struct RestoreHostCallConfig(usize, bool);
-
-    impl RestoreHostCallConfig {
-        fn new() -> Self {
-            Self(get_host_call_reserve(), host_calls_on_native_stack())
-        }
-    }
-
-    impl Drop for RestoreHostCallConfig {
-        fn drop(&mut self) {
-            set_host_call_reserve(self.0);
-            set_host_calls_on_native_stack(self.1);
-        }
-    }
-
     fn current_wasm_stack() -> Option<NonNull<WasmStack>> {
         THREAD_STATE.with(|state| state.wasm_stack.get())
     }
@@ -3049,9 +2985,6 @@ mod tests {
     fn a_host_call_with_room_runs_on_the_wasm_stack() {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
-        let _config = RestoreHostCallConfig::new();
-        set_host_calls_on_native_stack(false);
-        set_host_call_reserve(DEFAULT_HOST_CALL_RESERVE);
         drain_stack_pool();
         clear_tls_stack();
 
@@ -3081,45 +3014,25 @@ mod tests {
     fn a_host_call_without_room_switches_stacks() {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
-        let _config = RestoreHostCallConfig::new();
-        set_host_calls_on_native_stack(false);
-        set_host_call_reserve(get_stack_size() * 2);
         drain_stack_pool();
         clear_tls_stack();
 
         let r = on_wasm_stack(get_stack_size(), None, || {
+            let outer = current_wasm_stack().expect("running on a Wasm stack");
+            // The stack as a frame with less than the reserve left sees it.
+            let short = WasmStack {
+                yielder: unsafe { outer.as_ref() }.yielder,
+                limit: stack_pointer() - HOST_CALL_RESERVE / 2,
+            };
+            let short = NonNull::from(&short);
+            THREAD_STATE.with(|state| state.wasm_stack.set(Some(short)));
             assert!(host_call_in_place().is_none());
             // Nothing was taken.
-            assert!(current_wasm_stack().is_some());
-            on_host_stack(|| current_wasm_stack().is_none())
+            assert_eq!(current_wasm_stack(), Some(short));
+            let switched = on_host_stack(|| current_wasm_stack().is_none());
+            THREAD_STATE.with(|state| state.wasm_stack.set(Some(outer)));
+            switched
         });
-        assert_eq!(r.ok(), Some(true));
-
-        clear_tls_stack();
-        drain_stack_pool();
-    }
-
-    /// With host calls on the native stack, every host call from Wasm
-    /// switches, and the reserve set meanwhile applies once that is lifted.
-    #[test]
-    fn host_calls_on_the_native_stack_always_switch() {
-        let _lock = GLOBAL_STATE.lock().unwrap();
-        let _restore = RestoreStackSize(get_stack_size());
-        let _config = RestoreHostCallConfig::new();
-        drain_stack_pool();
-        clear_tls_stack();
-
-        set_host_calls_on_native_stack(true);
-        set_host_call_reserve(ByteSize::kib(64).as_u64() as usize);
-        assert!(host_calls_on_native_stack());
-        assert_eq!(get_host_call_reserve(), ByteSize::kib(64).as_u64() as usize);
-        let r = on_wasm_stack(get_stack_size(), None, || host_call_in_place().is_none());
-        assert_eq!(r.ok(), Some(true));
-        // Outside of Wasm there is nothing to switch from.
-        assert!(host_call_in_place().is_some());
-
-        set_host_calls_on_native_stack(false);
-        let r = on_wasm_stack(get_stack_size(), None, || host_call_in_place().is_some());
         assert_eq!(r.ok(), Some(true));
 
         clear_tls_stack();
@@ -3133,9 +3046,6 @@ mod tests {
     fn a_call_back_into_wasm_from_a_host_call_in_place() {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
-        let _config = RestoreHostCallConfig::new();
-        set_host_calls_on_native_stack(false);
-        set_host_call_reserve(DEFAULT_HOST_CALL_RESERVE);
         drain_stack_pool();
         clear_tls_stack();
 
@@ -3168,9 +3078,6 @@ mod tests {
     fn a_host_call_from_below_the_limit_switches_stacks() {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
-        let _config = RestoreHostCallConfig::new();
-        set_host_calls_on_native_stack(false);
-        set_host_call_reserve(DEFAULT_HOST_CALL_RESERVE);
         drain_stack_pool();
         clear_tls_stack();
 
@@ -3200,9 +3107,6 @@ mod tests {
     fn the_signal_handler_leaves_host_code_on_the_wasm_stack_alone() {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
-        let _config = RestoreHostCallConfig::new();
-        set_host_calls_on_native_stack(false);
-        set_host_call_reserve(DEFAULT_HOST_CALL_RESERVE);
         drain_stack_pool();
         clear_tls_stack();
 
