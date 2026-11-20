@@ -282,13 +282,16 @@ impl Module {
             #[allow(unused_unsafe)]
             unsafe {
                 if let Some(import) = resolved_import {
+                    // An async host function is imported in its suspending
+                    // form, and a function the embedder gave as what marks it.
+                    let value = crate::js::utils::convert::import_jsvalue(&import, store);
                     let val = js_sys::Reflect::get(&imports_object, &import_type.module().into())?;
                     if !val.is_undefined() {
                         // If the namespace is already set
                         js_sys::Reflect::set(
                             &val,
                             &import_type.name().into(),
-                            &import.as_jsvalue(&store.as_store_ref()),
+                            &value,
                         )?;
                     } else {
                         // If the namespace doesn't exist
@@ -296,7 +299,7 @@ impl Module {
                         js_sys::Reflect::set(
                             &import_namespace,
                             &import_type.name().into(),
-                            &import.as_jsvalue(&store.as_store_ref()),
+                            &value,
                         )?;
                         js_sys::Reflect::set(
                             &imports_object,
@@ -316,8 +319,16 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        let instance = WebAssembly::Instance::new(&self.local_module(), &imports_object)
-            .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
+        // The start function runs here: it is a guest entered synchronously,
+        // whose host functions run with `store`.
+        let lent = crate::js::lent::lend(&mut store.as_store_mut())?;
+        let instance = {
+            let _entered = crate::js::function::enter_sync();
+            WebAssembly::Instance::new(&self.local_module(), &imports_object)
+        }
+        .map_err(|e: JsValue| -> RuntimeError { e.into() });
+        drop(lent);
+        let instance = instance?;
         #[cfg(feature = "wasm-types-polyfill")]
         self.annotate_table_functions(store, imports, &instance);
         Ok(instance)

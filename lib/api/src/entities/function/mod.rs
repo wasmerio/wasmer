@@ -303,6 +303,19 @@ impl Function {
     /// 2. If the function is defined in the host (in a native way), it will
     ///    call the trampoline.
     ///
+    /// On the JavaScript backend, a guest's function can be called with any
+    /// store, but the host functions it calls run only with their own, lent
+    /// by the call: one of another store fails the call without running. So
+    /// does one that JavaScript reaches by calling a guest's export as a
+    /// function, outside any call or from a host function: a host function
+    /// calls guests with this method instead.
+    ///
+    /// Calls nested in host functions on one thread fail with a stack
+    /// overflow once they are 100 deep, so that the engine's exception for
+    /// running out of stack does not unwind Rust frames without running them.
+    /// This is a mitigation: a guest with frames of a few KB can run the
+    /// engine out of stack before that.
+    ///
     /// # Examples
     ///
     /// ```
@@ -369,6 +382,66 @@ impl Function {
     /// coroutine stack. Host functions created with [`Function::new_async`] may
     /// suspend execution by awaiting futures, and their completion will resume
     /// the Wasm instance according to the JSPI proposal.
+    ///
+    /// On the `sys` backend that coroutine has a fixed stack of 1 MiB. The
+    /// host functions the guest calls run on it; one that needs more stack
+    /// runs into the stack's guard page, and the process is killed. The
+    /// guest's own frames are on a stack of their own, whose size
+    /// `wasmer_vm::set_stack_size` sets. The future of an async host function
+    /// is polled by the future of the call, on the executor's stack.
+    ///
+    /// On `sys`, as on `js`, a guest suspends only where no host function
+    /// holds a borrow of its store: a guest that a synchronous host function
+    /// calls, on its own store or another, cannot be suspended, and an async
+    /// host function it calls fails with `TrapCode::YieldOutsideAsyncContext`
+    /// unless its future is ready at once. An async host function that needs
+    /// to wait for a call into a guest awaits that guest's `call_async`.
+    ///
+    /// On `sys`, dropping the call while its guest waits in an async host
+    /// function unwinds the coroutine with a panic: guest frames are
+    /// discarded, and the frames of the call between them run their
+    /// destructors; none of them is a host function's. A call dropped while
+    /// its thread exits, from a thread local, or with `baremetal`, is
+    /// forgotten instead, with its stack.
+    ///
+    /// On the `js` backend the engine suspends the guest's stack (JSPI). A
+    /// function that is neither a WebAssembly function nor an async host
+    /// function, a synchronous host function or JavaScript an embedder gave,
+    /// is called as [`Function::call`] calls it, and an async host function
+    /// called directly returns the values its future returned, as they are.
+    /// The first call on a thread compiles a small WebAssembly module, whose
+    /// trap unwinds a guest that must not run again: on a host that refuses
+    /// to compile it, the call fails before it enters anything. The
+    /// call holds the store's write lock while its guest runs, and gives it
+    /// up while the guest waits in an async host function. Dropping the call
+    /// while its guest waits unwinds the guest, which runs no more code, and
+    /// gives the store back. The call keeps the store for as long as the
+    /// engine may still resume the guest where Wasmer does not see it, also
+    /// once the call is dropped, since nothing can stop the engine then:
+    ///
+    /// * while the guest is suspended in a `WebAssembly.Suspending` function
+    ///   that Wasmer did not make;
+    /// * while the promise the guest waits on waits for a thenable: an
+    ///   `externref` result of an async host function whose `then` reads
+    ///   differently the second time, as a `Proxy` can make it, which the
+    ///   promise takes for a thenable (any other thenable result fails the
+    ///   import);
+    /// * on JavaScriptCore, while a thenable the guest returned is pending:
+    ///   the engine resolves the call's promise with it, and the call ends
+    ///   with what it settles with.
+    ///
+    /// A thenable that never settles keeps the store for good: it cannot be
+    /// taken back with `StoreAsync::into_store`.
+    ///
+    /// A guest entered while another guest of the same store runs, by a
+    /// synchronous call, a host function, or a JavaScript function given with
+    /// `Function::from_jsvalue`, cannot be suspended: an async host function
+    /// it calls fails with `TrapCode::YieldOutsideAsyncContext`. JavaScript
+    /// that Wasmer never saw, an import of a module instantiated without it,
+    /// must not call a guest's export while a guest of the same store runs:
+    /// on engines that run an async import before they refuse to suspend its
+    /// guest (Node.js 24, and JavaScriptCore beneath a JavaScript frame),
+    /// Wasmer cannot tell the refused import from one that waits.
     #[must_use = "This function spawns a future that must be awaited to produce results"]
     #[cfg(feature = "experimental-async")]
     pub fn call_async(

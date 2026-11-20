@@ -2,7 +2,7 @@ use std::{
     cell::UnsafeCell,
     ffi::CStr,
     sync::{
-        Arc, LazyLock,
+        Arc, LazyLock, Mutex, PoisonError,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
@@ -15,19 +15,42 @@ use super::*;
 /// All necessary data for interrupting a store running WASM code
 /// on a thread.
 struct StoreInterruptState {
-    /// The pthread of the thread the store is running on, used to
-    /// send the interrupt signal. Note that multiple stores may
-    /// be executing WASM code within the same OS thread.
-    ///
-    /// We store this as a plain integer because `libc::pthread_t` is a raw
-    /// pointer on some Unix targets, which would make the global `DashMap`
-    /// fail its `Send` bounds even though we only treat the value as an opaque
-    /// thread identifier.
-    pthread: usize,
+    /// The thread the store is running on, which the interrupt signal is
+    /// sent to. Note that multiple stores may be executing WASM code within
+    /// the same OS thread.
+    thread: Arc<InterruptTarget>,
     /// Whether this store was interrupted.
     interrupted: Arc<AtomicBool>,
+    /// How many Wasm entries have this state installed, counting those of
+    /// suspended activations, which are not in the thread's `active_stores`.
+    installations: usize,
     /// See comments in [`ThreadInterruptState`].
     thread_current_signal_target_store: Arc<AtomicUsize>,
+}
+
+/// A thread that runs stores, as the threads that interrupt them see it.
+struct InterruptTarget {
+    /// The thread's pthread. We store this as a plain integer because
+    /// `libc::pthread_t` is a raw pointer on some Unix targets, which would
+    /// make the global `DashMap` fail its `Send` bounds even though we only
+    /// treat the value as an opaque thread identifier.
+    pthread: usize,
+    /// False once the thread's locals are destroyed, as it exits. A store can
+    /// stay installed for a thread after it exited: a suspended call that was
+    /// forgotten keeps its installation. [`interrupt`] signals the thread
+    /// only while it holds this lock and finds it true, and the thread clears
+    /// it under the same lock, so a signal never goes to a thread that is
+    /// gone, or to another one that got its id since.
+    alive: Mutex<bool>,
+}
+
+/// Clears [`InterruptTarget::alive`] when the thread's locals are destroyed.
+struct ThreadTarget(Arc<InterruptTarget>);
+
+impl Drop for ThreadTarget {
+    fn drop(&mut self) {
+        *self.0.alive.lock().unwrap_or_else(PoisonError::into_inner) = false;
+    }
 }
 
 /// Thread-related state; only **PARTS** of this struct are safe to access
@@ -52,6 +75,10 @@ struct ThreadInterruptState {
     /// Note that mutexes are not safe for use within signal
     /// handlers; only atomics can be safely used.
     current_signal_target_store: Arc<AtomicUsize>,
+
+    /// This thread, for the stores installed on it. Never touched by the
+    /// interrupt handler.
+    target: ThreadTarget,
 }
 
 /// HashMap of all store states, accessible from all threads
@@ -74,6 +101,12 @@ thread_local! {
             active_stores: vec![],
             current_active_store: AtomicUsize::new(0),
             current_signal_target_store: Arc::new(AtomicUsize::new(0)),
+            target: ThreadTarget(Arc::new(InterruptTarget {
+                // TODO: isn't there a way to get this without reaching for libc APIs?
+                #[allow(trivial_numeric_casts)]
+                pthread: unsafe { libc::pthread_self() as usize },
+                alive: Mutex::new(true),
+            })),
         });
 }
 
@@ -81,23 +114,19 @@ thread_local! {
 /// may be called more than once, and correctly maintains a stack of
 /// stores for which the state is installed.
 pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError> {
-    let store_state = STORE_INTERRUPT_STATE.entry(store_id).or_insert_with(|| {
-        let thread_current_signal_target_store = THREAD_INTERRUPT_STATE.with(|t| {
+    let mut store_state = STORE_INTERRUPT_STATE.entry(store_id).or_insert_with(|| {
+        // Since stores can't be sent across threads once they start executing
+        // code, we don't need to update the thread for recursive calls.
+        let (thread, thread_current_signal_target_store) = THREAD_INTERRUPT_STATE.with(|t| {
             // Safety: See comments on THREAD_INTERRUPT_STATE.
-            unsafe { t.get().as_mut().unwrap() }
-                .current_signal_target_store
-                .clone()
+            let t = unsafe { t.get().as_ref().unwrap() };
+            (t.target.0.clone(), t.current_signal_target_store.clone())
         });
 
-        // TODO: isn't there a way to get this without reaching for libc APIs?
-        // Since stores can't be sent across threads once they start executing code,
-        // we don't need to update this value for recursive calls.
-        #[allow(trivial_numeric_casts)]
-        let pthread = unsafe { libc::pthread_self() as usize };
-
         StoreInterruptState {
-            pthread,
+            thread,
             interrupted: Arc::new(AtomicBool::new(false)),
+            installations: 0,
             thread_current_signal_target_store,
         }
     });
@@ -105,6 +134,7 @@ pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError>
     if store_state.interrupted.load(Ordering::Acquire) {
         return Err(InstallError::AlreadyInterrupted);
     }
+    store_state.installations += 1;
 
     THREAD_INTERRUPT_STATE.with(|t| {
         // Safety: See comments on THREAD_INTERRUPT_STATE.
@@ -121,35 +151,94 @@ pub fn install(store_id: StoreId) -> Result<InterruptInstallGuard, InstallError>
 }
 
 pub(super) fn uninstall(store_id: StoreId) {
-    let Entry::Occupied(store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) else {
+    let Entry::Occupied(mut store_state_entry) = STORE_INTERRUPT_STATE.entry(store_id) else {
         panic!("Internal error: interrupt state not installed for store");
     };
 
-    let has_more_installations = THREAD_INTERRUPT_STATE.with(|t| {
+    THREAD_INTERRUPT_STATE.with(|t| {
         // Safety: See comments on THREAD_INTERRUPT_STATE.
         let borrow = unsafe { t.get().as_mut().unwrap() };
         match borrow.active_stores.pop_if(|(id, _)| *id == store_id) {
-            Some(_) => {
-                borrow.current_active_store.store(
-                    borrow
-                        .active_stores
-                        .last()
-                        .map_or(0, |(id, _)| id.as_raw().get()),
-                    Ordering::Release,
-                );
-                borrow.active_stores.iter().any(|(id, _)| *id == store_id)
-            }
+            Some(_) => borrow.publish_active_store(),
             None => panic!("InterruptInstallGuard dropped out of order"),
         }
     });
 
-    // If this store is still active at some other point within the
-    // thread, we should keep its state around. Otherwise, it should
-    // be deleted from the global interrupt state. Note that this will
-    // also reset the `interrupted` flag, allowing the store to be used
-    // for further function calls.
-    if !has_more_installations {
+    // If this store is still active at some other point (further down this
+    // thread's stack, or in a suspended activation), we should keep its
+    // state around. Otherwise, it should be deleted from the global
+    // interrupt state. Note that this will also reset the `interrupted`
+    // flag, allowing the store to be used for further function calls.
+    let store_state = store_state_entry.get_mut();
+    store_state.installations -= 1;
+    if store_state.installations == 0 {
         store_state_entry.remove();
+    }
+}
+
+impl ThreadInterruptState {
+    fn publish_active_store(&mut self) {
+        self.current_active_store.store(
+            self.active_stores
+                .last()
+                .map_or(0, |(id, _)| id.as_raw().get()),
+            Ordering::Release,
+        );
+    }
+}
+
+/// Whether the thread's interrupt state is still there: it is not once the
+/// thread's locals are being destroyed.
+pub(crate) fn thread_is_usable() -> bool {
+    THREAD_INTERRUPT_STATE.try_with(|_| ()).is_ok()
+}
+
+/// The stores one activation has entered, innermost last. See
+/// [`crate::ActivationState`], which swaps it with the thread's at every
+/// switch so that the signal handler compares an interrupt's target against
+/// the store that is actually running.
+pub(crate) struct ActiveStores(Vec<(StoreId, Arc<AtomicBool>)>);
+
+impl ActiveStores {
+    pub(crate) const fn new() -> Self {
+        Self(Vec::new())
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Whether this activation entered `store_id` and it was interrupted.
+    pub(crate) fn is_interrupted(&self, store_id: StoreId) -> bool {
+        self.0
+            .iter()
+            .rev()
+            .find(|(id, _)| *id == store_id)
+            .is_some_and(|(_, interrupted)| interrupted.load(Ordering::Acquire))
+    }
+
+    /// The activation's calls are gone without returning: each gives up the
+    /// installation it holds, as `uninstall` does for a call that returns,
+    /// without the thread they ran on. A store none holds any more is
+    /// removed, with its `interrupted` flag and the thread it was aimed at.
+    pub(crate) fn abandon(&mut self) {
+        for (store_id, _) in self.0.drain(..) {
+            if let Entry::Occupied(mut state) = STORE_INTERRUPT_STATE.entry(store_id) {
+                state.get_mut().installations -= 1;
+                if state.get().installations == 0 {
+                    state.remove();
+                }
+            }
+        }
+    }
+
+    pub(crate) fn swap(&mut self) {
+        THREAD_INTERRUPT_STATE.with(|t| {
+            // Safety: See comments on THREAD_INTERRUPT_STATE.
+            let borrow = unsafe { t.get().as_mut().unwrap() };
+            std::mem::swap(&mut borrow.active_stores, &mut self.0);
+            borrow.publish_active_store();
+        });
     }
 }
 
@@ -169,6 +258,17 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
     };
     let store_state = store_state.get_mut();
 
+    // Held until the signal is sent: the thread cannot exit before.
+    let alive = store_state
+        .thread
+        .alive
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner);
+    if !*alive {
+        // Only a call that was forgotten is left on the thread.
+        return Err(InterruptError::StoreNotRunning);
+    }
+
     if store_state
         .thread_current_signal_target_store
         .compare_exchange(
@@ -186,12 +286,14 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
 
     unsafe {
         #[allow(trivial_numeric_casts)]
-        let errno = libc::pthread_kill(store_state.pthread as libc::pthread_t, libc::SIGUSR1);
+        let errno =
+            libc::pthread_kill(store_state.thread.pthread as libc::pthread_t, libc::SIGUSR1);
         if errno != 0 {
             let error_str = CStr::from_ptr(libc::strerror(errno)).to_str().unwrap();
             return Err(InterruptError::FailedToSendSignal(error_str));
         }
     }
+    drop(alive);
 
     Ok(())
 }
@@ -202,36 +304,43 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
 /// in such cases, there is no WASM code running, and the result will be ignored
 /// by the signal handler anyway.
 pub(crate) fn on_interrupted() -> bool {
-    THREAD_INTERRUPT_STATE.with(|t| {
-        // Safety: See comments on THREAD_INTERRUPT_STATE.
-        let state = unsafe { t.get().as_ref().unwrap() };
+    // A signal sent just before the thread started to exit can arrive once
+    // its locals are being destroyed: no Wasm runs then.
+    THREAD_INTERRUPT_STATE
+        .try_with(|t| {
+            // Safety: See comments on THREAD_INTERRUPT_STATE.
+            let state = unsafe { t.get().as_ref().unwrap() };
 
-        let current_active_store = state.current_active_store.load(Ordering::Acquire);
+            let current_active_store = state.current_active_store.load(Ordering::Acquire);
 
-        let current_signal_target_store = state.current_signal_target_store.load(Ordering::Acquire);
-        assert_ne!(
-            current_signal_target_store, 0,
-            "current_signal_target_store should be set before signalling the WASM thread"
-        );
-        if state
-            .current_signal_target_store
-            .compare_exchange(
-                current_signal_target_store,
-                0,
-                Ordering::SeqCst,
-                Ordering::SeqCst,
-            )
-            .is_err()
-        {
-            unreachable!("current_signal_target_store isn't changed unless it's zero");
-        }
+            let current_signal_target_store =
+                state.current_signal_target_store.load(Ordering::Acquire);
+            assert_ne!(
+                current_signal_target_store, 0,
+                "current_signal_target_store should be set before signalling the WASM thread"
+            );
+            if state
+                .current_signal_target_store
+                .compare_exchange(
+                    current_signal_target_store,
+                    0,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                )
+                .is_err()
+            {
+                unreachable!("current_signal_target_store isn't changed unless it's zero");
+            }
 
-        current_active_store == current_signal_target_store
-    })
+            current_active_store == current_signal_target_store
+        })
+        .unwrap_or(false)
 }
 
-/// Returns true if the store with the given ID is installed on this thread
-/// and has already been interrupted.
+/// Returns true if the store with the given ID was entered by the activation
+/// this thread is running and has already been interrupted. The stores of a
+/// suspended activation are not on the thread; see
+/// [`crate::ActivationState::is_interrupted`].
 #[inline]
 pub fn is_interrupted(store_id: StoreId) -> bool {
     THREAD_INTERRUPT_STATE.with(|t| {

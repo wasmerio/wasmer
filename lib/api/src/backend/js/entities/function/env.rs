@@ -281,6 +281,12 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         }
     }
 
+    /// Runs `f` with the store, once its write lock is had: what the typed
+    /// host functions convert their results with.
+    pub(crate) async fn with_store_mut<R>(&self, f: impl FnOnce(&mut StoreMut<'_>) -> R) -> R {
+        f(&mut self.store.write_lock().await.as_store_mut())
+    }
+
     pub fn as_ref(&self) -> FunctionEnv<T> {
         self.func_env.clone()
     }

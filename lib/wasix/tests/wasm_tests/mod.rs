@@ -776,7 +776,13 @@ fn cargo_wasix_build_command(build_dir: &Path) -> Command {
         .arg("build")
         .current_dir(build_dir)
         // Ensure deterministic output location regardless of the caller environment.
-        .env("CARGO_TARGET_DIR", build_dir.join("target"));
+        .env("CARGO_TARGET_DIR", build_dir.join("target"))
+        // Cargo's dev profile defaults to `debug = "line-tables-only"` since
+        // rust-lang/cargo#17518, which cargo reports by name in its build
+        // messages; cargo-wasix reads them, and accepts only a number there.
+        // The toolchain's cargo can be that new: without one of its own, the
+        // WASIX toolchain falls back to the `nightly` one.
+        .env("CARGO_PROFILE_DEV_DEBUG", "true");
     cmd
 }
 

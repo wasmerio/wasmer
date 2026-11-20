@@ -318,8 +318,33 @@ where
         .zip(ty.results().iter())
         .zip(results.iter())
     {
-        debug_assert_eq!(value.ty(), *value_ty);
+        // `Rets::from_array` reads each raw value as the field of its type.
+        if value.ty() != *value_ty {
+            return Err(RuntimeError::new(format!(
+                "a result of type {} where the signature has {value_ty}",
+                value.ty()
+            )));
+        }
         *slot = value.as_raw(store);
     }
     unsafe { Ok(Rets::from_array(store, raw_array)) }
+}
+
+
+/// The results of a typed call are read as the raw values of their types:
+/// values of another type are refused, not read as such.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Store, Value};
+
+    #[test]
+    fn results_of_another_type_are_refused() {
+        let mut store = Store::default();
+        let ty = FunctionType::new([], [Type::I64]);
+        let error = convert_results::<i64>(&mut store, ty.clone(), &[Value::I32(7)]).unwrap_err();
+        assert!(error.message().contains("I64"), "{error}");
+        let result = convert_results::<i64>(&mut store, ty, &[Value::I64(7)]).unwrap();
+        assert_eq!(result, 7);
+    }
 }

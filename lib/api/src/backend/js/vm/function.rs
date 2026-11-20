@@ -31,11 +31,17 @@ fn decode_types(types: &Array) -> Option<Vec<Type>> {
 }
 
 /// The VM Function type
-#[derive(Clone, Eq)]
+///
+/// What a function keeps besides its type, it keeps on its JavaScript
+/// object, which belongs to the worker that made it, rather than in the
+/// handle, which any thread may clone and drop.
+#[derive(Clone)]
 pub struct VMFunction {
     pub(crate) function: JsHandle<JsFunction>,
     pub(crate) ty: FunctionType,
 }
+
+impl Eq for VMFunction {}
 
 unsafe impl Send for VMFunction {}
 unsafe impl Sync for VMFunction {}
@@ -47,6 +53,13 @@ impl VMFunction {
             function: JsHandle::new(function),
             ty,
         }
+    }
+
+    /// `WebAssembly.promising(function)`, made by the first `call_async` and
+    /// kept for the next ones (see `jspi::promising`).
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn promising(&self) -> Result<JsFunction, JsValue> {
+        crate::js::jspi::promising(&self.function)
     }
 
     pub(crate) fn annotate_type(function: &JsFunction, ty: &FunctionType) {
