@@ -116,6 +116,9 @@ pub(crate) struct StoreContext {
     // keep track of how many borrows there are so we don't drop
     // it prematurely.
     borrow_count: u32,
+    /// How many of those borrows are paused (see [`Self::pause`]): held by a
+    /// host function across a guest call it made, which runs on the borrow.
+    paused: u32,
     entry: UnsafeCell<StoreContextEntry>,
     /// For the entry of a call that a coroutine run by a `Cothread` made into
     /// a plain store: the store's slot, hidden while the entry is on the
@@ -456,13 +459,18 @@ impl StoreContext {
 
     /// Whether the thread still has what unwinding a call suspended in Wasm
     /// needs of it: false once its thread locals are being destroyed, as it
-    /// exits. A call suspended then is forgotten rather than unwound.
+    /// exits, and always with `baremetal`. A call suspended then is forgotten
+    /// rather than unwound.
     #[cfg(all(
         feature = "sys",
         any(feature = "experimental-async", feature = "unsafe-cothread")
     ))]
     pub(crate) fn thread_can_unwind() -> bool {
-        STORE_CONTEXT_STACK.try_with(|_| ()).is_ok()
+        // With `baremetal`, what a guest frame raises leaves through the
+        // embedder's unwinder, which would take the unwind of a suspended
+        // coroutine off its stack: such a coroutine is forgotten instead.
+        !cfg!(feature = "baremetal")
+            && STORE_CONTEXT_STACK.try_with(|_| ()).is_ok()
             && wasmer_vm::ActivationState::thread_is_usable()
     }
 
@@ -481,6 +489,7 @@ impl StoreContext {
             stack.push(Self {
                 id,
                 borrow_count: 0,
+                paused: 0,
                 entry: UnsafeCell::new(entry),
                 #[cfg(feature = "unsafe-cothread")]
                 hidden: None,
@@ -522,6 +531,25 @@ impl StoreContext {
                     unsafe { top.entry.get().as_ref().unwrap() },
                     StoreContextEntry::Async { .. }
                 )
+            })
+        })
+    }
+
+    /// Whether the call running on top of the thread's stack can suspend, and
+    /// give its store up while it waits: the top entry is held by an async
+    /// context, and no host function holds a borrow of it across the guest
+    /// call that is running. A host function that calls its guest back holds
+    /// one, which it goes on with once the call returns: whoever used the
+    /// store while the call waited would have aliased it.
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn top_can_suspend() -> bool {
+        STORE_CONTEXT_STACK.with(|cell| {
+            cell.borrow().last().is_some_and(|top| {
+                top.paused == 0
+                    && matches!(
+                        unsafe { top.entry.get().as_ref().unwrap() },
+                        StoreContextEntry::Async { .. }
+                    )
             })
         })
     }
@@ -686,11 +714,12 @@ impl StoreContext {
     /// replaced with `store_ptr` until the guard is dropped, which nests the
     /// borrows taken through it in the caller's, as a second entry would: a
     /// host function that calls its guest back goes on with its own store
-    /// afterwards. A call that suspends meanwhile gives the store up, and
-    /// resumes with a new entry, which keeps its own pointer. That leaves out
-    /// a host function that goes on with the borrow it held across a call that
-    /// suspended: whoever used the store meanwhile did not borrow it from that
-    /// borrow. One beneath a `Cothread` that was resumed since is shadowed all
+    /// afterwards. Such a guest call cannot suspend: its caller's borrow is
+    /// paused, and a suspension would give the store up while the borrow is
+    /// held (see [`Self::top_can_suspend`]). The guest call of the coroutine
+    /// itself lends a pointer nobody holds, and may suspend: it resumes with a
+    /// new entry, which keeps its own pointer. One beneath a `Cothread` that
+    /// was resumed since is shadowed all
     /// the same: the coroutine's calls need an entry of their own, which it
     /// takes with it when it suspends, and the call that holds the guard
     /// cannot be suspended from the coroutine's stack.
@@ -737,6 +766,7 @@ impl StoreContext {
             stack.push(Self {
                 id: store_id,
                 borrow_count: 0,
+                paused: 0,
                 entry: UnsafeCell::new(StoreContextEntry::Sync(store_ptr)),
                 #[cfg(feature = "unsafe-cothread")]
                 hidden: None,
@@ -776,6 +806,7 @@ impl StoreContext {
             assert_eq!(top.id, id, "Mismatched store context access");
             let ref_count_decremented = if top.borrow_count > 0 {
                 top.borrow_count -= 1;
+                top.paused += 1;
                 true
             } else {
                 false
@@ -1419,6 +1450,7 @@ impl Drop for StorePtrPauseGuard {
                     && unsafe { top.entry.get().as_ref().unwrap() }.as_ptr() == self.ptr
                 {
                     top.borrow_count = top.borrow_count.saturating_add(1);
+                    top.paused = top.paused.saturating_sub(1);
                 }
             });
             return;
@@ -1436,6 +1468,7 @@ impl Drop for StorePtrPauseGuard {
             );
             if self.ref_count_decremented {
                 top.borrow_count += 1;
+                top.paused -= 1;
             }
         })
     }
@@ -2075,51 +2108,43 @@ mod unwinding {
         assert!(store.into_store().is_ok());
     }
 
-    /// A guest call two host functions deep suspends: the entry is taken off,
-    /// the store is used by another task, and the call resumes with a new
-    /// entry. When the inner guest call returns, the new entry keeps its own
-    /// pointer, rather than getting back the one the outer guest call lent,
-    /// which the other task's use invalidated. Miri checks, under Stacked
-    /// Borrows, the write of a host function its guest calls next.
+    /// A guest call can suspend, and give its store up, only where no host
+    /// function holds a borrow of the store across it: the coroutine's own
+    /// call can, which nothing holds a borrow across, and the guest call of a
+    /// host function cannot, until it has returned. A panic caught by that
+    /// host function gives its paused borrow back as well.
     #[test]
-    fn a_call_that_suspended_leaves_the_new_entry_its_pointer() {
-        fn write(store: &mut StoreMut<'_>) {
-            let objects = store.objects_mut();
-            unsafe { std::ptr::write(objects, std::ptr::read(objects)) };
-        }
+    fn only_a_call_no_host_function_holds_can_suspend() {
         let store = Store::default().into_async();
         let id = store.id;
         let install = StoreContext::install_async(store.inner.try_write().unwrap());
 
-        // --- a host function, and its guest call
-        let mut outer = unsafe { StoreContext::get_current(id) };
-        let outer_call = unsafe { StoreContext::install(outer.as_mut().inner as *mut _) };
-        let outer_pause = unsafe { StoreContext::pause(id) };
-        // --- a host function of that guest call, and its own guest call
-        let mut inner = unsafe { StoreContext::get_current(id) };
-        let inner_call = unsafe { StoreContext::install(inner.as_mut().inner as *mut _) };
-        let inner_pause = unsafe { StoreContext::pause(id) };
-        // --- which suspends; another task uses the store, and it resumes
-        drop(install);
-        {
-            let mut other = store.inner.try_write().unwrap();
-            write(&mut StoreMut {
-                inner: &mut **other,
-            });
-        }
-        let install = StoreContext::install_async(store.inner.try_write().unwrap());
-        // --- the inner guest call returns, and so does its host function
-        drop(inner_pause);
-        drop(inner_call);
-        drop(inner);
-        // --- the outer guest call goes on, with another host function
-        let mut next = unsafe { StoreContext::get_current(id) };
-        write(&mut next.as_mut());
-        drop(next);
-        drop(outer_pause);
-        drop(outer_call);
-        drop(outer);
+        // --- the coroutine's own guest call
+        let call = unsafe { StoreContext::install(StoreContext::get_current_transient(id)) };
+        let pause = unsafe { StoreContext::pause(id) };
+        assert!(StoreContext::top_can_suspend());
 
+        // --- a host function the guest reaches, and its guest call
+        let mut host = unsafe { StoreContext::get_current(id) };
+        {
+            let _call = unsafe { StoreContext::install(host.as_mut().inner as *mut _) };
+            let _pause = unsafe { StoreContext::pause(id) };
+            assert!(
+                !StoreContext::top_can_suspend(),
+                "the host function holds its borrow across the call"
+            );
+        }
+        let caught = catch_unwind(AssertUnwindSafe(|| {
+            let _call = unsafe { StoreContext::install(host.as_mut().inner as *mut _) };
+            let _pause = unsafe { StoreContext::pause(id) };
+            panic!("a host function of the inner call panicked");
+        }));
+        assert!(caught.is_err());
+        drop(host);
+        assert!(StoreContext::top_can_suspend());
+
+        drop(pause);
+        drop(call);
         drop(install);
         assert!(store.into_store().is_ok());
     }

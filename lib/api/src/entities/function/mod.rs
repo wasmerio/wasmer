@@ -390,13 +390,18 @@ impl Function {
     /// `wasmer_vm::set_stack_size` sets. The future of an async host function
     /// is polled by the future of the call, on the executor's stack.
     ///
+    /// On `sys`, as on `js`, a guest suspends only where no host function
+    /// holds a borrow of its store: a guest that a synchronous host function
+    /// calls, on its own store or another, cannot be suspended, and an async
+    /// host function it calls fails with `TrapCode::YieldOutsideAsyncContext`
+    /// unless its future is ready at once. An async host function that needs
+    /// to wait for a call into a guest awaits that guest's `call_async`.
+    ///
     /// On `sys`, dropping the call while its guest waits in an async host
     /// function unwinds the coroutine with a panic: guest frames are
-    /// discarded, and host frames run their destructors, whoever holds the
-    /// store then. Those destructors must not use the store, through a
-    /// `FunctionEnvMut` they keep for instance, and a host function that
-    /// catches the panics of a guest it calls must resume those it does not
-    /// know. A call dropped while its thread exits, from a thread local, is
+    /// discarded, and the frames of the call between them run their
+    /// destructors; none of them is a host function's. A call dropped while
+    /// its thread exits, from a thread local, or with `baremetal`, is
     /// forgotten instead, with its stack.
     ///
     /// On the `js` backend the engine suspends the guest's stack (JSPI). A

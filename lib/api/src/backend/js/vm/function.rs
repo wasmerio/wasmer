@@ -25,12 +25,6 @@ fn type_key() -> Symbol {
     Symbol::for_("wasmer.function-type")
 }
 
-#[cfg(feature = "experimental-async")]
-thread_local! {
-    /// Where a function keeps its `WebAssembly.promising` wrapper.
-    static PROMISING_KEY: Symbol = Symbol::for_("wasmer.promising");
-}
-
 fn encode_types(types: &[Type]) -> Array {
     Array::from_iter(types.iter().map(|ty| JsValue::from_f64(*ty as u8 as f64)))
 }
@@ -128,21 +122,11 @@ impl VMFunction {
         }
     }
 
-    /// `WebAssembly.promising(function)`, which makes a new function every
-    /// time it is called: made by the first `call_async` and kept on the
-    /// function. A function that cannot keep it, being frozen, makes it again
-    /// for every call.
+    /// `WebAssembly.promising(function)`, made by the first `call_async` and
+    /// kept for the next ones (see `jspi::promising`).
     #[cfg(feature = "experimental-async")]
     pub(crate) fn promising(&self) -> Result<JsFunction, JsValue> {
-        let function: &JsFunction = &self.function;
-        PROMISING_KEY.with(|key| {
-            if let Ok(promising) = Reflect::get(function, key)?.dyn_into::<JsFunction>() {
-                return Ok(promising);
-            }
-            let promising = crate::js::jspi::promising(function)?;
-            let _ = Reflect::set(function, key, &promising);
-            Ok(promising)
-        })
+        crate::js::jspi::promising(&self.function)
     }
 
     pub(crate) fn annotate_type(function: &JsFunction, ty: &FunctionType) {

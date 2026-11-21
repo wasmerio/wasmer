@@ -1256,7 +1256,6 @@ macro_rules! impl_host_function {
                 let entered = enter_sync();
 
                 let result = {
-                    // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                     let func: &Func = unsafe { &*(&() as *const () as *const Func) };
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         // The arguments first: the environment then holds the

@@ -2762,3 +2762,65 @@ mod externref_results {
         }
     }
 }
+
+/// A woken guest is off the stack until its microtask, and its call may be
+/// dropped meanwhile, which gives its store up: no host function of the
+/// store runs with that store until the guest is back. JavaScript that calls
+/// one in between is refused, as outside any call.
+#[wasm_bindgen_test]
+async fn a_woken_guest_lends_its_store_to_no_host_function() {
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"(module
+          (import "h" "wait" (func $wait (param i32) (result i32)))
+          (func (export "run") (result i32) (call $wait (i32.const 7))))"#,
+    )
+    .unwrap();
+    let gate = Gate::new(&Log::default());
+    let ran = Arc::new(AtomicUsize::new(0));
+    let touch = Function::new(&mut store, FunctionType::new([], []), {
+        let ran = ran.clone();
+        move |_| {
+            ran.fetch_add(1, Ordering::Relaxed);
+            Ok(vec![])
+        }
+    });
+    let touch: js_sys::Function = touch.as_jsvalue(&store).unchecked_into();
+    let imports = imports! { "h" => { "wait" => gate.import(&mut store) } };
+    let instance = Instance::new(&mut store, &module, &imports).unwrap();
+    let run = instance.exports.get_function("run").unwrap().clone();
+    let store = store.into_async();
+
+    let mut call: Call = Box::pin(run.call_async(&store, vec![]));
+    poll_until(&mut call, || gate.waiting(7)).await;
+    gate.release(7);
+    assert!(poll_once(&mut call).is_pending());
+    assert!(locked(&store), "the woken guest holds its store");
+    assert!(
+        touch.call0(&JsValue::UNDEFINED).is_err(),
+        "a host function ran with the store of a woken guest"
+    );
+    assert_eq!(ran.load(Ordering::Relaxed), 0);
+    // Dropping the call now gives the store up, with nothing using it.
+    drop(call);
+    settle().await;
+    assert!(store.into_store().is_ok());
+}
+
+/// The promising form of a function is kept where JavaScript cannot replace
+/// it: a property of the same name on the function changes nothing.
+#[wasm_bindgen_test]
+async fn the_promising_form_is_kept_out_of_reach() {
+    let guest = guest();
+    let once = guest.instance.exports.get_function("once").unwrap().clone();
+    let lock = guest.store.read_lock().await;
+    let function = once.as_jsvalue(&lock);
+    drop(lock);
+    // Not made from a string: the tests also run where that is forbidden.
+    let bogus =
+        wasm_bindgen::closure::Closure::<dyn Fn() -> JsValue>::new(|| 42.into()).into_js_value();
+    js_sys::Reflect::set(&function, &js_sys::Symbol::for_("wasmer.promising"), &bogus).unwrap();
+    assert_eq!(i32_of(guest.call("once", &[AUTO]).await), AUTO);
+    guest.into_store();
+}
