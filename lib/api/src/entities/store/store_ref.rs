@@ -119,6 +119,10 @@ impl StoreMut<'_> {
         // alive and unreachable for every frame on this thread until `f`
         // returns and the guard is dropped.
         let _guard = unsafe { super::StoreContext::install(ptr) };
+        // A call into a plain store further out, which has no entry of its
+        // own, hides the stack from `Store::with_current`: what this park
+        // lends is the entry just installed, so it is shown again.
+        let _lend = super::LendGuard::new();
         f()
     }
 }

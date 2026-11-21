@@ -41,3 +41,26 @@ fn data_and_store_mut() -> Result<(), String> {
 
     Ok(())
 }
+
+/// An environment replaced through the VM's objects with a value of another
+/// type is refused by a `FunctionEnv` of the old type, instead of being read
+/// as one.
+#[cfg(all(
+    feature = "sys",
+    not(feature = "v8-default"),
+    not(target_arch = "wasm32")
+))]
+#[test]
+fn a_replaced_environment_is_refused() {
+    use wasmer::sys::vm::{StoreObject, VMFunctionEnvironment};
+
+    let mut store = Store::default();
+    let env = FunctionEnv::new(&mut store, 7u32);
+    assert_eq!(*env.as_ref(&store), 7);
+    // Safety: replaces function environments, which nothing points into.
+    for slot in unsafe { VMFunctionEnvironment::list_mut(store.objects_mut().as_sys_mut()) } {
+        *slot = VMFunctionEnvironment::new(1u8);
+    }
+    let read = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| *env.as_ref(&store)));
+    assert!(read.is_err());
+}

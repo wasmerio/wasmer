@@ -65,16 +65,6 @@ pub(crate) fn mark_entered(synchronously: bool) -> bool {
     ENTERED_SYNCHRONOUSLY.replace(synchronously)
 }
 
-/// `function`, a host function made for the store `id`, recorded as that
-/// store's (see `Function::is_from_store`).
-fn owned(function: JsFunction, id: wasmer_types::StoreId) -> JsFunction {
-    #[cfg(feature = "experimental-async")]
-    jspi::own(&function, id);
-    #[cfg(not(feature = "experimental-async"))]
-    let _ = id;
-    function
-}
-
 /// Restores how the guest before was entered when dropped.
 pub(crate) struct EnteredGuest {
     #[cfg(feature = "experimental-async")]
@@ -249,8 +239,9 @@ impl Function {
         });
         let store_id = host.store_id;
         let (start, takes_array) = host.start();
+        // Recorded as the store's by `jspi` itself.
         let function = jspi::host_function(&func_ty, store_id, &start, takes_array);
-        let vm_function = VMFunction::new(function, func_ty);
+        let vm_function = VMFunction::new(function, func_ty).without_receiver();
         Self::from_vm_extern(
             &mut store.as_store_mut(),
             VMExternFunction::Js(vm_function),
@@ -389,23 +380,23 @@ impl Function {
         let store_id = store.as_store_ref().objects().id().as_raw().get();
         let raw_env = env.clone();
         if numeric::is_numeric(&function_type) {
-            // Nothing but numbers: the guest calls the closure itself, with
+            // Nothing but numbers: the guest passes them as they are, with
             // no array of arguments in between.
             let arity = function_type.params().len();
-            let function = numeric::closure(arity, move |numbers| {
+            let function = numeric::host(arity, move |numbers| {
                 let (store, _hold) = lent::hold(store_id).map_err(trap_value)?;
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(store) };
                 let _entered = enter_sync();
                 let arguments = numeric::values(function_type.params(), numbers);
                 let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-                let results = func(env, &arguments[..numbers.len()]).map_err(trap_value)?;
+                let results = func(env, &arguments).map_err(trap_value)?;
                 Ok(match function_type.results() {
                     [] => 0.0,
                     _ => numeric::result(&results)?,
                 })
             });
-            let function = owned(function, store.as_store_ref().objects().id());
-            let vm_function = VMFunction::new(function, func_ty);
+            let id = store.as_store_ref().objects().id();
+            let vm_function = VMFunction::new(function, func_ty).of_store(id);
             return Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function));
         }
         let wrapped_func: JsValue = match function_type.results().len() {
@@ -465,8 +456,8 @@ impl Function {
             .into_js_value(),
         };
 
-        let function = owned(variadic(&wrapped_func), store.as_store_ref().objects().id());
-        let vm_function = VMFunction::new(function, func_ty);
+        let id = store.as_store_ref().objects().id();
+        let vm_function = VMFunction::new(variadic(&wrapped_func), func_ty).of_store(id);
         Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function))
     }
 
@@ -492,9 +483,9 @@ impl Function {
         let id = store.as_store_ref().objects().id();
         // The store's id, by which the host function finds the store the
         // call it runs in lends it (see `lent`).
-        let store = JsValue::from_f64(id.as_raw().get() as f64);
-        let binded_func = with_leading_arguments(func.unchecked_ref(), &[store], ty.params().len());
-        let vm_function = VMFunction::new(owned(binded_func, id), ty);
+        let leading = [JsValue::from_f64(id.as_raw().get() as f64)];
+        let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
+        let vm_function = VMFunction::new(binded_func, ty).of_store(id);
         Self {
             handle: vm_function,
         }
@@ -529,7 +520,7 @@ impl Function {
             JsValue::from_f64(env.as_js().handle.internal_handle().index() as f64),
         ];
         let binded_func = with_leading_arguments(func.unchecked_ref(), &leading, ty.params().len());
-        let vm_function = VMFunction::new(owned(binded_func, id), ty);
+        let vm_function = VMFunction::new(binded_func, ty).of_store(id);
         Self {
             handle: vm_function,
         }
@@ -565,22 +556,41 @@ impl Function {
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         let ty = &self.handle.ty;
-        if numeric::is_numeric(ty)
-            && let Some(numbers) = numeric::numbers(ty, params)
-        {
-            // Nothing but numbers: they are passed as they are. The function
+        if self.handle.numeric {
+            // Nothing but numbers: they are passed as they are, i32s as i32s
+            // (see `numeric::Arguments`), other numbers as f64s. The function
             // is called as `Reflect::apply` calls it below.
-            let mut result = 0.0;
+            let function = &self.handle.function;
             let returns = !ty.results().is_empty();
-            call_wrapped(store, wrapper, |store| {
-                let _lent = lent::lend(&mut store.as_store_mut())?;
-                let _entered = enter_sync();
-                let function = &self.handle.function;
-                result = numeric::call(function, &JsValue::NULL, &numbers, returns)?;
-                Ok(())
-            })?;
-            let results = ty.results().iter();
-            return Ok(results.map(|ty| numeric::value(ty, result)).collect());
+            // `null` for a function that may look at it, as below; none for
+            // the others, which the guard then calls directly.
+            let receiver = match self.handle.sees_receiver {
+                true => &JsValue::NULL,
+                false => &JsValue::UNDEFINED,
+            };
+            let mut result = 0.0;
+            let results = |result: f64| -> Box<[Value]> {
+                let results = ty.results().iter();
+                results.map(|ty| numeric::value(ty, result)).collect()
+            };
+            if let Some(integers) = numeric::integers(ty, params) {
+                call_wrapped(store, wrapper, |store| {
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
+                    let _entered = enter_sync();
+                    result = numeric::call_integers(function, receiver, &integers, returns)?;
+                    Ok(())
+                })?;
+                return Ok(results(result));
+            }
+            if let Some(numbers) = numeric::numbers(ty, params) {
+                call_wrapped(store, wrapper, |store| {
+                    let _lent = lent::lend(&mut store.as_store_mut())?;
+                    let _entered = enter_sync();
+                    result = numeric::call(function, receiver, &numbers, returns)?;
+                    Ok(())
+                })?;
+                return Ok(results(result));
+            }
         }
 
         // Annotation is here to prevent spurious IDE warnings.
@@ -750,19 +760,18 @@ impl Function {
     }
 
     /// Checks whether this `Function` can be used with the given context.
-    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+    pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
+        let id = store.as_store_ref().objects().id();
         #[cfg(feature = "experimental-async")]
-        return jspi::belongs_to(
-            &self.handle.function,
-            _store.as_store_ref().objects().id(),
-        );
+        return jspi::belongs_to(&self.handle.function, id);
         #[cfg(not(feature = "experimental-async"))]
-        true
+        self.handle.store.is_none_or(|store| store == id)
     }
 }
 
 #[wasm_bindgen(inline_js = r#"
 export function leading1(f, l, arity) {
+  l = l | 0;
   switch (arity) {
     case 0: return () => f(l);
     case 1: return (a) => f(l, a);
@@ -789,6 +798,8 @@ export function leading1(f, l, arity) {
   }
 }
 export function leading2(f, l, m, arity) {
+  l = l | 0;
+  m = m | 0;
   switch (arity) {
     case 0: return () => f(l, m);
     case 1: return (a) => f(l, m, a);
@@ -820,8 +831,15 @@ extern "C" {
     /// A function of `arity` parameters, up to [`ARROW_ARITY`], that calls
     /// `f` with `l` and then its own arguments; `undefined` for more. Static
     /// JavaScript, not made from a string: some hosts forbid that.
+    ///
+    /// `l` is made an int32 value once, with `| 0`. The leading arguments
+    /// are `usize` parameters, i32 in WebAssembly, and arrive as numbers that
+    /// crossed as f64s. JavaScriptCore calls a WebAssembly function fast only
+    /// with int32 values for its i32 parameters, and a number from an f64 is
+    /// not one there even when it is whole: every call would take its slow
+    /// path. `| 0` is the conversion the parameter makes anyway.
     fn leading1(f: &JsFunction, l: &JsValue, arity: usize) -> JsValue;
-    /// [`leading1`], with two leading arguments.
+    /// [`leading1`], with two leading arguments, both made int32 values.
     fn leading2(f: &JsFunction, l: &JsValue, m: &JsValue, arity: usize) -> JsValue;
 }
 
@@ -894,7 +912,8 @@ mod tests {
     /// the most it is made for, and one is made for every number up to that;
     /// for more, the bound function stands for itself. Nothing is made from
     /// text: the hosts that forbid it, and report every attempt, make the
-    /// same arrows.
+    /// same arrows. Its leading arguments go to i32 parameters, so it passes
+    /// them as the int32 those make of them, numbers above 2 GiB too.
     #[wasm_bindgen_test]
     fn an_arrow_with_leading_arguments_calls_as_a_bound_function_does() {
         let to_string: JsFunction = js_sys::Reflect::get(&js_sys::global(), &"String".into())
@@ -910,8 +929,9 @@ mod tests {
         .into_js_value();
         let join = variadic(&join);
         let counter = count_functions_from_text();
-        let leading = [JsValue::from(-1), JsValue::from(2.5)];
-        for leading in [&leading[..1], &leading[..]] {
+        let leading = [JsValue::from_f64(-1.0), JsValue::from_f64(3_000_000_000.0)];
+        let as_i32 = [JsValue::from(-1), JsValue::from(3_000_000_000_u32 as i32)];
+        for (leading, as_i32) in [(&leading[..1], &as_i32[..1]), (&leading[..], &as_i32[..])] {
             for arity in 0..=ARROW_ARITY + 2 {
                 let arguments = Array::new();
                 for index in 0..arity {
@@ -932,7 +952,7 @@ mod tests {
                 assert!(arity <= ARROW_ARITY, "an arrow of {arity} parameters");
                 assert_eq!(arrow.length() as usize, arity);
                 let arrow = call(&arrow);
-                assert_eq!(arrow, call(&bound_with_leading_arguments(&join, leading)));
+                assert_eq!(arrow, call(&bound_with_leading_arguments(&join, as_i32)));
                 assert_eq!(arrow.split(' ').count(), leading.len() + arity);
                 assert!(arrow.starts_with("-1"), "{arrow}");
             }
@@ -1026,7 +1046,7 @@ where
                     .collect()
             }
             Arguments::Numbers((numbers, arity)) => {
-                numeric::values(types, &numbers[..*arity])[..*arity].to_vec()
+                numeric::values(types, &numbers[..*arity]).to_vec()
             }
         }
     }
@@ -1228,19 +1248,18 @@ macro_rules! impl_host_function {
                 T: Send + 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                let (store_ptr, hold) = match crate::backend::js::lent::hold(store_id) {
+                let (store, hold) = match crate::backend::js::lent::hold(store_id) {
                     Ok(held) => held,
                     Err(error) => crate::backend::js::error::raise(Box::new(error)),
                 };
-                let mut store = unsafe { StoreMut::from_raw(store_ptr) };
+                let mut store = unsafe { StoreMut::from_raw(store) };
                 let entered = enter_sync();
 
                 let result = {
                     let func: &Func = unsafe { &*(&() as *const () as *const Func) };
                     panic::catch_unwind(AssertUnwindSafe(|| {
-                        // The arguments first, and then the environment, which
-                        // borrows the store until the function returns: one
-                        // borrow of the store at a time.
+                        // The arguments first: the environment then holds the
+                        // one borrow of the store until the function returns.
                         $(
                             let $x: $x = {
                                 let native = unsafe { NativeWasmTypeInto::from_abi(&mut store, $x) };

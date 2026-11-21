@@ -40,7 +40,13 @@ impl StoreAsync {
     /// if this is the only clone of it and is unlocked.
     pub fn into_store(self) -> Result<Store, Self> {
         match self.inner.consume() {
-            Ok(unwrapped) => Ok(Store { inner: unwrapped }),
+            Ok(mut unwrapped) => {
+                #[cfg(feature = "sys")]
+                unwrapped
+                    .store
+                    .set_context_mode(crate::context_mode::ASYNC, false);
+                Ok(Store { inner: unwrapped })
+            }
             Err(lock) => Err(Self {
                 id: self.id,
                 inner: lock,

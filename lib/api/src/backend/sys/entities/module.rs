@@ -10,7 +10,7 @@ use wasmer_types::{
 };
 #[cfg(feature = "experimental-host-interrupt")]
 use wasmer_vm::interrupt_registry;
-use wasmer_vm::{Trap, TrapCode};
+use wasmer_vm::{Trap, TrapCode, VMConfig};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendModule, IntoBytes, StoreContext,
@@ -185,9 +185,10 @@ impl Module {
         }
         let signal_handler = store.as_store_ref().signal_handler();
         let mut store_mut = store.as_store_mut();
-        let store_ptr = store_mut.inner as *mut _;
         let (engine, objects) = store_mut.engine_and_objects_mut();
-        let config = engine.tunables().vmconfig();
+        let config = VMConfig {
+            wasm_stack_size: engine.tunables().vmconfig().wasm_stack_size,
+        };
         unsafe {
             let instance_handle = self.artifact.instantiate(
                 engine.tunables(),
@@ -197,7 +198,6 @@ impl Module {
                     .collect::<Vec<_>>(),
                 objects.as_sys_mut(),
             )?;
-
             let store_id = objects.id();
             // Before the store takes the instance: one refused here has put
             // nothing anywhere, and is dropped.
@@ -222,7 +222,12 @@ impl Module {
             let mut instance =
                 std::mem::ManuallyDrop::new(std::ptr::read(handle.get(objects.as_sys())));
 
-            let store_install_guard = StoreContext::install(store_ptr);
+            // The pointer the start function's imports borrow the store
+            // through is taken only now that the borrows of the objects
+            // above have ended: a pointer taken before them would not
+            // survive their uses.
+            let store_ptr = store_mut.inner as *mut _;
+            let store_install_guard = StoreContext::enter(store_ptr);
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. If any of these steps
@@ -232,9 +237,11 @@ impl Module {
             // other entry into Wasm: an async import it calls can then
             // suspend the call of a host function that instantiates.
             let finished = {
-                let _pause_guard = StoreContext::pause(store_id);
+                // A store entered through its slot has no counted borrow to
+                // pause: see `StoreEntryGuard::pause`.
+                let _pause_guard = store_install_guard.pause();
                 self.artifact
-                    .finish_instantiation(config, signal_handler, &mut instance)
+                    .finish_instantiation(&config, signal_handler, &mut instance)
             };
             finished?;
 

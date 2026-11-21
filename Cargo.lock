@@ -7452,6 +7452,7 @@ dependencies = [
  "serde",
  "serde-wasm-bindgen",
  "shared-buffer",
+ "smallvec",
  "symbolic-demangle",
  "tar",
  "target-lexicon 0.13.5",

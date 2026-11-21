@@ -25,8 +25,8 @@ use std::{
 
 use corosensei::{Coroutine, CoroutineResult, Yielder};
 use wasmer::{
-    Cothread, Function, FunctionEnv, FunctionEnvMut, Instance, Module, RuntimeError, Store,
-    TypedFunction, imports,
+    AsStoreMut, Cothread, Function, FunctionEnv, FunctionEnvMut, Instance, Module, RuntimeError,
+    Store, TypedFunction, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -268,6 +268,89 @@ fn dropped_where_its_store_is_in_use(ending_name: &str) {
     assert!(no_store_context_left());
 }
 
+/// A coroutine resumed from a host function of a synchronous call into a
+/// plain store, lent that store, suspends inside a call on it: the call
+/// beneath goes on, its host functions with their own borrow of the store,
+/// and returns; the coroutine is then resumed at the top of the thread, to
+/// its end.
+fn lent_by_a_synchronous_call(ending_name: &str) {
+    struct Outer {
+        run: TypedFunction<i32, i32>,
+        suspender: FunctionEnv<Suspender>,
+        how: i32,
+        went_on: i32,
+    }
+    thread_local! {
+        static LENT: RefCell<Option<Cothread<Call>>> = const { RefCell::new(None) };
+    }
+    let (how, trap) = ending(ending_name);
+    let mut guest = Guest::new(how);
+    // Never resumed: the coroutine of the test is made below.
+    guest.cothread = None;
+    let store = &mut *guest.store;
+    let env = FunctionEnv::new(
+        store,
+        Outer {
+            run: guest.run.clone(),
+            suspender: guest.env.clone(),
+            how,
+            went_on: 0,
+        },
+    );
+    let resume = Function::new_typed_with_env(store, &env, |mut env: FunctionEnvMut<Outer>| {
+        let (run, suspender, how) = {
+            let outer = env.data();
+            (outer.run.clone(), outer.suspender.clone(), outer.how)
+        };
+        // Safety: the store outlives the coroutine, which uses it while
+        // nothing else does.
+        let mut store: wasmer::StoreMut<'static> =
+            unsafe { std::mem::transmute(env.as_store_mut()) };
+        let coroutine = Coroutine::new(move |suspend: &Suspend, ()| {
+            suspender.as_mut(&mut store).0 = suspend;
+            run.call(&mut store, how)
+        });
+        // Safety: the `Cothread` owns the `Coroutine`.
+        let mut cothread = unsafe { Cothread::new(coroutine) };
+        // Safety: resumes the coroutine, on the thread that made it.
+        match unsafe { cothread.resume(|coroutine| coroutine.resume(())) } {
+            CoroutineResult::Yield(()) => LENT.set(Some(cothread)),
+            CoroutineResult::Return(result) => panic!("the coroutine returned {result:?}"),
+        }
+        env.data_mut().went_on += 1;
+    });
+    let after =
+        Function::new_typed_with_env(store, &env, |env: FunctionEnvMut<Outer>| env.data().went_on);
+    let module = Module::new(
+        &*store,
+        r#"(module
+          (import "h" "resume" (func $resume))
+          (import "h" "after" (func $after (result i32)))
+          (func (export "outer") (result i32) (call $resume) (call $after)))"#,
+    )
+    .unwrap();
+    let imports = imports! { "h" => { "resume" => resume, "after" => after } };
+    let instance = Instance::new(store, &module, &imports).unwrap();
+    let outer: TypedFunction<(), i32> =
+        instance.exports.get_typed_function(store, "outer").unwrap();
+    assert_eq!(outer.call(store).unwrap(), 1, "the call beneath went on");
+    assert!(no_store_context_left());
+
+    let mut cothread = LENT.take().expect("the coroutine suspended");
+    // Safety: resumes the coroutine, on the thread that made it.
+    let result = match unsafe { cothread.resume(|coroutine| coroutine.resume(())) } {
+        CoroutineResult::Return(result) => result,
+        CoroutineResult::Yield(()) => panic!("the coroutine suspended again"),
+    };
+    match (result, trap) {
+        (Ok(value), None) => assert_eq!(value, 42),
+        (Err(e), Some(code)) => assert_eq!(e.clone().to_trap(), Some(code), "{e}"),
+        (result, _) => panic!("unexpected {result:?}"),
+    }
+    drop(cothread);
+    assert!(no_store_context_left());
+}
+
 /// A coroutine resumed from a host function of a call that `call_async`
 /// runs: it runs on its own stack, not on the call's coroutine.
 #[cfg(feature = "experimental-async")]
@@ -490,8 +573,10 @@ fn child_scenario() {
         "drop_inside" => from_inside_another_host_function("drop", ending),
         "resume_inside" => from_inside_another_host_function("resume", ending),
         "dropped_in_use" => dropped_where_its_store_is_in_use(ending),
+        "lent" => lent_by_a_synchronous_call(ending),
         #[cfg(feature = "experimental-async")]
         "inside_call_async" => inside_call_async::run(ending),
+        "suspend_stack" => suspend_stack::run(ending.parse().unwrap()),
         other => panic!("unknown scenario {other}"),
     }
     println!("{SCENARIO_COMPLETED} {scenario}");
@@ -600,6 +685,11 @@ fn a_coroutine_dropped_where_its_store_is_in_use_is_forgotten() {
     run_children("dropped_in_use");
 }
 
+#[test]
+fn a_coroutine_lent_a_plain_store_by_a_synchronous_call_goes_on_without_it() {
+    run_children("lent");
+}
+
 /// A coroutine resumed from a host function of a call that `call_async`
 /// runs is not on that call's coroutine: an async import it calls does not
 /// suspend that call, from the coroutine's stack; a call of the coroutine on
@@ -612,6 +702,135 @@ fn a_coroutine_resumed_inside_call_async_runs_on_its_own() {
     let mut failures = Vec::new();
     for scenario in ["async_import", "suspended", "nested_call_async"] {
         let scenario = format!("inside_call_async:{scenario}");
+        match run_child(&scenario) {
+            Ok(()) => eprintln!("{scenario}: ok"),
+            Err(how) => {
+                eprintln!("{scenario}: {how}");
+                failures.push(scenario);
+            }
+        }
+    }
+    assert!(failures.is_empty(), "failed: {failures:?}");
+}
+
+/// A host function suspends its coroutine from the coroutine's own stack,
+/// whether the guest calls it directly or from a call nested in another host
+/// function, and goes on there: a host function on a Wasm stack would
+/// suspend the coroutine from another stack, which corosensei does not allow
+/// (on Windows the thread's stack bounds then no longer match the stack it
+/// runs on).
+mod suspend_stack {
+    use std::cell::{Cell, RefCell};
+
+    use corosensei::{
+        Coroutine, CoroutineResult,
+        stack::{DefaultStack, Stack},
+    };
+    use wasmer::{
+        AsStoreMut, Cothread, Function, FunctionEnv, FunctionEnvMut, Instance, Module,
+        RuntimeError, Store, TypedFunction, imports,
+    };
+
+    use super::Suspend;
+
+    thread_local! {
+        static YIELDER: Cell<*const Suspend> = const { Cell::new(std::ptr::null()) };
+        static RUN: RefCell<Option<TypedFunction<i32, ()>>> = const { RefCell::new(None) };
+        static NESTED: Cell<u32> = const { Cell::new(0) };
+        static AT_SUSPEND: Cell<usize> = const { Cell::new(0) };
+        static AT_RESUME: Cell<usize> = const { Cell::new(0) };
+    }
+
+    fn here() -> usize {
+        let marker = 0u8;
+        std::hint::black_box(&marker) as *const u8 as usize
+    }
+
+    /// `run(n)` calls the guest again `n` times through a host function,
+    /// then suspends.
+    const WAT: &str = r#"(module
+      (import "h" "nest" (func $nest (param i32)))
+      (import "h" "suspend" (func $suspend))
+      (func (export "run") (param i32)
+        local.get 0
+        if
+          local.get 0
+          i32.const 1
+          i32.sub
+          call $nest
+        else
+          call $suspend
+        end))"#;
+
+    fn guest(depth: i32) -> Result<(), RuntimeError> {
+        let mut store = Store::default();
+        let module = Module::new(&store, WAT).unwrap();
+        let env = FunctionEnv::new(&mut store, ());
+        let nest = Function::new_typed_with_env(
+            &mut store,
+            &env,
+            |mut env: FunctionEnvMut<()>, n: i32| {
+                NESTED.set(NESTED.get() + 1);
+                let run = RUN.with_borrow(|run| run.clone().unwrap());
+                run.call(&mut env.as_store_mut(), n).unwrap();
+            },
+        );
+        let suspend = Function::new_typed(&mut store, || {
+            AT_SUSPEND.set(here());
+            // Safety: set by the coroutine, which is running and outlives
+            // this call.
+            unsafe { &*YIELDER.get() }.suspend(());
+            AT_RESUME.set(here());
+        });
+        let imports = imports! { "h" => { "nest" => nest, "suspend" => suspend } };
+        let instance = Instance::new(&mut store, &module, &imports).unwrap();
+        let run: TypedFunction<i32, ()> =
+            instance.exports.get_typed_function(&store, "run").unwrap();
+        RUN.set(Some(run.clone()));
+        let result = run.call(&mut store, depth);
+        RUN.take();
+        result
+    }
+
+    pub(super) fn run(depth: i32) {
+        let stack = DefaultStack::new(1 << 20).unwrap();
+        let on_coroutine_stack = {
+            let (base, limit) = (stack.base().get(), stack.limit().get());
+            move |sp: usize| (limit..base).contains(&sp)
+        };
+        let coroutine = Coroutine::with_stack(stack, move |yielder: &Suspend, ()| {
+            YIELDER.set(yielder);
+            guest(depth)
+        });
+        // Safety: the `Cothread` owns the `Coroutine`.
+        let mut cothread = unsafe { Cothread::new(coroutine) };
+        // Safety: resumed on the thread that made it.
+        match unsafe { cothread.resume(|coroutine| coroutine.resume(())) } {
+            CoroutineResult::Yield(()) => {}
+            CoroutineResult::Return(result) => panic!("returned without suspending: {result:?}"),
+        }
+        assert!(
+            on_coroutine_stack(AT_SUSPEND.get()),
+            "suspended from another stack"
+        );
+        // Safety: as above.
+        match unsafe { cothread.resume(|coroutine| coroutine.resume(())) } {
+            CoroutineResult::Return(result) => result.unwrap(),
+            CoroutineResult::Yield(()) => panic!("suspended again"),
+        }
+        assert!(
+            on_coroutine_stack(AT_RESUME.get()),
+            "went on on another stack"
+        );
+        assert_eq!(NESTED.get(), depth as u32);
+    }
+}
+
+#[test]
+fn a_host_function_suspends_its_coroutine_from_the_coroutines_stack() {
+    let mut failures = Vec::new();
+    for depth in 0..3 {
+        let scenario = format!("suspend_stack:{depth}");
         match run_child(&scenario) {
             Ok(()) => eprintln!("{scenario}: ok"),
             Err(how) => {

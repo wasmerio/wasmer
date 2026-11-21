@@ -123,6 +123,31 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     f()
 }
 
+/// Unused in baremetal mode, where there is only one stack. Kept for API
+/// compatibility.
+pub const HOST_CALL_RESERVE: usize = 256 * 1024;
+
+/// A host function called from Wasm that runs in place; see the signal-based
+/// backend. Here every host function does.
+#[must_use = "the host call ends when this is dropped"]
+pub struct HostCallInPlace {
+    _not_send: PhantomData<*mut ()>,
+}
+
+/// Always starts the call in place: there is only one stack.
+#[inline(always)]
+pub fn host_call_in_place() -> Option<HostCallInPlace> {
+    Some(HostCallInPlace {
+        _not_send: PhantomData,
+    })
+}
+
+/// Always starts the call in place: there is only one stack.
+#[inline(always)]
+pub fn host_call_in_place_on(_thread: CurrentThread) -> Option<HostCallInPlace> {
+    host_call_in_place()
+}
+
 /// Just run the `closure` and return its result wrapped in `Ok()`. Nothing is
 /// caught in `baremetal` mode.
 ///
@@ -139,6 +164,88 @@ where
     F: FnOnce() -> R + 'static,
 {
     Ok(closure())
+}
+
+/// [`catch_traps`] on `thread`.
+///
+/// # Safety
+///
+/// See [`catch_traps`].
+pub(crate) unsafe fn catch_traps_on<F, R: 'static>(
+    _thread: CurrentThread,
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
+    closure: F,
+) -> Result<R, Trap>
+where
+    F: FnOnce() -> R + 'static,
+{
+    unsafe { catch_traps(trap_handler, config, closure) }
+}
+
+/// The flags of [`CurrentThread`].
+struct ThreadFlags {
+    slot_call: Cell<bool>,
+    cothread: Cell<bool>,
+}
+
+thread_local! {
+    static THREAD_FLAGS: ThreadFlags = const {
+        ThreadFlags {
+            slot_call: Cell::new(false),
+            cothread: Cell::new(false),
+        }
+    };
+}
+
+/// The calling thread's state for entering Wasm; see the signal-based
+/// backend. Here it only holds [`Self::slot_call`] and [`Self::cothread`].
+#[derive(Clone, Copy)]
+pub struct CurrentThread {
+    flags: std::ptr::NonNull<ThreadFlags>,
+}
+
+impl CurrentThread {
+    /// The calling thread's.
+    pub fn get() -> Self {
+        Self {
+            flags: THREAD_FLAGS.with(|flags| std::ptr::NonNull::from(flags)),
+        }
+    }
+
+    /// [`Self::get`] out of line; see the signal-based backend.
+    #[cold]
+    #[inline(never)]
+    pub fn get_out_of_line() -> Self {
+        Self::get()
+    }
+
+    /// The calling thread's, or `None` once its thread-locals were freed.
+    pub fn try_get() -> Option<Self> {
+        THREAD_FLAGS
+            .try_with(|flags| Self {
+                flags: std::ptr::NonNull::from(flags),
+            })
+            .ok()
+    }
+
+    fn flags(&self) -> &ThreadFlags {
+        // SAFETY: a thread-local of this thread without a destructor, and a
+        // `CurrentThread` stays on its thread.
+        unsafe { self.flags.as_ref() }
+    }
+
+    /// Whether the innermost call into a store running on this thread went
+    /// through the store's slot; see the signal-based backend.
+    pub fn slot_call(&self) -> &Cell<bool> {
+        &self.flags().slot_call
+    }
+
+    /// Whether the thread runs a coroutine that the embedder switches
+    /// itself; see the signal-based backend.
+    pub fn cothread(&self) -> &Cell<bool> {
+        &self.flags().cothread
+    }
 }
 
 /// Registered unwinder, if any.

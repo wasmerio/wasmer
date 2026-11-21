@@ -250,3 +250,140 @@ fn an_idle_store_is_lent_only_once_parked() -> Result<(), String> {
 
     Ok(())
 }
+
+/// A park further out lends its store to the code inside it, but not to the
+/// host functions of a call made in there: a host function holds its own
+/// store, and it lends nothing until it parks that.
+#[cfg(feature = "sys")]
+#[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "with `v8-default`, `Store::default()` is a V8 store, which has no plain-store calls"
+)]
+fn a_call_hides_an_outer_park() -> Result<(), String> {
+    let mut outer = Store::default();
+    let mut store = Store::default();
+    let env = FunctionEnv::new(&mut store, Vec::<bool>::new());
+
+    let host =
+        Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<Vec<bool>>| {
+            let id = env.objects_mut().id();
+            let mut lends = vec![Store::with_current(|_| ()).is_some()];
+            env.as_store_mut().parked(|| {
+                lends.push(
+                    Store::with_current(|lent| lent.objects_mut().id() == id).unwrap_or(false),
+                );
+            });
+            lends.push(Store::with_current(|_| ()).is_some());
+            *env.data_mut() = lends;
+        });
+
+    let outer_id = outer.id();
+    let (before, result, after) = outer.as_store_mut().parked(|| {
+        let before = Store::with_current(|lent| lent.objects_mut().id() == outer_id);
+        let result = run_host_function(&mut store, host);
+        let after = Store::with_current(|lent| lent.objects_mut().id() == outer_id);
+        (before, result, after)
+    });
+    result?;
+
+    assert_eq!(before, Some(true), "the park lends its store");
+    assert_eq!(
+        env.as_ref(&store).as_slice(),
+        [false, true, false],
+        "inside the call, only what its host function parks is lent"
+    );
+    assert_eq!(
+        after,
+        Some(true),
+        "the park lends its store again after the call"
+    );
+    Ok(())
+}
+
+/// A `StoreAsync` cannot be locked synchronously from inside a host function,
+/// whose own store is held by the call.
+#[cfg(all(feature = "sys", feature = "experimental-async"))]
+#[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "with `v8-default`, `Store::default()` is a V8 store, which has no plain-store calls"
+)]
+fn an_async_store_is_not_locked_from_inside_a_host_function() -> Result<(), String> {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    let mut store = Store::default();
+    let env = FunctionEnv::new(&mut store, None::<bool>);
+    let host =
+        Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<Option<bool>>| {
+            let async_store = Store::default().into_async();
+            let hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            let refused = catch_unwind(AssertUnwindSafe(|| drop(async_store.read()))).is_err();
+            std::panic::set_hook(hook);
+            *env.data_mut() = Some(refused);
+        });
+
+    run_host_function(&mut store, host)?;
+    assert_eq!(*env.as_ref(&store), Some(true));
+    Ok(())
+}
+
+/// An async host function called synchronously on a plain store runs to the
+/// end there, and the store it was given cannot outlive its call: its
+/// environment can be kept anywhere, but one kept past the call is found when
+/// the call ends.
+#[cfg(all(feature = "sys", feature = "experimental-async"))]
+#[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "with `v8-default`, `Store::default()` is a V8 store, which has no plain-store calls"
+)]
+fn an_async_host_function_does_not_keep_a_plain_store() -> Result<(), String> {
+    use std::cell::RefCell;
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+
+    thread_local! {
+        static KEPT: RefCell<Option<AsyncFunctionEnvMut<bool>>> = const { RefCell::new(None) };
+    }
+
+    let mut store = Store::default();
+    let env = FunctionEnv::new(&mut store, false);
+    let ty = FunctionType::new(vec![], vec![]);
+    let ready = Function::new_with_env_async(
+        &mut store,
+        &env,
+        ty.clone(),
+        |env: AsyncFunctionEnvMut<bool>, _: &[Value]| {
+            let lent = Store::with_current(|_| ()).is_some();
+            drop(env);
+            async move {
+                if lent {
+                    Err(RuntimeError::new("lent"))
+                } else {
+                    Ok(vec![])
+                }
+            }
+        },
+    );
+    run_host_function(&mut store, ready)?;
+
+    let keeps = Function::new_with_env_async(
+        &mut store,
+        &env,
+        ty,
+        |env: AsyncFunctionEnvMut<bool>, _: &[Value]| {
+            KEPT.with(|kept| *kept.borrow_mut() = Some(env));
+            async { Ok(vec![]) }
+        },
+    );
+    let hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let caught = catch_unwind(AssertUnwindSafe(|| run_host_function(&mut store, keeps)));
+    std::panic::set_hook(hook);
+    // The environment refers to a borrow that no longer exists; dropping it
+    // would look for that borrow, so it is leaked.
+    std::mem::forget(KEPT.with(|kept| kept.borrow_mut().take()));
+    assert!(caught.is_err(), "a store kept past the call is refused");
+    Ok(())
+}

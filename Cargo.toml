@@ -462,6 +462,11 @@ name = "typed_call"
 harness = false
 required-features = ["singlepass"]
 
+[[bench]]
+name = "call_paths"
+harness = false
+required-features = ["cranelift"]
+
 [[example]]
 name = "early-exit"
 path = "examples/early_exit.rs"

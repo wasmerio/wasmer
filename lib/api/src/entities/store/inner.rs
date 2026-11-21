@@ -48,6 +48,30 @@ gen_rt_ty! {
 }
 
 impl BackendStore {
+    /// How a call into a `sys` store hands the store to its host functions:
+    /// the bits of [`context_mode`](crate::context_mode), none for a plain
+    /// store, whose calls go through its slot (see [`SlotRef`](super::SlotRef)).
+    #[cfg(feature = "sys")]
+    #[inline]
+    pub(crate) fn context_mode(&self) -> u8 {
+        match self {
+            Self::Sys(store) => store.context_mode,
+            #[allow(unreachable_patterns)]
+            _ => 0,
+        }
+    }
+
+    /// Sets the bits `mode` of [`Self::context_mode`], or clears them.
+    #[cfg(feature = "sys")]
+    pub(crate) fn set_context_mode(&mut self, mode: u8, set: bool) {
+        match self {
+            Self::Sys(store) if set => store.context_mode |= mode,
+            Self::Sys(store) => store.context_mode &= !mode,
+            #[allow(unreachable_patterns)]
+            _ => {}
+        }
+    }
+
     #[inline]
     pub(crate) fn engine(&self) -> &Engine {
         match_rt!(on self => s {

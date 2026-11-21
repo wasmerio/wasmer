@@ -669,6 +669,31 @@ impl BackendFunction {
         })
     }
 
+    /// See [`crate::Function::set_calls_on_native_stack`].
+    pub fn set_calls_on_native_stack(&self, store: &mut impl AsStoreMut, always: bool) {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(f) => f.set_calls_on_native_stack(store, always),
+            #[allow(unreachable_patterns)]
+            _ => {
+                let _ = (store, always);
+            }
+        }
+    }
+
+    /// See [`crate::Function::calls_on_native_stack`].
+    pub fn calls_on_native_stack(&self, store: &impl AsStoreRef) -> bool {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(f) => f.calls_on_native_stack(store),
+            #[allow(unreachable_patterns)]
+            _ => {
+                let _ = store;
+                false
+            }
+        }
+    }
+
     #[inline]
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         match_rt!(on self => f {

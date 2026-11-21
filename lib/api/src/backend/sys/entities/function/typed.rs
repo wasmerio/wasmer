@@ -64,10 +64,8 @@ macro_rules! impl_native_traits {
                     rets_list.as_mut()
                 };
 
-                let store_id = store.objects_mut().id();
-
                 #[cfg(feature = "experimental-host-interrupt")]
-                let interrupt_guard = match interrupt_registry::install(store_id) {
+                let interrupt_guard = match interrupt_registry::install(store.objects_mut().id()) {
                     Ok(x) => x,
                     Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
                         return Err(Trap::lib(TrapCode::HostInterrupt).into());
@@ -82,18 +80,22 @@ macro_rules! impl_native_traits {
                     if let Some(original_args) = &original_args {
                         args_rets.copy_from_slice(original_args);
                     }
+                    // One lookup of the thread for marking the call and for
+                    // entering Wasm.
+                    let thread = wasmer_vm::CurrentThread::get();
                     // Installed only while Wasm runs: the wrapper holds the
                     // store between entries, so it must not be lendable then.
-                    let _store_install_guard = unsafe {
-                        StoreContext::install(store.as_store_mut().inner as *mut _)
+                    let store_install_guard = unsafe {
+                        StoreContext::enter_on(thread, store.as_store_mut().inner as *mut _)
                     };
                     let storeref = store.as_store_ref();
                     let config = storeref.engine().tunables().vmconfig();
                     unsafe {
                         // Safety: This is the intended use-case for StoreContext::pause, as
                         // documented in the function's doc comments.
-                        let _pause_guard = StoreContext::pause(store_id);
-                        wasmer_vm::wasmer_call_trampoline(
+                        let _pause_guard = store_install_guard.pause();
+                        wasmer_vm::wasmer_call_trampoline_on(
+                            thread,
                             storeref.signal_handler(),
                             config,
                             anyfunc.vmctx,
@@ -197,10 +199,8 @@ macro_rules! impl_native_traits {
                     rets_list.as_mut()
                 };
 
-                let store_id = store.objects_mut().id();
-
                 #[cfg(feature = "experimental-host-interrupt")]
-                let interrupt_guard = match interrupt_registry::install(store_id) {
+                let interrupt_guard = match interrupt_registry::install(store.objects_mut().id()) {
                     Ok(x) => x,
                     Err(interrupt_registry::InstallError::AlreadyInterrupted) => {
                         return Err(Trap::lib(TrapCode::HostInterrupt).into());
@@ -209,7 +209,7 @@ macro_rules! impl_native_traits {
 
                 // Install the store into the store context
                 let store_install_guard = unsafe {
-                    StoreContext::install(store.as_store_mut().inner as *mut _)
+                    StoreContext::enter(store.as_store_mut().inner as *mut _)
                 };
 
                 let r = call_wrapped(store, None, |store| {
@@ -218,7 +218,7 @@ macro_rules! impl_native_traits {
                     unsafe {
                         // Safety: This is the intended use-case for StoreContext::pause, as
                         // documented in the function's doc comments.
-                        let _pause_guard = StoreContext::pause(store_id);
+                        let _pause_guard = store_install_guard.pause();
                         wasmer_vm::wasmer_call_trampoline(
                             storeref.signal_handler(),
                             config,

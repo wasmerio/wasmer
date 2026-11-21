@@ -322,6 +322,54 @@ fn any_number_of_parameters_in_a_typed_call() -> Result<(), String> {
     Ok(())
 }
 
+/// Typed calls of every number of parameters from none to one past what the
+/// `js` backend passes as plain numbers: each argument reaches its own
+/// parameter, and the result comes back.
+#[engine_test]
+fn every_number_of_parameters_in_a_typed_call() -> Result<(), String> {
+    macro_rules! check {
+        ($store:ident; $( $argument:ident = $value:literal ),*) => {{
+            let arguments: Vec<f64> = vec![$( $value ),*];
+            let signature = FunctionType::new(vec![Type::F64; arguments.len()], [Type::F64]);
+            let (call, calls) = guest(&mut $store, &signature, |arguments| {
+                let weighted = arguments.iter().enumerate();
+                let weighted = weighted.map(|(index, value)| {
+                    value.unwrap_f64() * (index + 1) as f64
+                });
+                vec![Value::F64(weighted.sum())]
+            });
+            // One parameter is written `(f64)`, which is the plain `f64` a
+            // typed function of one parameter takes.
+            #[allow(unused_parens)]
+            let call: TypedFunction<( $( check!(@f64 $argument) ),* ), f64> =
+                call.typed(&$store).unwrap();
+            $( let $argument = $value; )*
+            let returned = call.call(&mut $store, $( $argument ),*).unwrap();
+            let expected = arguments.iter().enumerate();
+            let expected: f64 = expected.map(|(index, value)| value * (index + 1) as f64).sum();
+            assert_eq!(returned, expected, "{signature}");
+            let sent: Vec<Value> = arguments.into_iter().map(Value::F64).collect();
+            assert_eq!(*calls.lock().unwrap(), [all_bits(&sent)], "{signature}");
+        }};
+        (@f64 $argument:ident) => { f64 };
+    }
+    let mut store = Store::default();
+    check!(store;);
+    check!(store; a = 1.5);
+    check!(store; a = 1.5, b = -2.0);
+    check!(store; a = 1.5, b = -2.0, c = 3.25);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3, f = 6.0);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3, f = 6.0, g = 7e7);
+    check!(store; a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3, f = 6.0, g = 7e7, h = -8.5);
+    check!(
+        store;
+        a = 1.5, b = -2.0, c = 3.25, d = 4e3, e = -5e-3, f = 6.0, g = 7e7, h = -8.5, i = 9.0
+    );
+    Ok(())
+}
+
 /// Types that are not plain numbers to JavaScript go the way they always
 /// did, alone and next to numbers.
 #[engine_test]
@@ -404,6 +452,37 @@ fn references_are_not_affected() -> Result<(), String> {
             assert_eq!(reference.downcast::<u32>(&store), Some(&99))
         }
         other => panic!("not the reference that was passed: {other:?}"),
+    }
+    Ok(())
+}
+
+/// An `i64` a dynamic host function returns reaches the guest, alone and next
+/// to other results, whichever way the guest is called.
+#[engine_test]
+fn a_dynamic_host_function_returns_an_i64() -> Result<(), String> {
+    let values = [0, 1, -1, i64::MIN, i64::MAX, (1 << 53) + 1];
+    let mut store = Store::default();
+    let signature = FunctionType::new([Type::I64], [Type::I64]);
+    let (call, calls) = guest(&mut store, &signature, |arguments| arguments.to_vec());
+    let typed: TypedFunction<i64, i64> = call.typed(&store).unwrap();
+    for value in values {
+        let returned = call.call(&mut store, &[Value::I64(value)]).unwrap();
+        assert_eq!(returned[0].unwrap_i64(), value);
+        assert_eq!(typed.call(&mut store, value).unwrap(), value);
+        let received = calls.lock().unwrap().split_off(0);
+        assert_eq!(received, [[(Type::I64, value as u64)]; 2], "{value}");
+    }
+
+    let signature = FunctionType::new([Type::I32, Type::I64], [Type::I64, Type::I32]);
+    let (call, _) = guest(&mut store, &signature, |arguments| {
+        vec![arguments[1].clone(), arguments[0].clone()]
+    });
+    let typed: TypedFunction<(i32, i64), (i64, i32)> = call.typed(&store).unwrap();
+    for value in values {
+        let returned = call.call(&mut store, &[Value::I32(-3), Value::I64(value)]);
+        let returned = all_bits(&returned.unwrap());
+        assert_eq!(returned, all_bits(&[Value::I64(value), Value::I32(-3)]));
+        assert_eq!(typed.call(&mut store, -3, value).unwrap(), (value, -3));
     }
     Ok(())
 }
@@ -510,6 +589,83 @@ mod wrong_results {
     #[should_panic(expected = "index out of bounds")]
     fn a_missing_result_panics_without_them() {
         call_returning(&signatures()[1], vec![]);
+    }
+}
+
+/// `Function::call` in the `js` backend does not check the types of its
+/// arguments: the engine converts each one to its parameter's type. That is
+/// the same whether the function passes its values as plain numbers (the
+/// first signature) or not (the second).
+#[cfg(feature = "js")]
+mod arguments_of_another_type {
+    use super::*;
+
+    #[wasm_bindgen_test]
+    fn are_converted_by_the_engine() {
+        let signatures = [
+            FunctionType::new([Type::I32, Type::F64, Type::I32], [Type::I32]),
+            FunctionType::new([Type::I32, Type::F64, Type::I32, Type::I64], [Type::I32]),
+        ];
+        // The arguments for (i32, f64, i32), and what the guest receives.
+        let cases = [
+            (
+                [Value::F64(2.9), Value::I32(3), Value::F64(-2.9)],
+                (2, 3.0, -2),
+            ),
+            (
+                [
+                    Value::F64(f64::NAN),
+                    Value::F32(1.5),
+                    Value::F64(f64::INFINITY),
+                ],
+                (0, 1.5, 0),
+            ),
+            (
+                [
+                    Value::F64(4_294_967_297.0),
+                    Value::F64(-0.5),
+                    Value::F64(3e9),
+                ],
+                (1, -0.5, -1_294_967_296),
+            ),
+            (
+                [Value::F32(7.5), Value::I32(-1), Value::F32(-0.0)],
+                (7, -1.0, 0),
+            ),
+            (
+                [
+                    Value::F64(-2_147_483_649.0),
+                    Value::I32(i32::MIN),
+                    Value::F64(1e300),
+                ],
+                (i32::MAX, i32::MIN as f64, 0),
+            ),
+        ];
+        for signature in signatures {
+            let mut store = Store::default();
+            let (call, calls) = guest(&mut store, &signature, |arguments| {
+                vec![arguments[0].clone()]
+            });
+            for (arguments, (first, second, third)) in &cases {
+                let mut arguments = arguments.to_vec();
+                if signature.params().len() == 4 {
+                    arguments.push(Value::I64(4));
+                }
+                let returned = call.call(&mut store, &arguments).unwrap();
+                assert_eq!(
+                    returned[0].unwrap_i32(),
+                    *first,
+                    "{signature} {arguments:?}"
+                );
+                let received = calls.lock().unwrap().pop().unwrap();
+                let expected = [Value::I32(*first), Value::F64(*second), Value::I32(*third)];
+                assert_eq!(
+                    received[..3],
+                    all_bits(&expected),
+                    "{signature} {arguments:?}"
+                );
+            }
+        }
     }
 }
 
