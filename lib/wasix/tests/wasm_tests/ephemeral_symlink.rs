@@ -12,6 +12,7 @@ use super::*;
 struct UnsupportedSymlinkFileSystem {
     inner: mem_fs::FileSystem,
     symlink_requests: Mutex<Vec<(PathBuf, PathBuf)>>,
+    create_on_lookup: Mutex<Option<PathBuf>>,
 }
 
 impl FileSystem for UnsupportedSymlinkFileSystem {
@@ -52,7 +53,17 @@ impl FileSystem for UnsupportedSymlinkFileSystem {
     }
 
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        self.inner.symlink_metadata(path)
+        let metadata = self.inner.symlink_metadata(path);
+        let mut pending = self.create_on_lookup.lock().unwrap();
+        if pending.as_deref() == Some(path) && matches!(metadata, Err(FsError::EntryNotFound)) {
+            self.inner
+                .new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path)?;
+            *pending = None;
+        }
+        metadata
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
@@ -64,16 +75,17 @@ impl FileSystem for UnsupportedSymlinkFileSystem {
     }
 }
 
-pub(super) fn fallback_metadata_config(
+pub(super) fn fallback_config(
+    fixture: &str,
     tests_dir: &Path,
     build_root: &Path,
     sysroot: Option<&'static str>,
 ) -> Result<Config> {
     let mut config = Config::new(
         PrimarySource::CSourceFile("main.c".to_owned()),
-        tests_dir.join("path/ephemeral-symlink-metadata"),
+        tests_dir.join("path").join(fixture),
         build_root.to_path_buf(),
-        "path/ephemeral-symlink-metadata-fallback".to_owned(),
+        format!("path/{fixture}-fallback"),
     );
     if let Some(sysroot) = sysroot {
         config.set_sysroot(sysroot)?;
@@ -81,10 +93,11 @@ pub(super) fn fallback_metadata_config(
     Ok(config)
 }
 
-pub(super) fn run_fallback_metadata_test(config: Config) -> Result<()> {
-    let wasm = run_build_script(&config)?;
-    let backing = Arc::new(UnsupportedSymlinkFileSystem::default());
-
+fn run_on_mount(
+    config: &Config,
+    backing: Arc<dyn FileSystem + Send + Sync>,
+) -> Result<runner::WasmRunResult> {
+    let wasm = run_build_script(config)?;
     let result = runner::run_wasm_with_runner_config(
         &wasm,
         &config.build_path(),
@@ -92,7 +105,7 @@ pub(super) fn run_fallback_metadata_test(config: Config) -> Result<()> {
         None,
         false,
         |runner| {
-            runner.with_mount("/ephemeral".to_owned(), backing.clone());
+            runner.with_mount("/ephemeral".to_owned(), backing);
             runner.with_current_dir("/ephemeral".to_owned());
             Ok(())
         },
@@ -100,9 +113,43 @@ pub(super) fn run_fallback_metadata_test(config: Config) -> Result<()> {
 
     ensure!(
         result.exit_code == 0,
-        "ephemeral symlink fallback fixture failed\n{}",
+        "fallback fixture failed\n{}",
         runner::format_captured_output(&result)
     );
+    Ok(result)
+}
+
+pub(super) fn run_whiteout_test(config: Config) -> Result<()> {
+    let lower = mem_fs::FileSystem::default();
+    lower
+        .new_open_options()
+        .write(true)
+        .create_new(true)
+        .open("/notes")?;
+    let overlay = wasmer_wasix::virtual_fs::OverlayFileSystem::new(
+        UnsupportedSymlinkFileSystem::default(),
+        [lower],
+    );
+    let result = run_on_mount(&config, Arc::new(overlay))?;
+    ensure!(String::from_utf8_lossy(&result.stdout).trim() == "ok");
+    Ok(())
+}
+
+pub(super) fn run_fallback_test(config: Config, exclusive_create: bool) -> Result<()> {
+    let backing = Arc::new(UnsupportedSymlinkFileSystem::default());
+    if exclusive_create {
+        *backing.create_on_lookup.lock().unwrap() = Some(PathBuf::from("/occupied"));
+    }
+
+    let result = run_on_mount(&config, backing.clone())?;
+    if exclusive_create {
+        ensure!(
+            backing.create_on_lookup.lock().unwrap().is_none(),
+            "the lookup did not trigger the backing create"
+        );
+        ensure!(String::from_utf8_lossy(&result.stdout).trim() == "ok");
+        return Ok(());
+    }
     ensure!(
         String::from_utf8_lossy(&result.stdout).trim() == "ephemeral symlink metadata passed",
         "unexpected fixture output\n{}",

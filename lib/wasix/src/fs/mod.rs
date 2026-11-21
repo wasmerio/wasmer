@@ -616,17 +616,51 @@ impl WasiFs {
         self.is_wasix.store(is_wasix, Ordering::SeqCst);
     }
 
+    /// When the backend cannot store symlinks, Wasmer records them in a shared
+    /// in-memory table. Hold its read lock through the backing create so a
+    /// symlink cannot claim the name after we check it and before the file
+    /// exists. Other file creators can proceed under the same read lock.
+    pub(crate) fn create_unless_ephemeral_symlink<T>(
+        &self,
+        path: &Path,
+        create: impl FnOnce() -> Result<T, Errno>,
+    ) -> Result<T, Errno> {
+        let links = self.ephemeral_symlinks.read().unwrap();
+        if !links.is_empty()
+            && links.contains_key(
+                &PosixPath::from_path(path)
+                    .normalize_virtual_symlink_key()
+                    .into_path_buf(),
+            )
+        {
+            return Err(Errno::Exist);
+        }
+        create()
+    }
+
     pub(crate) fn register_ephemeral_symlink(
         &self,
         full_path: PathBuf,
         path_to_symlink: PathBuf,
         relative_path: PathBuf,
-    ) {
-        let mut guard = self.ephemeral_symlinks.write().unwrap();
-        guard.insert(
-            PosixPath::from_path(&full_path)
-                .normalize_virtual_symlink_key()
-                .into_path_buf(),
+    ) -> Result<(), Errno> {
+        let mut links = self.ephemeral_symlinks.write().unwrap();
+        let key = PosixPath::from_path(&full_path)
+            .normalize_virtual_symlink_key()
+            .into_path_buf();
+        if links.contains_key(&key) {
+            return Err(Errno::Exist);
+        }
+        // A file creator may have finished while we waited for the write
+        // lock. Check the backing directory again before publishing the link.
+        // Use symlink_metadata so a dangling link also counts as an entry.
+        match self.root_fs.symlink_metadata(&full_path) {
+            Ok(_) => return Err(Errno::Exist),
+            Err(FsError::EntryNotFound) => {}
+            Err(err) => return Err(fs_error_into_wasi_err(err)),
+        }
+        links.insert(
+            key,
             EphemeralSymlinkEntry {
                 path_to_symlink: PosixPath::from_path(&path_to_symlink)
                     .normalize_virtual_symlink_key()
@@ -634,6 +668,7 @@ impl WasiFs {
                 relative_path,
             },
         );
+        Ok(())
     }
 
     pub(crate) fn ephemeral_symlink_at(&self, full_path: &Path) -> Option<(PathBuf, PathBuf)> {
@@ -3820,11 +3855,13 @@ mod tests {
         let wasi_fs =
             WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
 
-        wasi_fs.register_ephemeral_symlink(
-            PathBuf::from("/link"),
-            PathBuf::from("link"),
-            PathBuf::from("target.txt"),
-        );
+        wasi_fs
+            .register_ephemeral_symlink(
+                PathBuf::from("/link"),
+                PathBuf::from("link"),
+                PathBuf::from("target.txt"),
+            )
+            .unwrap();
 
         let link = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", false)
@@ -3867,6 +3904,71 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn ephemeral_symlink_and_backing_create_cannot_both_claim_a_name() {
+        let inodes = WasiInodes::new();
+        let backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let fs = WasiFs::new_with_preopen(&inodes, &[], &["/".to_owned()], backing).unwrap();
+        let child = fs.fork();
+
+        let open = |path: &Path| {
+            child
+                .root_fs
+                .new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path)
+                .map(|_| ())
+                .map_err(fs_error_into_wasi_err)
+        };
+        let link = |path: &Path| {
+            fs.register_ephemeral_symlink(
+                path.to_owned(),
+                path.strip_prefix("/").unwrap().to_owned(),
+                "target".into(),
+            )
+        };
+
+        let path = Path::new("/link-first");
+        link(path).unwrap();
+        assert_eq!(
+            child.create_unless_ephemeral_symlink(path, || open(path)),
+            Err(Errno::Exist)
+        );
+        assert!(fs.ephemeral_symlink_at(path).is_some());
+        assert!(matches!(
+            fs.root_fs.symlink_metadata(path),
+            Err(FsError::EntryNotFound)
+        ));
+
+        let path = Path::new("/file-first");
+        std::thread::scope(|scope| {
+            let contender = child
+                .create_unless_ephemeral_symlink(path, || {
+                    let (contending, resume_create) = std::sync::mpsc::sync_channel(0);
+                    let fs = &fs;
+                    let contender = scope.spawn(move || {
+                        // The file is still absent. Registration must wait until
+                        // the backing open finishes before it can claim this name.
+                        assert!(matches!(
+                            fs.ephemeral_symlinks.try_write(),
+                            Err(std::sync::TryLockError::WouldBlock)
+                        ));
+                        contending.send(()).unwrap();
+                        link(path)
+                    });
+                    resume_create.recv().unwrap();
+                    open(path)?;
+                    Ok(contender)
+                })
+                .unwrap();
+            assert_eq!(contender.join().unwrap(), Err(Errno::Exist));
+        });
+        assert!(fs.ephemeral_symlink_at(path).is_none());
+        assert!(fs.root_fs.symlink_metadata(path).unwrap().is_file());
+    }
+
+    #[tokio::test]
     async fn remove_symlink_file_drops_ephemeral_link_without_backing_file() {
         // Ephemeral link, no host file: removal succeeds, unregisters, target untouched.
         let inodes = WasiInodes::new();
@@ -3882,11 +3984,13 @@ mod tests {
             .write(true)
             .open(Path::new("/target.txt"))
             .unwrap();
-        wasi_fs.register_ephemeral_symlink(
-            PathBuf::from("/link"),
-            PathBuf::from("link"),
-            PathBuf::from("target.txt"),
-        );
+        wasi_fs
+            .register_ephemeral_symlink(
+                PathBuf::from("/link"),
+                PathBuf::from("link"),
+                PathBuf::from("target.txt"),
+            )
+            .unwrap();
         assert!(wasi_fs.ephemeral_symlink_at(Path::new("/link")).is_some());
 
         assert_eq!(

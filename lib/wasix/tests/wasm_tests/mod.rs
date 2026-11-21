@@ -1466,12 +1466,28 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
     #[cfg(not(target_os = "windows"))]
     for sysroot in TESTED_LIBC_VERSIONS {
-        let config =
-            ephemeral_symlink::fallback_metadata_config(&tests_dir, &tests_build_root, *sysroot)?;
+        let config = ephemeral_symlink::fallback_config(
+            "symlink-over-deleted-file",
+            &tests_dir,
+            &tests_build_root,
+            *sysroot,
+        )?;
         tests.push(Trial::test(config.full_test_name(), move || {
-            ephemeral_symlink::run_fallback_metadata_test(config)
+            ephemeral_symlink::run_whiteout_test(config)
                 .map_err(|error| libtest_mimic::Failed::from(format!("{error:?}")))
         }));
+        for fixture in ["ephemeral-symlink-metadata", "exclusive-create-symlink"] {
+            let config = ephemeral_symlink::fallback_config(
+                fixture,
+                &tests_dir,
+                &tests_build_root,
+                *sysroot,
+            )?;
+            tests.push(Trial::test(config.full_test_name(), move || {
+                ephemeral_symlink::run_fallback_test(config, fixture == "exclusive-create-symlink")
+                    .map_err(|error| libtest_mimic::Failed::from(format!("{error:?}")))
+            }));
+        }
     }
 
     tests.push(libtest_mimic::Trial::test("wasm/dynamic_runtime_hooks", {

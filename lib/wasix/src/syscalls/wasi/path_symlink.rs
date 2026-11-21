@@ -117,30 +117,34 @@ pub fn path_symlink_internal(
         Err(err) => return Err(fs_error_into_wasi_err(err)),
     };
 
-    let kind = Kind::Symlink {
-        symlink_kind: crate::fs::SymlinkKind::Virtual,
-        path_to_symlink: path_to_symlink.clone(),
-        relative_path: relative_path.clone(),
-    };
-    let new_inode =
-        state
-            .fs
-            .create_inode_with_default_stat(inodes, kind, false, entry_name.clone().into());
-
-    {
-        let mut guard = target_parent_inode.write();
-        if let Kind::Dir { entries, .. } = guard.deref_mut() {
-            entries.insert(entry_name, new_inode);
+    let mut guard = target_parent_inode.write();
+    if let Kind::Dir { entries, .. } = guard.deref_mut() {
+        // Keep transient map in sync with the backing outcome.
+        if needs_ephemeral_fallback {
+            // The backend could not reserve this name for us. Recheck the
+            // directory under its write lock before publishing the fallback.
+            if entries.contains_key(&entry_name) {
+                return Err(Errno::Exist);
+            }
+            state.fs.register_ephemeral_symlink(
+                symlink_path,
+                path_to_symlink.clone(),
+                relative_path.clone(),
+            )?;
+        } else {
+            state.fs.unregister_ephemeral_symlink(target_path);
         }
-    }
+        let kind = Kind::Symlink {
+            symlink_kind: crate::fs::SymlinkKind::Virtual,
+            path_to_symlink,
+            relative_path,
+        };
+        let new_inode =
+            state
+                .fs
+                .create_inode_with_default_stat(inodes, kind, false, entry_name.clone().into());
 
-    // Keep transient map in sync with the backing outcome.
-    if needs_ephemeral_fallback {
-        state
-            .fs
-            .register_ephemeral_symlink(symlink_path, path_to_symlink, relative_path);
-    } else {
-        state.fs.unregister_ephemeral_symlink(target_path);
+        entries.insert(entry_name, new_inode);
     }
 
     Ok(())
