@@ -131,8 +131,10 @@ pub fn path_open2<M: MemorySize>(
 /// has no "open the symlink itself as a file" mode here, so a terminal symlink
 /// with no follow returns `Errno::Loop`. With lookup-follow enabled, the symlink
 /// target is resolved and `path_open_internal` restarts against that target.
+/// Exclusive creation is the exception. The final symlink itself occupies the
+/// name, so `O_CREAT | O_EXCL` returns `Errno::Exist` even for a dangling link.
 ///
-/// `o_flags` and `fs_flags` apply after lookup. They decide whether the target
+/// `o_flags` and `fs_flags` otherwise apply after lookup. They decide whether the target
 /// must already exist, whether a missing final component should be created,
 /// whether the opened object must be a directory, and whether the backing file
 /// should be truncated or appended. POSIX trailing-slash semantics still matter
@@ -142,9 +144,11 @@ pub fn path_open2<M: MemorySize>(
 /// The create path resolves only the parent with the requested symlink policy,
 /// then appends the new final component under that resolved parent. That keeps
 /// creation through symlinked directories working while still letting the final
-/// component be genuinely new. If the backing filesystem reports
+/// component be genuinely new. For ordinary creation, if the backing filesystem reports
 /// `AlreadyExists` after the resolver reported `Noent`, this may indicate that a
 /// symlink escaped the sandbox, so the error is mapped to `Errno::Perm`.
+/// For exclusive creation, another caller may have claimed the name since
+/// lookup. Return `Errno::Exist` to report that the name is already taken.
 ///
 /// File inodes are also the cache boundary for open handles. The resolver may
 /// materialize a `Kind::File` with no handle, and this function opens the
@@ -219,6 +223,7 @@ fn path_open_internal_with_symlink_depth(
 
     let state = env.state.deref();
     let inodes = &state.inodes;
+    let exclusive_create = o_flags.contains(Oflags::CREATE | Oflags::EXCL);
     let follow_symlinks = dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0;
     let effective_dirfd = if path.starts_with('/') {
         VIRTUAL_ROOT_FD
@@ -230,10 +235,12 @@ fn path_open_internal_with_symlink_depth(
         Ok(fd) => fd,
         Err(err) => return Ok(Err(err)),
     };
-    let maybe_owned_inode =
-        state
-            .fs
-            .get_owned_inode_at_path(inodes, effective_dirfd, path, follow_symlinks);
+    let maybe_owned_inode = state.fs.get_owned_inode_at_path(
+        inodes,
+        effective_dirfd,
+        path,
+        follow_symlinks && !exclusive_create,
+    );
     // A file that doesn't exist yet belongs to the preopen owning its parent.
     // With no owner there is nothing to authorize against, so fail closed.
     // The create branch reuses this parent, so it creates exactly where it
@@ -244,7 +251,7 @@ fn path_open_internal_with_symlink_depth(
             inodes,
             effective_dirfd,
             Path::new(path),
-            follow_symlinks,
+            true, // Every component of the parent path is intermediate.
         ) {
             Ok((parent, owner, name)) => (owner, Some((parent, name))),
             Err(parent_err) if o_flags.contains(Oflags::CREATE) => return Ok(Err(parent_err)),
@@ -369,6 +376,10 @@ fn path_open_internal_with_symlink_depth(
     let orig_path = path;
 
     if let Ok(inode) = maybe_inode {
+        if exclusive_create {
+            return Ok(Err(Errno::Exist));
+        }
+
         // Phase A: path resolution only — symlink follow recurses without committing.
         {
             let guard = inode.read();
@@ -412,10 +423,6 @@ fn path_open_internal_with_symlink_depth(
                     next_symlink_depth,
                 );
             }
-        }
-
-        if o_flags.contains(Oflags::EXCL) && o_flags.contains(Oflags::CREATE) {
-            return Ok(Err(Errno::Exist));
         }
 
         // Open-mode inputs derived from syscall args only (no inode-state decisions).
@@ -594,7 +601,7 @@ fn path_open_internal_with_symlink_depth(
             // create opens should follow that final symlink and create the
             // target, while O_EXCL still treats the symlink itself as an
             // existing path.
-            if follow_symlinks {
+            if follow_symlinks && !exclusive_create {
                 let final_symlink_target_lookup =
                     state
                         .fs
@@ -624,10 +631,6 @@ fn path_open_internal_with_symlink_depth(
                 };
 
                 if let Some((resolved_base_fd, resolved_path)) = final_symlink_target {
-                    if o_flags.contains(Oflags::EXCL) {
-                        return Ok(Err(Errno::Exist));
-                    }
-
                     let resolved_path = crate::fs::PosixPath::from_path(&resolved_path)
                         .as_str()
                         .to_owned();
@@ -695,14 +698,14 @@ fn path_open_internal_with_symlink_depth(
                 open_flags |= Fd::TRUNCATE;
             }
 
-            let handle = match open_shared_file_handle(
-                new_file_host_path.as_path(),
-                requested_config,
-                shared_config,
-            ) {
+            let handle = match state
+                .fs
+                .create_unless_ephemeral_symlink(&new_file_host_path, || {
+                    open_shared_file_handle(&new_file_host_path, requested_config, shared_config)
+                }) {
                 Ok(handle) => Some(handle),
                 Err(err) => {
-                    if err == Errno::Exist {
+                    if err == Errno::Exist && !exclusive_create {
                         return Ok(Err(Errno::Perm));
                     }
                     return Ok(Err(err));

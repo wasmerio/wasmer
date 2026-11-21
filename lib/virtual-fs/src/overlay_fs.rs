@@ -392,15 +392,17 @@ where
             return Err(FsError::InvalidInput);
         }
 
-        ops::remove_white_out(self.primary.as_ref(), target);
-
         if let Some(parent) = target.parent()
             && self.read_dir(parent).is_ok()
         {
             ops::create_dir_all(&self.primary, parent).ok();
         }
 
-        self.primary.create_symlink(source, target)
+        // Keep the lower entry hidden if the writable layer cannot create the
+        // link. WASIX may still claim this name with an in-memory symlink.
+        self.primary.create_symlink(source, target)?;
+        ops::remove_white_out(self.primary.as_ref(), target);
+        Ok(())
     }
 
     fn hard_link(&self, source: &Path, target: &Path) -> Result<(), FsError> {
@@ -602,6 +604,11 @@ where
         if had_at_least_one_success {
             return Ok(());
         }
+        // A previous unlink may already have hidden the lower file. Once
+        // the primary has no entry either, the name is absent from the overlay.
+        if ops::has_white_out(&self.primary, path) {
+            return Err(FsError::EntryNotFound);
+        }
         self.permission_error_or_not_found(path)
     }
 
@@ -632,11 +639,11 @@ where
         }
 
         // Check if the file is in the primary (without actually creating it) as
-        // when the file is in the primary it takes preference over any of file
-        {
+        // a file in the primary takes precedence. Skip this check for create_new:
+        // opening without that flag could truncate a file another caller just created.
+        if !conf.create_new {
             let mut conf = conf.clone();
             conf.create = false;
-            conf.create_new = false;
             match self.primary.new_open_options().options(conf).open(path) {
                 Err(e) if should_continue(e) => {}
                 other => return other,
@@ -1982,6 +1989,21 @@ mod tests {
         assert!(ops::is_dir(&fs.primary, "/first/secondary"));
         assert!(!ops::is_file(&fs.primary, "/first/.wh.secondary"));
         assert!(ops::is_dir(&fs.secondaries[0], "/first/secondary"));
+    }
+
+    #[tokio::test]
+    async fn create_new_preserves_existing_primary_file() {
+        let fs = OverlayFileSystem::new(MemFS::default(), [MemFS::default()]);
+        ops::write(&fs.primary, "/file", b"winner").await.unwrap();
+
+        let result = fs
+            .new_open_options()
+            .write(true)
+            .truncate(true)
+            .create_new(true)
+            .open("/file");
+        assert!(matches!(result, Err(FsError::AlreadyExists)));
+        assert_eq!(ops::read(&fs.primary, "/file").await.unwrap(), b"winner");
     }
 
     #[tokio::test]
