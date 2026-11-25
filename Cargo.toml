@@ -52,6 +52,7 @@ members = [
   "lib/compiler",
   "lib/config",
   "lib/derive",
+  "lib/jit-debug",
   "lib/napi",
   "lib/types",
   "lib/package-sdk",

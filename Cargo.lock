@@ -7880,6 +7880,13 @@ name = "wasmer-integration-tests-ios"
 version = "7.5.0"
 
 [[package]]
+name = "wasmer-internal-jit-debug"
+version = "7.5.0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "wasmer-journal"
 version = "0.705.0"
 dependencies = [
