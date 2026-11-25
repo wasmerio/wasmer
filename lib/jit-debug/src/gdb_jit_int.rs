@@ -10,11 +10,12 @@ struct JITCodeEntry {
     prev_entry: *mut JITCodeEntry,
     symfile_addr: *const u8,
     symfile_size: u64,
+    load_bias: u64,
 }
 
 const JIT_NOACTION: u32 = 0;
-const JIT_REGISTER_FN: u32 = 1;
-const JIT_UNREGISTER_FN: u32 = 2;
+const JIT_REGISTER_FN_V2: u32 = 3;
+const JIT_UNREGISTER_FN_V2: u32 = 4;
 
 #[repr(C)]
 struct JITDescriptor {
@@ -60,7 +61,8 @@ pub struct GdbJitImageRegistration {
 
 impl GdbJitImageRegistration {
     /// Registers JIT image using __jit_debug_register_code
-    pub fn register(file: Vec<u8>) -> Self {
+    /// `load_bias` is added to the addresses in the image by the debugger.
+    pub fn register(file: Vec<u8>, load_bias: u64) -> Self {
         let file = Pin::new(file.into_boxed_slice());
 
         // Create a code entry for the file, which gives the start and size
@@ -70,6 +72,7 @@ impl GdbJitImageRegistration {
             prev_entry: ptr::null_mut(),
             symfile_addr: file.as_ptr(),
             symfile_size: file.len() as u64,
+            load_bias,
         }));
 
         unsafe {
@@ -109,8 +112,8 @@ unsafe fn register_gdb_jit_image(entry: *mut JITCodeEntry) {
         desc.first_entry = entry;
         // Point the relevant_entry field of the descriptor at the entry.
         desc.relevant_entry = entry;
-        // Set action_flag to JIT_REGISTER and call __jit_debug_register_code.
-        desc.action_flag = JIT_REGISTER_FN;
+        // Set action_flag to JIT_REGISTER_V2 and call __jit_debug_register_code.
+        desc.action_flag = JIT_REGISTER_FN_V2;
         __jit_debug_register_code();
 
         desc.action_flag = JIT_NOACTION;
@@ -134,8 +137,8 @@ unsafe fn unregister_gdb_jit_image(entry: *mut JITCodeEntry) {
         }
         // Point the relevant_entry field of the descriptor at the code entry.
         desc.relevant_entry = entry;
-        // Set action_flag to JIT_UNREGISTER and call __jit_debug_register_code.
-        desc.action_flag = JIT_UNREGISTER_FN;
+        // Set action_flag to JIT_UNREGISTER_V2 and call __jit_debug_register_code.
+        desc.action_flag = JIT_UNREGISTER_FN_V2;
         __jit_debug_register_code();
 
         desc.action_flag = JIT_NOACTION;
