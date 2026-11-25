@@ -56,6 +56,14 @@ pub(crate) fn path_create_directory_internal(
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let working_dir = state.fs.get_fd(fd)?;
+
+    // POSIX: creating a directory that already exists is `EEXIST`. A root path
+    // has no final component for the parent lookup to resolve, and it would
+    // answer `EINVAL`; `mkdir -p` starts at `/` and only tolerates `EEXIST`.
+    if crate::fs::PosixPath::new(path).names_root_directory() {
+        return Err(Errno::Exist);
+    }
+
     let (parent_inode, owner, dir_name) =
         state
             .fs

@@ -130,6 +130,19 @@ impl<'a> PosixPath<'a> {
         }
     }
 
+    /// Whether this path names the root directory itself: an absolute path built
+    /// only from `/` and `.` components, i.e. `/`, `//`, `/.`, `/./`.
+    ///
+    /// `..` is deliberately not one of them: the root's parent is the root, but
+    /// that is a traversal, not a spelling of the root.
+    pub(crate) fn names_root_directory(&self) -> bool {
+        self.is_absolute()
+            && self
+                .components(false, false)
+                .iter()
+                .all(|component| matches!(component, PosixPathComponent::CurDir))
+    }
+
     pub(crate) fn parent_path_and_name(&self) -> Result<(PosixPathBuf, String), Errno> {
         let path = self.as_str();
         let trimmed = path.trim_end_matches('/');
@@ -286,5 +299,29 @@ impl From<&str> for PosixPathBuf {
 impl From<String> for PosixPathBuf {
     fn from(path: String) -> Self {
         Self { path }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PosixPath;
+
+    #[test]
+    fn root_directory_spellings() {
+        for path in ["/", "//", "///", "/.", "/./", "/./.", "//./"] {
+            assert!(
+                PosixPath::new(path).names_root_directory(),
+                "{path:?} names the root directory"
+            );
+        }
+
+        for path in [
+            "", ".", "./", "..", "/..", "...", "a", "/a", "/a/.", "/a/..", "/a/../",
+        ] {
+            assert!(
+                !PosixPath::new(path).names_root_directory(),
+                "{path:?} does not name the root directory"
+            );
+        }
     }
 }
