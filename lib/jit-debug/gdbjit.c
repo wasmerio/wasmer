@@ -1,10 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define CONCAT2(a, b) a##b
-#define CONCAT(a, b) CONCAT2(a, b)
-#define VERSIONED_SYMBOL(a) CONCAT(a, VERSIONED_SUFFIX)
-
 #ifdef CFG_TARGET_OS_windows
 // export required for external access.
 __declspec(dllexport)
@@ -41,6 +37,6 @@ __attribute__((weak))
 #endif
 struct JITDescriptor __jit_debug_descriptor = {1, 0, NULL, NULL};
 
-struct JITDescriptor *VERSIONED_SYMBOL(wasmtime_jit_debug_descriptor)() {
+struct JITDescriptor *wasmer_jit_debug_descriptor(void) {
   return &__jit_debug_descriptor;
 }

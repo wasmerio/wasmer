@@ -828,10 +828,6 @@ impl Artifact {
     }
 
     /// Build an [`AllocatedArtifact`] from a compiled native ELF image.
-    ///
-    /// Note that, unlike [`Self::allocate_elf_artifact_from_path`], no debugger
-    /// command file is registered here: the image only exists in memory, so
-    /// there is no path a debugger could load symbols from.
     fn allocate_elf_artifact(
         engine_inner: &mut EngineInner,
         module_info: &ModuleInfo,
@@ -873,10 +869,6 @@ impl Artifact {
             ));
         }
         let (base, map_size) = engine_inner.map_elf_binary_file(&image, fd)?;
-        #[cfg(feature = "compiler")]
-        if let Some(debugger) = engine_inner.debugger() {
-            engine_inner.register_debugger(path, base, debugger)?;
-        }
         Self::allocate_elf_artifact_from_image(
             engine_inner,
             module_info,
@@ -1045,6 +1037,23 @@ impl Artifact {
 
         let vm_offsets = VMOffsets::try_new(std::mem::size_of::<usize>() as u8, module_info)
             .map_err(DeserializeError::Generic)?;
+
+        #[cfg(all(unix, feature = "compiler"))]
+        if engine_inner.debugger() == Some(crate::Debugger::Lldb) {
+            let bytes = match &debug_info {
+                DebugInfoSource::Bytes(bytes) => bytes.to_vec(),
+                DebugInfoSource::File(file) => {
+                    use std::io::{Read as _, Seek as _};
+
+                    let mut file = file.lock().unwrap();
+                    file.rewind()?;
+                    let mut bytes = Vec::new();
+                    file.read_to_end(&mut bytes)?;
+                    bytes
+                }
+            };
+            engine_inner.register_jit_image(bytes);
+        }
 
         Ok(AllocatedArtifact {
             frame_info_registered: false,

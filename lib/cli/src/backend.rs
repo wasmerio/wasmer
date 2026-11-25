@@ -202,9 +202,7 @@ pub struct RuntimeOptions {
 pub enum Profiler {
     /// Perfmap-based profilers.
     Perfmap,
-    /// GDB command file.
-    Gdb,
-    /// LLDB command file.
+    /// Automatic registration through LLDB's JIT interface.
     Lldb,
 }
 
@@ -214,7 +212,6 @@ impl FromStr for Profiler {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "perfmap" => Ok(Self::Perfmap),
-            "gdb" => Ok(Self::Gdb),
             "lldb" => Ok(Self::Lldb),
             _ => Err(anyhow::anyhow!("Unrecognized profiler: {s}")),
         }
@@ -226,16 +223,8 @@ impl RuntimeOptions {
         if self.experimental_artifact && !cfg!(any(target_os = "linux", target_os = "macos")) {
             bail!("--experimental-artifact is only supported on Linux and macOS");
         }
-        if !self.experimental_artifact {
-            match self.profiler {
-                Some(Profiler::Gdb) => {
-                    bail!("The gdb profiler requires --experimental-artifact")
-                }
-                Some(Profiler::Lldb) => {
-                    bail!("The lldb profiler requires --experimental-artifact")
-                }
-                _ => {}
-            }
+        if !self.experimental_artifact && matches!(self.profiler, Some(Profiler::Lldb)) {
+            bail!("The lldb profiler requires --experimental-artifact");
         }
         if self.features.memory64 {
             bail!("--enable-memory64 is unsupported");
@@ -454,7 +443,6 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
-                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
                         Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
@@ -484,7 +472,6 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
-                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
                         Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
@@ -527,7 +514,6 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
-                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
                         Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
@@ -610,7 +596,6 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
-                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
                         Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
@@ -649,7 +634,6 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
-                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
                         Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
@@ -703,7 +687,6 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
-                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
                         Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }

@@ -313,6 +313,9 @@ pub(crate) struct MemoryMappedBinary {
     // as long as this mapping (and thus the code it points at) is alive.
     #[cfg(unix)]
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
+
+    #[cfg(all(not(target_arch = "wasm32"), unix, feature = "compiler"))]
+    jit_registration: Option<wasmer_internal_jit_debug::gdb_jit_int::GdbJitImageRegistration>,
 }
 
 // SAFETY: memory mapped base pointer does not escape the type.
@@ -675,6 +678,8 @@ impl MemoryMappedBinary {
             size,
             unwind_registry: Some(UnwindRegistry::new()),
             frame_info_registration: None,
+            #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
+            jit_registration: None,
         })
     }
 
@@ -684,6 +689,13 @@ impl MemoryMappedBinary {
 
     pub(crate) fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
         self.frame_info_registration = Some(frame_info);
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
+    pub(crate) fn register_jit_image(&mut self, image: Vec<u8>) {
+        use wasmer_internal_jit_debug::gdb_jit_int::GdbJitImageRegistration;
+
+        self.jit_registration = Some(GdbJitImageRegistration::register(image, self.base as u64));
     }
 
     /// Returns the mapped memory as a byte slice tied to the lifetime of this map.
@@ -866,6 +878,9 @@ impl MemoryMappedBinary {
 #[cfg(unix)]
 impl Drop for MemoryMappedBinary {
     fn drop(&mut self) {
+        #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
+        drop(self.jit_registration.take());
+
         // Remove frame metadata before unmapping: another thread can reuse the
         // address immediately and register its own code in the global registry.
         drop(self.frame_info_registration.take());
@@ -918,6 +933,8 @@ mod tests {
                             size,
                             unwind_registry: None,
                             frame_info_registration: None,
+                            #[cfg(feature = "compiler")]
+                            jit_registration: None,
                         };
                         let mut functions = PrimaryMap::new();
                         functions.push(FunctionExtent {

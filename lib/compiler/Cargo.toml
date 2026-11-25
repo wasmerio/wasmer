@@ -58,6 +58,9 @@ which.workspace = true
 rayon.workspace = true
 crossbeam-channel.workspace = true
 
+[target.'cfg(all(unix, not(target_arch = "wasm32")))'.dependencies]
+wasmer-internal-jit-debug = { path = "../jit-debug", version = "=7.5.0", optional = true }
+
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { workspace = true, features = [
   "Win32_System_Diagnostics_Debug",
@@ -72,7 +75,7 @@ default = ["std"]
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
 translator = ["wasmparser"]
-compiler = ["translator", "dep:strum"]
+compiler = ["translator", "dep:strum", "dep:wasmer-internal-jit-debug"]
 wasmer-artifact-load = []
 wasmer-artifact-create = []
 static-artifact-load = []

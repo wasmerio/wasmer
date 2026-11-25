@@ -26,7 +26,7 @@ struct JITDescriptor {
 }
 
 unsafe extern "C" {
-    fn wasmtime_jit_debug_descriptor() -> *mut JITDescriptor;
+    fn wasmer_jit_debug_descriptor() -> *mut JITDescriptor;
     fn __jit_debug_register_code();
 }
 
@@ -102,7 +102,7 @@ unsafe impl Sync for GdbJitImageRegistration {}
 unsafe fn register_gdb_jit_image(entry: *mut JITCodeEntry) {
     unsafe {
         let _lock = gdb_registration::lock();
-        let desc = &mut *wasmtime_jit_debug_descriptor();
+        let desc = &mut *wasmer_jit_debug_descriptor();
 
         // Add it to the linked list in the JIT descriptor.
         (*entry).next_entry = desc.first_entry;
@@ -124,7 +124,7 @@ unsafe fn register_gdb_jit_image(entry: *mut JITCodeEntry) {
 unsafe fn unregister_gdb_jit_image(entry: *mut JITCodeEntry) {
     unsafe {
         let _lock = gdb_registration::lock();
-        let desc = &mut *wasmtime_jit_debug_descriptor();
+        let desc = &mut *wasmer_jit_debug_descriptor();
 
         // Remove the code entry corresponding to the code from the linked list.
         if !(*entry).prev_entry.is_null() {

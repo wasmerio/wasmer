@@ -603,49 +603,11 @@ impl EngineInner {
     }
 
     #[cfg(all(not(target_arch = "wasm32"), unix, feature = "compiler"))]
-    pub(crate) fn register_debugger(
-        &self,
-        path: &Path,
-        base: *mut c_void,
-        debugger: Debugger,
-    ) -> Result<(), CompileError> {
-        use std::io::Write as _;
-
-        let path = path
-            .canonicalize()
-            .unwrap_or_else(|_| path.to_path_buf())
-            .to_string_lossy()
-            .to_string();
-        let (command, source_command) = match debugger {
-            Debugger::Gdb => (
-                format!("add-symbol-file \"{path}\" -o 0x{:x}", base as usize),
-                "source",
-            ),
-            Debugger::Lldb => (
-                format!(
-                    "target modules add \"{path}\"\ntarget modules load --file \"{path}\" --slide 0x{:x}",
-                    base as usize
-                ),
-                "command source",
-            ),
-        };
-        let filename = format!(
-            "/tmp/wasmer-{}.{}",
-            debugger.to_string().to_lowercase(),
-            std::process::id()
-        );
-        let mut file = std::fs::OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open(&filename)
-            .map_err(|error| CompileError::Resource(format!("Cannot open {filename}: {error}")))?;
-        writeln!(file, "{command}")
-            .map_err(|error| CompileError::Resource(format!("Cannot write {filename}: {error}")))?;
-
-        eprintln!("**************************");
-        eprintln!("For debugging under {debugger}, use: {source_command} {filename}");
-        eprintln!("**************************");
-        Ok(())
+    pub(crate) fn register_jit_image(&mut self, image: Vec<u8>) {
+        self.elf_mapped_binary
+            .last_mut()
+            .unwrap()
+            .register_jit_image(image);
     }
 
     /// Register DWARF-type exception handling information associated with the code.

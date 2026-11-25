@@ -7739,6 +7739,7 @@ dependencies = [
  "target-lexicon 0.13.5",
  "tempfile",
  "thiserror 2.0.21",
+ "wasmer-internal-jit-debug",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.263.0",

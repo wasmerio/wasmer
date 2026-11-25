@@ -41,13 +41,10 @@ use wasmer_vm::MemoryStyle;
 #[cfg(feature = "translator")]
 use wasmparser::{Validator, WasmFeatures};
 
-/// A debugger command-file format for registering JIT-compiled modules.
+/// A debugger to register JIT-compiled modules with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
 pub enum Debugger {
-    /// GDB command file.
-    #[strum(serialize = "GDB")]
-    Gdb,
-    /// LLDB command file.
+    /// Automatic registration through LLDB's JIT interface.
     #[strum(serialize = "LLDB")]
     Lldb,
 }
